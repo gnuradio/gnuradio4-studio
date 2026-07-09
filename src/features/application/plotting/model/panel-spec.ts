@@ -226,9 +226,10 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
       payloadFormat === 'series2d-xy-json-v1' ||
       payloadFormat === 'dataset-xy-json-v1');
   const isWaterfall = entry.panel.kind === 'waterfall' || payloadFormat === 'waterfall-spectrum-json-v1';
-  const xLabel =
-    readTextParameterValue(entry.nodeParameters, ['x_label', 'xlabel']) ?? (isSeries2D || isWaterfall || isHistogram ? 'Frequency' : 'sample');
-  const yLabel = readTextParameterValue(entry.nodeParameters, ['y_label', 'ylabel']) ?? (isWaterfall || isHistogram ? 'Power' : 'value');
+  const defaultXLabel = isWaterfall || isHistogram ? 'Frequency' : isSeries2D ? 'x' : 'sample';
+  const defaultYLabel = isWaterfall || isHistogram ? 'Power' : isSeries2D ? 'y' : 'value';
+  const xLabel = readTextParameterValue(entry.nodeParameters, ['x_label', 'xlabel']) ?? defaultXLabel;
+  const yLabel = readTextParameterValue(entry.nodeParameters, ['y_label', 'ylabel']) ?? defaultYLabel;
   // Metadata precedence:
   // 1) explicit graph/block params (series_labels/channel_labels)
   // 2) payload-side metadata (handled at runtime for dataset/vector payloads)

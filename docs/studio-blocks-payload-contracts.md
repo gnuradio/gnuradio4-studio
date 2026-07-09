@@ -72,10 +72,14 @@ Semantics:
 
 - One XY trace represented by explicit x/y pairs.
 - `render_mode=scatter` enables constellation-style XY rendering without a new plot kind.
+- Authored `x_label`, `y_label`, and `series_labels` metadata take precedence over payload metadata and defaults.
+- When labels are not authored, `Studio2DSeriesSink` panels use generic `x` / `y` axis labels. Spectrum-like dataset, histogram, and waterfall panels retain `Frequency` / `Power` defaults.
+- `autoscale=false` with `x_min`/`x_max` and `y_min`/`y_max` sets manual XY ranges for `Studio2DSeriesSink` panels.
 
 Frontend routing:
 
 - `payloadFormat=series2d-xy-json-v1` routes to the vector XY parser, regardless of whether the sink is served over `http_snapshot`, `http_poll`, or websocket transport.
+- `Studio2DSeriesSink` is descriptor-managed when session stream descriptors are present. Browser-facing endpoints come from `session.streams[]`; authored legacy `endpoint` values are hidden from current authoring and omitted from runtime export.
 
 ## Latest Scalar/Status Contract
 

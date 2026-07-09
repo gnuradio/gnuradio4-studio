@@ -12,6 +12,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -97,7 +98,10 @@ public:
         }
     }
 
-    [[nodiscard]] std::string snapshotJson(const char* sample_type, std::string_view render_mode) const {
+    [[nodiscard]] std::string snapshotJson(const char* sample_type,
+                                           std::string_view render_mode,
+                                           float point_size,
+                                           float point_alpha) const {
         std::vector<XYPoint> points;
         points.reserve(_filled);
         {
@@ -115,6 +119,13 @@ public:
         os << "\"points\":" << points.size() << ",";
         os << "\"layout\":\"pairs_xy\",";
         os << "\"render_mode\":\"" << render_mode << "\",";
+        if (std::isfinite(point_size) && point_size > 0.0F) {
+            os << "\"point_size\":" << point_size << ",";
+        }
+        if (std::isfinite(point_alpha)) {
+            const float clamped = std::clamp(point_alpha, 0.0F, 1.0F);
+            os << "\"point_alpha\":" << clamped << ",";
+        }
         os << "\"data\":[";
         for (std::size_t index = 0UZ; index < points.size(); ++index) {
             if (index > 0UZ) {
@@ -276,6 +287,8 @@ struct Studio2DSeriesSink : Block<Studio2DSeriesSink<T>> {
     Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 250U;
     Annotated<gr::Size_t, "window_size", Doc<"2D points kept in memory">, Visible> window_size = 1024UZ;
     Annotated<std::string, "render_mode", Doc<"XY render hint: line or scatter">, Visible> render_mode = "line";
+    Annotated<float, "point_size", Doc<"Scatter point size hint in pixels">, Visible> point_size = 4.0F;
+    Annotated<float, "point_alpha", Doc<"Scatter point alpha hint in [0, 1]">, Visible> point_alpha = 0.9F;
     Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
     Annotated<float, "x_min", Doc<"Optional x-axis minimum when autoscale is disabled">, Visible> x_min = 0.0F;
     Annotated<float, "x_max", Doc<"Optional x-axis maximum when autoscale is disabled">, Visible> x_max = 0.0F;
@@ -283,7 +296,7 @@ struct Studio2DSeriesSink : Block<Studio2DSeriesSink<T>> {
     Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
     Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
 
-    GR_MAKE_REFLECTABLE(Studio2DSeriesSink, in, transport, endpoint, update_ms, window_size, render_mode, autoscale, x_min, x_max, y_min, y_max, topic);
+    GR_MAKE_REFLECTABLE(Studio2DSeriesSink, in, transport, endpoint, update_ms, window_size, render_mode, point_size, point_alpha, autoscale, x_min, x_max, y_min, y_max, topic);
 
     using Block<Studio2DSeriesSink<T>>::Block;
 
@@ -324,7 +337,7 @@ struct Studio2DSeriesSink : Block<Studio2DSeriesSink<T>> {
 
     [[nodiscard]] std::string snapshotJson() const {
         const char* sampleType = std::same_as<T, float> ? "xy_float32" : "xy_complex64";
-        return _window.snapshotJson(sampleType, detail::normalizeRenderMode(render_mode.value));
+        return _window.snapshotJson(sampleType, detail::normalizeRenderMode(render_mode.value), point_size, point_alpha);
     }
 
 private:

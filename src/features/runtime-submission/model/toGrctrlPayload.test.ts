@@ -98,6 +98,54 @@ function makeStudioSeriesSinkDetails(): BlockDetails {
   };
 }
 
+function makeStudio2DSeriesSinkDetails(): BlockDetails {
+  return {
+    blockTypeId: 'gr::studio::Studio2DSeriesSink<float32>',
+    displayName: 'Studio2DSeriesSink<float32>',
+    description: 'Studio 2D series sink',
+    parameters: [
+      {
+        name: 'endpoint',
+        label: 'endpoint',
+        defaultValue: 'http://127.0.0.1:18081/xy',
+        mutable: true,
+        readOnly: false,
+        valueType: 'string',
+        valueKind: 'scalar',
+      },
+      {
+        name: 'transport',
+        label: 'transport',
+        defaultValue: 'websocket',
+        mutable: true,
+        readOnly: false,
+        valueType: 'string',
+        valueKind: 'scalar',
+      },
+      {
+        name: 'x_label',
+        label: 'x_label',
+        defaultValue: 'x',
+        mutable: true,
+        readOnly: false,
+        valueType: 'string',
+        valueKind: 'scalar',
+      },
+      {
+        name: 'y_label',
+        label: 'y_label',
+        defaultValue: 'y',
+        mutable: true,
+        readOnly: false,
+        valueType: 'string',
+        valueKind: 'scalar',
+      },
+    ],
+    inputPorts: [],
+    outputPorts: [],
+  };
+}
+
 function makeSoapySourceDetails(): BlockDetails {
   return {
     blockTypeId: 'gr::blocks::sdr::SoapySource<complex<float32>>',
@@ -417,6 +465,53 @@ describe('toGrctrlContentSubmission', () => {
     expect(submission.content).not.toContain('x_max:');
     expect(submission.content).toContain('y_min: -1');
     expect(submission.content).toContain('y_max: 1');
+  });
+
+  it('omits descriptor-managed Studio2DSeriesSink endpoints while keeping XY metadata in runtime export', () => {
+    const document: GraphDocument = {
+      format: 'gr4-studio.graph',
+      version: 1,
+      metadata: { name: 'studio-xy-sink' },
+      graph: {
+        nodes: [
+          {
+            id: 'xy_sink_1',
+            blockType: 'gr::studio::Studio2DSeriesSink<float32>',
+            title: 'Studio2DSeriesSink<float32>',
+            position: { x: 0, y: 0 },
+            parameters: {
+              name: { kind: 'expression', expr: 'xy_sink_1' },
+              transport: { kind: 'literal', value: 'websocket' },
+              endpoint: { kind: 'literal', value: 'http://legacy-host:18081/legacy-xy' },
+              x_label: { kind: 'literal', value: 'Measured range m' },
+              y_label: { kind: 'literal', value: 'Measured velocity m/s' },
+              series_labels: { kind: 'literal', value: 'Measured target' },
+              render_mode: { kind: 'literal', value: 'scatter' },
+              x_min: { kind: 'literal', value: '0' },
+              x_max: { kind: 'literal', value: '1000' },
+              y_min: { kind: 'literal', value: '-120' },
+              y_max: { kind: 'literal', value: '120' },
+            },
+          },
+        ],
+        edges: [],
+      },
+    };
+
+    const submission = toGrctrlContentSubmission(document, {
+      blockDetailsByType: new Map([['gr::studio::Studio2DSeriesSink<float32>', makeStudio2DSeriesSinkDetails()]]),
+    });
+
+    expect(submission.content).not.toContain('endpoint:');
+    expect(submission.content).toContain('transport: websocket');
+    expect(submission.content).toContain('x_label: Measured range m');
+    expect(submission.content).toContain('y_label: Measured velocity m/s');
+    expect(submission.content).toContain('series_labels: Measured target');
+    expect(submission.content).toContain('render_mode: scatter');
+    expect(submission.content).toContain('x_min: 0');
+    expect(submission.content).toContain('x_max: 1000');
+    expect(submission.content).toContain('y_min: -120');
+    expect(submission.content).toContain('y_max: 120');
   });
 
   it('exports payload_format for known Studio stream blocks even without block details hydration', () => {

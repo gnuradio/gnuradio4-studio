@@ -170,6 +170,76 @@ describe('derivePlotPanelSpec', () => {
     expect(spec?.view.xLabel).toBe('bin');
   });
 
+  it('uses generic XY defaults for series2d panels without explicit labels', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        panel: {
+          id: 'studio-panel:node-2d',
+          nodeId: 'node-2d',
+          kind: 'series2d',
+          title: '2D Sink',
+          visible: true,
+          previewOnCanvas: false,
+        },
+        nodeBlockTypeId: 'gr::studio::Studio2DSeriesSink<float32>',
+      }),
+    );
+
+    expect(spec?.source.payloadFormat).toBe('series2d-xy-json-v1');
+    expect(spec?.view.xLabel).toBe('x');
+    expect(spec?.view.yLabel).toBe('y');
+    expect(spec?.view.seriesLabels).toBeUndefined();
+  });
+
+  it('honors explicit XY labels, ranges, and plot colors for series2d panels', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        panel: {
+          id: 'studio-panel:node-xy',
+          nodeId: 'node-xy',
+          kind: 'series2d',
+          title: 'XY Sink',
+          visible: true,
+          previewOnCanvas: false,
+          plotStyle: {
+            palette: {
+              kind: 'custom',
+              colors: ['#22c55e', '#0ea5e9'],
+            },
+            assignmentMode: 'byIndex',
+          },
+        },
+        nodeBlockTypeId: 'gr::studio::Studio2DSeriesSink<float32>',
+        nodeParameters: {
+          autoscale: 'false',
+          x_label: 'Measured range m',
+          y_label: 'Measured velocity m/s',
+          series_labels: 'Measured target',
+          x_min: '0',
+          x_max: '1000',
+          y_min: '-120',
+          y_max: '120',
+        },
+      }),
+    );
+
+    expect(spec?.source.payloadFormat).toBe('series2d-xy-json-v1');
+    expect(spec?.view.xLabel).toBe('Measured range m');
+    expect(spec?.view.yLabel).toBe('Measured velocity m/s');
+    expect(spec?.view.seriesLabels).toEqual(['Measured target']);
+    expect(spec?.view.xRange).toEqual({
+      auto: false,
+      min: 0,
+      max: 1000,
+    });
+    expect(spec?.view.yRange).toEqual({
+      auto: false,
+      min: -120,
+      max: 120,
+    });
+    expect(spec?.view.plotColors).toEqual(['#22c55e', '#0ea5e9']);
+  });
+
   it('derives dataset-xy payload format from StudioDataSetSink IDs', () => {
     const spec = derivePlotPanelSpec(
       makeSeriesEntry({

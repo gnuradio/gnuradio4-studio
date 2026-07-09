@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertTimeseriesAdapterShape, normalizeSeriesData } from './timeseries-uplot-adapter';
+import { assertTimeseriesAdapterShape, buildSeriesOptions, normalizeSeriesData } from './timeseries-uplot-adapter';
 
 describe('timeseries uPlot adapter shape helpers', () => {
   it('builds aligned x/y arrays for split complex real/imag series', () => {
@@ -31,5 +31,37 @@ describe('timeseries uPlot adapter shape helpers', () => {
         yBySeries: [[1, 2]],
       }),
     ).toThrow('Timeseries adapter shape mismatch');
+  });
+
+  it('keeps line mode as connected strokes without visible points', () => {
+    const options = buildSeriesOptions(['Measured target'], ['#22c55e'], 'line');
+
+    expect(options[1]).toMatchObject({
+      label: 'Measured target',
+      stroke: '#22c55e',
+      width: 1.8,
+      points: {
+        show: false,
+        stroke: '#22c55e',
+        fill: '#22c55e',
+      },
+    });
+  });
+
+  it('renders scatter mode as visible points without a connecting stroke', () => {
+    const options = buildSeriesOptions(['Measured target'], ['#22c55e'], 'scatter', 6, 0.5);
+
+    expect(options[1]).toMatchObject({
+      label: 'Measured target',
+      stroke: '#22c55e00',
+      width: 1,
+      points: {
+        show: true,
+        size: 6,
+        width: 2,
+        stroke: '#22c55e',
+        fill: '#22c55e80',
+      },
+    });
   });
 });
