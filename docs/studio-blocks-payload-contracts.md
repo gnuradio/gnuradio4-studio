@@ -9,6 +9,7 @@ Related architecture doc:
 ## Scope
 
 - scalar series payload
+- latest scalar/status payload
 - `series2d-xy-json-v1`
 - `dataset-xy-json-v1`
 - phosphor spectrum rendering on top of `dataset-xy-json-v1` via `StudioPowerSpectrumSink` with `persistence=true` and phosphor tuning via `phosphor_intensity` / `phosphor_decay_ms`
@@ -75,6 +76,56 @@ Semantics:
 Frontend routing:
 
 - `payloadFormat=series2d-xy-json-v1` routes to the vector XY parser, regardless of whether the sink is served over `http_snapshot`, `http_poll`, or websocket transport.
+
+## Latest Scalar/Status Contract
+
+`scalar-status-json-v1`
+
+Expected payload fields:
+
+- `payload_format` required, must be `scalar-status-json-v1`
+- `layout` required, must be `latest_scalars`
+- `sample_type` optional, normally `float32`
+- `presentation` optional, `scalar | status`
+- `channels` required, positive integer
+- `sequence` optional, monotonically increasing integer
+- `has_value` required, boolean
+- `labels` required, array of display labels, one per channel when available
+- `units` required, array of unit labels, one per channel when available
+- `values` required, numeric latest-value array
+
+Example:
+
+```json
+{
+  "payload_format": "scalar-status-json-v1",
+  "sample_type": "float32",
+  "layout": "latest_scalars",
+  "presentation": "scalar",
+  "channels": 2,
+  "sequence": 42,
+  "has_value": true,
+  "labels": ["Quality", "Locked"],
+  "units": ["", ""],
+  "values": [0.91, 1]
+}
+```
+
+Semantics:
+
+- `StudioScalarSink<float32>` and `StudioStatusSink<float32>` both publish this contract.
+- Input samples are interleaved by channel; each complete frame replaces the latest value for all channels.
+- Non-finite values are emitted as `0`.
+- `StudioScalarSink` is intended for compact latest-value metric cards.
+- `StudioStatusSink` is intended for latest-value status rows.
+- `has_value=false` means no complete scalar frame has arrived yet; the frontend should not render placeholder zeroes as live data.
+
+Frontend routing:
+
+- `payloadFormat=scalar-status-json-v1` routes to the scalar/status renderer, not to a scrolling plot.
+- `StudioScalarSink` and `StudioStatusSink` are descriptor-managed sinks. Browser-facing endpoints come from `session.streams[]`.
+- Authored legacy `endpoint` values are ignored/omitted by current runtime export for these sinks.
+- Supported transports are `http_poll` and `websocket`; `http_snapshot` is intentionally not supported.
 
 ## Dataset XY contract
 
@@ -213,6 +264,7 @@ Layout metadata never owns these semantics.
 - Contract routing: `src/features/application/plotting/runtime/timeseries-live-runtime.ts`
 - Scalar parser: `src/features/graph-editor/runtime/http-time-series.ts`
 - Vector/dataset parser: `src/features/application/plotting/runtime/vector-frame.ts`
+- Scalar/status renderer: `src/features/workspace/renderers/scalar-status-live-renderer.tsx`
 - Plot metadata precedence: `src/features/application/plotting/model/panel-spec.ts`
 - Visible-state derivation: `src/features/application/plotting/components/plot-visible-state.ts`
 

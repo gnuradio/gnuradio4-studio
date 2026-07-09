@@ -61,6 +61,8 @@ Rules:
 - `StudioDataSetSink`
 - `StudioPowerSpectrumSink`
 - `StudioWaterfallSink`
+- `StudioScalarSink`
+- `StudioStatusSink`
 - `StudioAudioSink`
 - `StudioImageSink`
 
@@ -71,6 +73,8 @@ The code currently registers concrete type variants for each family, for example
 - `gr::studio::StudioDataSetSink<...>`
 - `gr::studio::StudioPowerSpectrumSink<...>`
 - `gr::studio::StudioWaterfallSink<...>`
+- `gr::studio::StudioScalarSink<...>`
+- `gr::studio::StudioStatusSink<...>`
 - `gr::studio::StudioAudioSink<...>`
 - `gr::studio::StudioImageSink<...>`
 
@@ -96,7 +100,7 @@ Rules:
 - do not assume all combinations are valid
 - validate parameters locally, not authoritatively
 
-Websocket transport currently exists for selected sinks only. Descriptor-adapted current-session bindings currently include `StudioSeriesSink`, `Studio2DSeriesSink`, `StudioPowerSpectrumSink`, `StudioWaterfallSink`, and `StudioAudioSink`. When adding websocket support to a new sink, follow the implementation checklist in `docs/studio-websocket-integration.md`.
+Websocket transport currently exists for selected sinks only. Descriptor-adapted current-session bindings currently include `StudioSeriesSink`, `Studio2DSeriesSink`, `StudioPowerSpectrumSink`, `StudioWaterfallSink`, `StudioScalarSink`, `StudioStatusSink`, and `StudioAudioSink`. When adding websocket support to a new sink, follow the implementation checklist in `docs/studio-websocket-integration.md`.
 For websocket-capable sinks, `update_ms` is the live cadence control used by the native send path.
 
 ## Standard parameters
@@ -145,6 +149,8 @@ Rendering is handled separately:
 - `StudioWaterfallSink` emits the effective quantized `time_span` together with `sample_rate`
 - `StudioWaterfallSink` also carries `autoscale`, `z_min`, and `z_max` parameters that control the rendered waterfall colormap range
 - Waterfall plots ignore the generic `x_min` / `x_max` / `y_min` / `y_max` axis-range parameters
+- `StudioScalarSink` and `StudioStatusSink` use the `scalar-status-json-v1` path for latest-value metric cards and status rows
+- `StudioScalarSink` and `StudioStatusSink` are descriptor-managed and support `http_poll` and `websocket`; `http_snapshot` is not a valid transport for these sinks
 - `StudioAudioSink` is a playback-oriented sink and uses `audio-float32-binary-v1` over websocket
 - image and audio panel kinds -> separate renderers
 

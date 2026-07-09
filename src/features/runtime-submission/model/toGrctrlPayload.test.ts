@@ -382,7 +382,7 @@ describe('toGrctrlContentSubmission', () => {
     });
 
     expect(submission.content).toContain('autoscale: true');
-    expect(submission.content).toContain('endpoint: "http://127.0.0.1:18080/snapshot"');
+    expect(submission.content).not.toContain('endpoint:');
     expect(submission.content).toContain('update_ms: 250');
   });
 

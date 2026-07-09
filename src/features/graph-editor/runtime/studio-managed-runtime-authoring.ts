@@ -29,6 +29,8 @@ export function isDescriptorBasedBindingFamily(blockTypeId: string): boolean {
     blockTypeId.startsWith('gr::studio::Studio2DSeriesSink<') ||
     blockTypeId.startsWith('gr::studio::StudioPowerSpectrumSink<') ||
     blockTypeId.startsWith('gr::studio::StudioWaterfallSink<') ||
+    blockTypeId.startsWith('gr::studio::StudioScalarSink<') ||
+    blockTypeId.startsWith('gr::studio::StudioStatusSink<') ||
     blockTypeId.startsWith('gr::studio::StudioAudioSink<')
   );
 }

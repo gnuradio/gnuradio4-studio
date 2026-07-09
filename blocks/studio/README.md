@@ -18,6 +18,8 @@ Current included blocks:
 - `StudioDataSetSink`
 - `StudioPowerSpectrumSink`
 - `StudioWaterfallSink`
+- `StudioScalarSink`
+- `StudioStatusSink`
 - `StudioAudioSink`
 - `StudioImageSink`
 
@@ -35,6 +37,8 @@ Notes:
 - `StudioWaterfallSink` uses `autoscale`, `z_min`, and `z_max` to control the rendered colormap range.
 - Waterfall rendering ignores generic `x_min` / `x_max` / `y_min` / `y_max` axis-range settings.
 - `StudioPowerSpectrumSink` and `StudioWaterfallSink` expose `window` as `gr::algorithm::window::Type` so reflection can provide enum choices to the UI.
+- `StudioScalarSink` and `StudioStatusSink` expose `scalar-status-json-v1` payloads for latest-value metric cards and status rows.
+- `StudioScalarSink` and `StudioStatusSink` support only `http_poll` and `websocket`; endpoints are runtime descriptor-managed, not authored directly.
 - `StudioAudioSink` exposes `audio-float32-binary-v1` websocket payloads for browser playback.
 
 Native QA target:
@@ -42,6 +46,7 @@ Native QA target:
 - `qa_Studio2DSeriesSink`
 - `qa_StudioPowerSpectrumSink`
 - `qa_StudioWaterfallSink`
+- `qa_StudioScalarSink`
 - `qa_StudioAudioSink`
 
 Notes:
@@ -58,7 +63,9 @@ Grounded candidate commands based on the checked-in CMake layout:
    - `cmake --build build/blocks --target qa_Studio2DSeriesSink`
 4. Build the native waterfall QA target:
    - `cmake --build build/blocks --target qa_StudioWaterfallSink`
-5. Run the tests through CTest:
-   - `ctest --test-dir build/blocks -R 'qa_Studio(2DSeries|PowerSpectrum|Waterfall)Sink' --output-on-failure`
+5. Build the native scalar/status QA target:
+   - `cmake --build build/blocks --target qa_StudioScalarSink`
+6. Run the tests through CTest:
+   - `ctest --test-dir build/blocks -R 'qa_Studio(2DSeries|PowerSpectrum|Waterfall|Scalar)Sink' --output-on-failure`
 
 If your local build tree uses a different path or generator, keep the target name the same and adjust `build/blocks` accordingly.

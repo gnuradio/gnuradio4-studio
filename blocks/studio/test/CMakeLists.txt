@@ -16,6 +16,10 @@ add_executable(qa_StudioSeriesSink qa_StudioSeriesSink.cpp)
 target_link_libraries(qa_StudioSeriesSink PRIVATE gr4_studio::blocks_studio_headers)
 add_test(NAME qa_StudioSeriesSink COMMAND qa_StudioSeriesSink)
 
+add_executable(qa_StudioScalarSink qa_StudioScalarSink.cpp)
+target_link_libraries(qa_StudioScalarSink PRIVATE gr4_studio::blocks_studio_headers ${GR4_STUDIO_HTTPLIB_TARGET})
+add_test(NAME qa_StudioScalarSink COMMAND qa_StudioScalarSink)
+
 add_executable(qa_StudioWaterfallSink qa_StudioWaterfallSink.cpp)
 target_link_libraries(qa_StudioWaterfallSink PRIVATE gr4_studio::blocks_studio_headers)
 add_test(NAME qa_StudioWaterfallSink COMMAND qa_StudioWaterfallSink)

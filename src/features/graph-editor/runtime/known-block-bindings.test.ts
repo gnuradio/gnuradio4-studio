@@ -27,8 +27,10 @@ describe('known Studio block bindings', () => {
     expect(counts).toEqual({
       audio: 2,
       image: 3,
+      scalar: 2,
       series: 4,
       series2d: 12,
+      status: 2,
       waterfall: 4,
     });
   });
@@ -50,6 +52,14 @@ describe('known Studio block bindings', () => {
           'http_poll',
           'websocket',
         ]);
+        continue;
+      }
+
+      if (
+        binding.blockTypeId.startsWith('gr::studio::StudioScalarSink<') ||
+        binding.blockTypeId.startsWith('gr::studio::StudioStatusSink<')
+      ) {
+        expect(binding.supportedTransports).toEqual(['http_poll', 'websocket']);
         continue;
       }
 
@@ -281,6 +291,49 @@ describe('known Studio block bindings', () => {
       endpoint: 'ws://127.0.0.1:18084/audio',
       sampleRate: 48000,
       channels: 1,
+    });
+
+    const scalarSinkConfigured = buildStudioBindingView('gr::studio::StudioScalarSink<float32>', {
+      transport: 'http_poll',
+      endpoint: 'http://127.0.0.1:18088/scalars',
+      update_ms: '200',
+      channels: '2',
+    });
+    expect(scalarSinkConfigured).toMatchObject({
+      status: 'configured',
+      family: 'scalar',
+      payloadFormat: 'scalar-status-json-v1',
+      transport: 'http_poll',
+      endpoint: 'http://127.0.0.1:18088/scalars',
+      updateMs: 200,
+      channels: 2,
+    });
+
+    const scalarSnapshotConfigured = buildStudioBindingView('gr::studio::StudioScalarSink<float32>', {
+      transport: 'http_snapshot',
+      endpoint: 'http://127.0.0.1:18088/scalars',
+    });
+    expect(scalarSnapshotConfigured).toMatchObject({
+      status: 'invalid',
+      family: 'scalar',
+      transport: 'http_snapshot',
+      reason: 'Transport http_snapshot is not allowed for gr::studio::StudioScalarSink<float32>.',
+    });
+
+    const statusSinkConfigured = buildStudioBindingView('gr::studio::StudioStatusSink<float32>', {
+      transport: 'websocket',
+      endpoint: 'ws://127.0.0.1:18089/status',
+      update_ms: '300',
+      channels: '3',
+    });
+    expect(statusSinkConfigured).toMatchObject({
+      status: 'configured',
+      family: 'status',
+      payloadFormat: 'scalar-status-json-v1',
+      transport: 'websocket',
+      endpoint: 'ws://127.0.0.1:18089/status',
+      updateMs: 300,
+      channels: 3,
     });
   });
 });

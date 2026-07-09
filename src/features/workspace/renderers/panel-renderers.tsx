@@ -3,6 +3,7 @@ import type { StudioPanelKind } from '../../graph-document/model/studio-workspac
 import type { WorkspaceLiveRendererContext } from './live-renderer-contract';
 import { AudioLiveRenderer } from './audio-live-renderer';
 import { PhosphorSpectrumLiveRenderer } from './histogram-live-renderer';
+import { ScalarStatusLiveRenderer } from './scalar-status-live-renderer';
 import { SeriesLiveRenderer } from './series-live-renderer';
 import { WaterfallLiveRenderer } from './waterfall-live-renderer';
 
@@ -52,6 +53,14 @@ function ImagePlaceholderRenderer({ liveContext }: { liveContext: WorkspaceLiveR
   );
 }
 
+function ScalarLiveRenderer({ liveContext }: { liveContext: WorkspaceLiveRendererContext }) {
+  return <ScalarStatusLiveRenderer liveContext={liveContext} presentation="scalar" />;
+}
+
+function StatusLiveRenderer({ liveContext }: { liveContext: WorkspaceLiveRendererContext }) {
+  return <ScalarStatusLiveRenderer liveContext={liveContext} presentation="status" />;
+}
+
 const RENDERER_BY_KIND = {
   series: SeriesLiveRenderer,
   series2d: Series2DPlaceholderRenderer,
@@ -59,6 +68,8 @@ const RENDERER_BY_KIND = {
   waterfall: WaterfallLiveRenderer,
   image: ImagePlaceholderRenderer,
   audio: AudioLiveRenderer,
+  scalar: ScalarLiveRenderer,
+  status: StatusLiveRenderer,
 } as Record<StudioPanelKind, (props: { liveContext: WorkspaceLiveRendererContext }) => ReactElement>;
 
 export function WorkspacePanelRenderer({ kind, liveContext }: WorkspacePanelRendererProps) {
