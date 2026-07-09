@@ -799,30 +799,32 @@ export function ControlPanelView({
   };
 
   return (
-    <div className="space-y-1.5">
-      {effectiveWidgets.length === 0 ? (
-        <div className="rounded border border-dashed border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
-          No widgets defined.
-        </div>
-      ) : (
-        effectiveWidgets.map((widget) => (
-          <ControlWidgetField
-            key={widget.id}
-            widget={widget}
-            panelId={panelId ?? ''}
-            isEditable={isEditable && Boolean(panelId)}
-            isPanelSelected={isPanelSelected}
-            controlPanelOptions={controlPanelOptions}
-            onUpdateVariableValue={updateVariableValue}
-            onUpdateWidgetLabel={onUpdateWidgetLabel}
-            onUpdateWidgetInputKind={onUpdateWidgetInputKind}
-            onUpdateWidgetSliderConfig={onUpdateWidgetSliderConfig}
-            onMoveWidget={onMoveWidget}
-            onRemoveWidget={onRemoveWidget}
-            onMoveWidgetToPanel={onMoveWidgetToPanel}
-          />
-        ))
-      )}
+    <div className="h-full min-h-0 overflow-y-auto pr-1">
+      <div className="space-y-1.5">
+        {effectiveWidgets.length === 0 ? (
+          <div className="rounded border border-dashed border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+            No widgets defined.
+          </div>
+        ) : (
+          effectiveWidgets.map((widget) => (
+            <ControlWidgetField
+              key={widget.id}
+              widget={widget}
+              panelId={panelId ?? ''}
+              isEditable={isEditable && Boolean(panelId)}
+              isPanelSelected={isPanelSelected}
+              controlPanelOptions={controlPanelOptions}
+              onUpdateVariableValue={updateVariableValue}
+              onUpdateWidgetLabel={onUpdateWidgetLabel}
+              onUpdateWidgetInputKind={onUpdateWidgetInputKind}
+              onUpdateWidgetSliderConfig={onUpdateWidgetSliderConfig}
+              onMoveWidget={onMoveWidget}
+              onRemoveWidget={onRemoveWidget}
+              onMoveWidgetToPanel={onMoveWidgetToPanel}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

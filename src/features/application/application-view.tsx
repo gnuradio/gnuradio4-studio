@@ -18,6 +18,30 @@ type ApplicationViewProps = {
   onUpdateVariableValue?: (variableName: string, binding: ExpressionBinding) => void;
 };
 
+const MIN_APPLICATION_PANEL_HEIGHT_PX = 220;
+const MIN_APPLICATION_LAYOUT_HEIGHT_PX = 384;
+
+function countVisibleLayoutRows(
+  node: StudioLayoutNode,
+  visibleEntryByPanelId: ReadonlyMap<string, WorkspacePanelViewModel>,
+): number {
+  if (node.kind === 'pane') {
+    return visibleEntryByPanelId.has(node.panelId) ? 1 : 0;
+  }
+
+  const childRows = node.children
+    .map((child) => countVisibleLayoutRows(child, visibleEntryByPanelId))
+    .filter((rowCount) => rowCount > 0);
+
+  if (childRows.length === 0) {
+    return 0;
+  }
+
+  return node.direction === 'column'
+    ? childRows.reduce((sum, rowCount) => sum + rowCount, 0)
+    : Math.max(...childRows);
+}
+
 function ApplicationPanelShell({
   entry,
   executionState,
@@ -185,6 +209,10 @@ export function ApplicationView({ panelEntries, layout, executionState, onUpdate
   };
 
   const renderedLayout = renderLayoutNode(layout.root);
+  const minimumLayoutHeightPx = Math.max(
+    MIN_APPLICATION_LAYOUT_HEIGHT_PX,
+    countVisibleLayoutRows(layout.root, visibleEntryByPanelId) * MIN_APPLICATION_PANEL_HEIGHT_PX,
+  );
 
   if (!renderedLayout) {
     return (
@@ -196,7 +224,7 @@ export function ApplicationView({ panelEntries, layout, executionState, onUpdate
 
   return (
     <div className="h-full w-full p-3 overflow-auto">
-      <div className="h-full min-h-[24rem]">
+      <div className="min-h-full" style={{ height: `${minimumLayoutHeightPx}px` }}>
         {renderedLayout}
       </div>
     </div>

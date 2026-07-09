@@ -78,6 +78,30 @@ type WorkspaceViewProps = {
   onCreateControlPanel?: () => void;
 } & WorkspacePanelEditHandlers;
 
+const MIN_WORKSPACE_PANEL_HEIGHT_PX = 220;
+const MIN_WORKSPACE_LAYOUT_HEIGHT_PX = 384;
+
+function countVisibleLayoutRows(
+  node: StudioLayoutNode,
+  visibleEntryByPanelId: ReadonlyMap<string, WorkspacePanelViewModel>,
+): number {
+  if (node.kind === 'pane') {
+    return visibleEntryByPanelId.has(node.panelId) ? 1 : 0;
+  }
+
+  const childRows = node.children
+    .map((child) => countVisibleLayoutRows(child, visibleEntryByPanelId))
+    .filter((rowCount) => rowCount > 0);
+
+  if (childRows.length === 0) {
+    return 0;
+  }
+
+  return node.direction === 'column'
+    ? childRows.reduce((sum, rowCount) => sum + rowCount, 0)
+    : Math.max(...childRows);
+}
+
 const edgeDropCollisionDetection: CollisionDetection = (args) => {
   const edgeTargets = args.droppableContainers.filter((container) =>
     String(container.id).startsWith('split-drop:'),
@@ -565,6 +589,10 @@ export function WorkspaceView({
   const visiblePaneCount = collectLayoutPaneIds(layout.root).filter((panelId) =>
     visibleEntryByPanelId.has(panelId),
   ).length;
+  const minimumLayoutHeightPx = Math.max(
+    MIN_WORKSPACE_LAYOUT_HEIGHT_PX,
+    countVisibleLayoutRows(layout.root, visibleEntryByPanelId) * MIN_WORKSPACE_PANEL_HEIGHT_PX,
+  );
   const tree = renderLayoutTreeNode({
     node: layout.root,
     nodePath: [],
@@ -642,7 +670,10 @@ export function WorkspaceView({
 
   return (
     <div className="h-full w-full p-4 overflow-auto">
-      <div className="rounded border border-border bg-panel p-3 h-full min-h-[24rem] flex flex-col">
+      <div
+        className="rounded border border-border bg-panel p-3 min-h-full flex flex-col"
+        style={{ height: `${minimumLayoutHeightPx}px` }}
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-100">Layout Editor</h2>
