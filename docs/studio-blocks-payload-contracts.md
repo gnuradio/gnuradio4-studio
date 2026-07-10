@@ -42,6 +42,7 @@ Expected payload fields:
 - `samples_per_channel` optional, number
 - `tags` optional, array of generic plot tag annotations; see Optional Plot Tags below
 - `max_labels` block parameter optional, maximum number of visible tag labels, defaults to `100`; marker lines/points still render when labels are capped
+- `window_mode` block parameter optional, `rolling | buffered`, defaults to `rolling`
 
 Semantics:
 
@@ -50,6 +51,8 @@ Semantics:
 - Complex scalar payloads normalize to two plotted series per logical channel:
   - `<base> (real)`
   - `<base> (imag)`
+- `window_mode=rolling` publishes the latest up-to-`window_size` samples.
+- `window_mode=buffered` holds the previous complete window and only advances after another full `window_size` frames have arrived.
 - Magnitude-only collapse is not the default normalization.
 
 Frontend routing:

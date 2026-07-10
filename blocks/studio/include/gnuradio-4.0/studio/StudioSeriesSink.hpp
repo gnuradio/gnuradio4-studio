@@ -40,26 +40,42 @@ enum class SeriesTransport {
     websocket,
 };
 
+enum class SeriesWindowMode {
+    rolling,
+    buffered,
+};
+
 template<typename T>
 concept SupportedSample = std::same_as<T, float> || std::same_as<T, std::complex<float>>;
 
 template<SupportedSample T>
 class SeriesWindow {
 public:
-    explicit SeriesWindow(std::size_t channel_count = 1UZ, std::size_t window_size = 1024UZ) {
-        configure(channel_count, window_size);
+    explicit SeriesWindow(
+        std::size_t channel_count = 1UZ,
+        std::size_t window_size = 1024UZ,
+        SeriesWindowMode mode = SeriesWindowMode::rolling) {
+        configure(channel_count, window_size, mode);
     }
 
-    void configure(std::size_t channel_count, std::size_t window_size) {
+    void configure(std::size_t channel_count, std::size_t window_size, SeriesWindowMode mode = SeriesWindowMode::rolling) {
         std::lock_guard lock(_mutex);
         _channels   = std::max<std::size_t>(1UZ, channel_count);
         _windowSize = std::max<std::size_t>(1UZ, window_size);
+        _mode       = mode;
         _ring.assign(_channels * _windowSize, T{});
+        _published.assign(_channels * _windowSize, T{});
         _pending.clear();
         _writeIndex = 0UZ;
         _filled     = 0UZ;
         _totalFrames = 0UZ;
+        _hasPublishedBuffer = false;
+        _publishedFrames = 0UZ;
+        _publishedOldestAbsolute = 0UZ;
+        _lastPublishedTotalFrames = 0UZ;
+        _snapshotVersion = 0UZ;
         _tags.clear();
+        _publishedTags.clear();
     }
 
     void pushInputTags(InputSpanLike auto& input) {
@@ -100,14 +116,27 @@ public:
             if (_filled < _windowSize) {
                 ++_filled;
             }
+            ++_totalFrames;
+            if (_mode == SeriesWindowMode::buffered) {
+                maybePublishBufferedSnapshotLocked();
+            }
         }
-        _totalFrames += frames;
 
         const std::size_t consumed = frames * _channels;
         if (consumed > 0UZ) {
             _pending.erase(_pending.begin(), _pending.begin() + static_cast<std::ptrdiff_t>(consumed));
         }
         trimTagsLocked();
+        if (frames > 0UZ) {
+            if (_mode == SeriesWindowMode::rolling) {
+                ++_snapshotVersion;
+            }
+        }
+    }
+
+    [[nodiscard]] std::size_t version() const {
+        std::lock_guard lock(_mutex);
+        return _snapshotVersion;
     }
 
     [[nodiscard]] std::string snapshotJson() const {
@@ -120,22 +149,31 @@ public:
         {
             std::lock_guard lock(_mutex);
             channelCount       = _channels;
-            samplesPerChannel  = _filled;
-            oldestAbsolute     = _totalFrames >= _filled ? _totalFrames - _filled : 0UZ;
+            samplesPerChannel  = _mode == SeriesWindowMode::buffered ? _publishedFrames : _filled;
+            oldestAbsolute     = _mode == SeriesWindowMode::buffered ? _publishedOldestAbsolute : (_totalFrames >= _filled ? _totalFrames - _filled : 0UZ);
             perChannel.assign(channelCount, std::vector<T>(samplesPerChannel));
 
-            const std::size_t oldest = (_filled == _windowSize) ? _writeIndex : 0UZ;
-            for (std::size_t channel = 0UZ; channel < channelCount; ++channel) {
-                for (std::size_t index = 0UZ; index < samplesPerChannel; ++index) {
-                    const std::size_t ringIndex = (oldest + index) % _windowSize;
-                    perChannel[channel][index]  = _ring[channel * _windowSize + ringIndex];
+            if (_mode == SeriesWindowMode::buffered) {
+                for (std::size_t channel = 0UZ; channel < channelCount; ++channel) {
+                    for (std::size_t index = 0UZ; index < samplesPerChannel; ++index) {
+                        perChannel[channel][index] = _published[channel * _windowSize + index];
+                    }
                 }
-            }
+                visibleTags = _publishedTags;
+            } else {
+                const std::size_t oldest = (_filled == _windowSize) ? _writeIndex : 0UZ;
+                for (std::size_t channel = 0UZ; channel < channelCount; ++channel) {
+                    for (std::size_t index = 0UZ; index < samplesPerChannel; ++index) {
+                        const std::size_t ringIndex = (oldest + index) % _windowSize;
+                        perChannel[channel][index]  = _ring[channel * _windowSize + ringIndex];
+                    }
+                }
 
-            visibleTags.reserve(_tags.size());
-            for (const auto& tag : _tags) {
-                if (tag.absoluteIndex >= oldestAbsolute && tag.absoluteIndex < oldestAbsolute + samplesPerChannel) {
-                    visibleTags.push_back(tag);
+                visibleTags.reserve(_tags.size());
+                for (const auto& tag : _tags) {
+                    if (tag.absoluteIndex >= oldestAbsolute && tag.absoluteIndex < oldestAbsolute + samplesPerChannel) {
+                        visibleTags.push_back(tag);
+                    }
                 }
             }
         }
@@ -199,16 +237,24 @@ private:
     mutable std::mutex _mutex;
     std::size_t        _channels   = 1UZ;
     std::size_t        _windowSize = 1024UZ;
+    SeriesWindowMode   _mode       = SeriesWindowMode::rolling;
     std::vector<T>     _ring;
+    std::vector<T>     _published;
     std::vector<T>     _pending;
     struct WindowTag {
         std::size_t absoluteIndex = 0UZ;
         property_map map;
     };
     std::vector<WindowTag> _tags;
+    std::vector<WindowTag> _publishedTags;
     std::size_t        _writeIndex = 0UZ;
     std::size_t        _filled     = 0UZ;
     std::size_t        _totalFrames = 0UZ;
+    bool               _hasPublishedBuffer = false;
+    std::size_t        _publishedFrames = 0UZ;
+    std::size_t        _publishedOldestAbsolute = 0UZ;
+    std::size_t        _lastPublishedTotalFrames = 0UZ;
+    std::size_t        _snapshotVersion = 0UZ;
 
     static void writeJsonNumber(std::ostream& os, float value) {
         if (std::isfinite(value)) {
@@ -365,6 +411,37 @@ private:
             _tags.erase(_tags.begin(), _tags.end() - static_cast<std::ptrdiff_t>(maxTags));
         }
     }
+
+    void maybePublishBufferedSnapshotLocked() {
+        if (_filled < _windowSize) {
+            return;
+        }
+        if (_hasPublishedBuffer && _totalFrames - _lastPublishedTotalFrames < _windowSize) {
+            return;
+        }
+
+        _publishedFrames = _windowSize;
+        _publishedOldestAbsolute = _totalFrames - _windowSize;
+        const std::size_t oldest = _writeIndex;
+        for (std::size_t channel = 0UZ; channel < _channels; ++channel) {
+            for (std::size_t index = 0UZ; index < _publishedFrames; ++index) {
+                const std::size_t ringIndex = (oldest + index) % _windowSize;
+                _published[channel * _windowSize + index] = _ring[channel * _windowSize + ringIndex];
+            }
+        }
+
+        _publishedTags.clear();
+        _publishedTags.reserve(_tags.size());
+        for (const auto& tag : _tags) {
+            if (tag.absoluteIndex >= _publishedOldestAbsolute && tag.absoluteIndex < _publishedOldestAbsolute + _publishedFrames) {
+                _publishedTags.push_back(tag);
+            }
+        }
+
+        _hasPublishedBuffer = true;
+        _lastPublishedTotalFrames = _totalFrames;
+        ++_snapshotVersion;
+    }
 };
 
 struct ParsedHttpEndpoint {
@@ -503,6 +580,7 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18080/snapshot";
     Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 250U;
     Annotated<gr::Size_t, "window_size", Doc<"Samples per channel kept in memory">, Visible> window_size = 1024UZ;
+    Annotated<detail::SeriesWindowMode, "window_mode", Doc<"Window update mode">, Visible> window_mode = detail::SeriesWindowMode::rolling;
     Annotated<gr::Size_t, "channels", Doc<"Interleaved input channel count">, Visible> channels = 1UZ;
     Annotated<std::string, "plot_title", Doc<"Optional semantic plot title for Studio Application">, Visible> plot_title = "";
     Annotated<std::string, "x_label", Doc<"Optional semantic x-axis label for Studio Application">, Visible> x_label = "";
@@ -521,6 +599,7 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
         endpoint,
         update_ms,
         window_size,
+        window_mode,
         channels,
         plot_title,
         x_label,
@@ -535,7 +614,10 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     using Block<StudioSeriesSink<T>>::Block;
 
     void start() {
-        _window.configure(static_cast<std::size_t>(channels), static_cast<std::size_t>(window_size));
+        _window.configure(
+            static_cast<std::size_t>(channels),
+            static_cast<std::size_t>(window_size),
+            window_mode.value);
         startTransport();
     }
 
@@ -545,8 +627,11 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     }
 
     void settingsChanged(const property_map&, const property_map& new_settings) {
-        if (new_settings.contains("channels") || new_settings.contains("window_size")) {
-            _window.configure(static_cast<std::size_t>(channels), static_cast<std::size_t>(window_size));
+        if (new_settings.contains("channels") || new_settings.contains("window_size") || new_settings.contains("window_mode")) {
+            _window.configure(
+                static_cast<std::size_t>(channels),
+                static_cast<std::size_t>(window_size),
+                window_mode.value);
         }
 
         if (new_settings.contains("transport") || new_settings.contains("endpoint")) {
@@ -571,6 +656,7 @@ private:
         _http.stop();
         _websocket.stop();
         _lastWebSocketPublishAt = {};
+        _lastWebSocketWindowVersion = 0UZ;
 
         if (detail::isWebSocketTransport(transport.value)) {
             const auto parsed = detail::parseHttpEndpoint(endpoint.value);
@@ -601,9 +687,15 @@ private:
     detail::SnapshotHttpService _http{};
     websocket_transport::SnapshotWebSocketService _websocket{};
     std::chrono::steady_clock::time_point _lastWebSocketPublishAt{};
+    std::size_t _lastWebSocketWindowVersion = 0UZ;
 
     void publishWebSocketFrame() {
         if (!_websocket.isRunning()) {
+            return;
+        }
+
+        const std::size_t windowVersion = _window.version();
+        if (windowVersion == _lastWebSocketWindowVersion) {
             return;
         }
 
@@ -614,6 +706,7 @@ private:
             return;
         }
 
+        _lastWebSocketWindowVersion = windowVersion;
         _lastWebSocketPublishAt = now;
         _websocket.publishText(snapshotJson());
     }

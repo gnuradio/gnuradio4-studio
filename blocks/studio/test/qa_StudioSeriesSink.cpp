@@ -35,6 +35,7 @@ void testSeriesRegistered() {
 void testDefaultTransportAndCadence() {
     gr::studio::StudioSeriesSink<float> block{};
     assert(block.transport.value == gr::studio::detail::SeriesTransport::http_poll);
+    assert(block.window_mode.value == gr::studio::detail::SeriesWindowMode::rolling);
     assert(block.update_ms == 250U);
 }
 
@@ -164,6 +165,50 @@ void testSeriesSinkTagOffsetsFollowSlidingWindow() {
     assert(json.find("\"sample_index\":148") == std::string::npos);
 }
 
+void testSeriesWindowRollingModePublishesLatestSamples() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ};
+    const float samples[] = {1.0F, 2.0F, 3.0F, 4.0F, 5.0F};
+
+    window.pushInterleaved(samples);
+
+    const std::string json = window.snapshotJson();
+    assert(json.find("\"samples_per_channel\":4") != std::string::npos);
+    assert(json.find("\"data\":[[2,3,4,5]]") != std::string::npos);
+}
+
+void testSeriesWindowBufferedModePublishesOnlyFullBuffers() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ, gr::studio::detail::SeriesWindowMode::buffered};
+    const float firstPartial[] = {1.0F, 2.0F, 3.0F};
+    const float completesFirst[] = {4.0F};
+    const float secondPartial[] = {5.0F, 6.0F, 7.0F};
+    const float completesSecond[] = {8.0F};
+    const float oversizedThird[] = {9.0F, 10.0F, 11.0F, 12.0F, 13.0F};
+
+    window.pushInterleaved(firstPartial);
+    std::string json = window.snapshotJson();
+    assert(json.find("\"samples_per_channel\":0") != std::string::npos);
+    assert(json.find("\"data\":[[]]") != std::string::npos);
+
+    window.pushInterleaved(completesFirst);
+    json = window.snapshotJson();
+    assert(json.find("\"samples_per_channel\":4") != std::string::npos);
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+
+    window.pushInterleaved(secondPartial);
+    json = window.snapshotJson();
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+    assert(json.find("\"data\":[[4,5,6,7]]") == std::string::npos);
+
+    window.pushInterleaved(completesSecond);
+    json = window.snapshotJson();
+    assert(json.find("\"data\":[[5,6,7,8]]") != std::string::npos);
+
+    window.pushInterleaved(oversizedThird);
+    json = window.snapshotJson();
+    assert(json.find("\"data\":[[9,10,11,12]]") != std::string::npos);
+    assert(json.find("\"data\":[[10,11,12,13]]") == std::string::npos);
+}
+
 void testHttpTransportHelpers() {
     const auto parsed = gr::studio::detail::parseHttpEndpoint("http://127.0.0.1:18080/custom/snapshot");
     assert(parsed.host == "127.0.0.1");
@@ -218,6 +263,8 @@ void testWebSocketStopUnblocksIncompleteHandshake() {
 int main() {
     testSeriesSinkSerializesInputTags();
     testSeriesSinkTagOffsetsFollowSlidingWindow();
+    testSeriesWindowRollingModePublishesLatestSamples();
+    testSeriesWindowBufferedModePublishesOnlyFullBuffers();
     testSeriesRegistered();
     testDefaultTransportAndCadence();
     testWebSocketTransportLifecycle();
