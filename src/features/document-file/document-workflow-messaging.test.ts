@@ -25,11 +25,11 @@ function capabilities(overrides: Partial<DocumentPersistenceCapabilities> = {}):
 function document(overrides: Partial<DocumentIdentityState> = {}): DocumentIdentityState {
   return {
     internalDocumentId: 'document-1',
-    displayName: 'radar_flowgraph.gr4s',
+    displayName: 'example_flowgraph.gr4s',
     documentFormat: 'gr4-studio.graph@1',
     sourceKind: 'imported_file',
     fileHandle: null,
-    filePathHint: 'radar_flowgraph.gr4s',
+    filePathHint: 'example_flowgraph.gr4s',
     hasWritableBacking: false,
     isDirty: true,
     isUntitled: false,
@@ -107,6 +107,6 @@ describe('document workflow messaging', () => {
         lastPersistenceMethod: 'download_fallback',
       }),
     );
-    expect(message).toBe('Saved download: radar_flowgraph.gr4s');
+    expect(message).toBe('Saved download: example_flowgraph.gr4s');
   });
 });

@@ -127,6 +127,7 @@ Implications:
 - legacy `endpoint` values may still persist in saved documents, but Studio does not use them for descriptor-driven runtime resolution
 - Studio binds directly to the runtime-advertised interface when present
 - control plane stays separate from payload semantics
+- optional plot tag annotations are payload metadata owned by the producing sink/block, not a separate control-plane event API
 
 ## HTTP behavior
 
@@ -140,6 +141,7 @@ Rendering is handled separately:
 - `StudioSeriesSink` uses the live `series` renderer path for JSON snapshots and websocket frames
 - `Studio2DSeriesSink` uses the `series2d-xy-json-v1` path for XY/vector rendering over HTTP snapshots and websocket frames
 - `series2d-xy-json-v1` and `dataset-xy-json-v1` -> XY/vector plot path
+- `series-window-json-v1`, `series2d-xy-json-v1`, and `dataset-xy-json-v1` may carry optional generic `tags[]` metadata. The renderer shows these as plot annotations without interpreting domain-specific tag keys.
 - `StudioPowerSpectrumSink` uses the `dataset-xy-json-v1` path for FFT-based spectrum rendering
 - `StudioPowerSpectrumSink` uses `sample_rate` for FFT-bin spacing and optional `center_freq` to offset the x axis from relative baseband Hz to absolute RF Hz
 - `StudioPowerSpectrumSink` owns its x axis through FFT metadata and emitted frequency bins. It does not expose `x_min` / `x_max`; with `autoscale=false`, Studio applies only `y_min` / `y_max` to the rendered spectrum range.

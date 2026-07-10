@@ -4,6 +4,7 @@
 
 #include <gnuradio-4.0/Block.hpp>
 #include <gnuradio-4.0/BlockRegistry.hpp>
+#include <gnuradio-4.0/Tag.hpp>
 
 #include <chrono>
 #include <httplib.h>
@@ -18,6 +19,7 @@
 #include <memory>
 #include <mutex>
 #include <limits>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <string>
@@ -56,6 +58,27 @@ public:
         _pending.clear();
         _writeIndex = 0UZ;
         _filled     = 0UZ;
+        _totalFrames = 0UZ;
+        _tags.clear();
+    }
+
+    void pushInputTags(InputSpanLike auto& input) {
+        std::lock_guard lock(_mutex);
+        for (const auto& [relIndex, tagMapRef] : input.tags()) {
+            if (relIndex < 0) {
+                continue;
+            }
+            const std::size_t sampleOffset = static_cast<std::size_t>(relIndex);
+            if (sampleOffset >= input.size()) {
+                continue;
+            }
+            const std::size_t frameOffset = sampleOffset / _channels;
+            _tags.push_back(WindowTag{
+                .absoluteIndex = _totalFrames + frameOffset,
+                .map = tagMapRef.get(),
+            });
+        }
+        trimTagsLocked();
     }
 
     void pushInterleaved(std::span<const T> input) {
@@ -78,22 +101,27 @@ public:
                 ++_filled;
             }
         }
+        _totalFrames += frames;
 
         const std::size_t consumed = frames * _channels;
         if (consumed > 0UZ) {
             _pending.erase(_pending.begin(), _pending.begin() + static_cast<std::ptrdiff_t>(consumed));
         }
+        trimTagsLocked();
     }
 
     [[nodiscard]] std::string snapshotJson() const {
         std::vector<std::vector<T>> perChannel;
+        std::vector<WindowTag>       visibleTags;
         std::size_t                 channelCount = 0UZ;
         std::size_t                 samplesPerChannel = 0UZ;
+        std::size_t                 oldestAbsolute = 0UZ;
 
         {
             std::lock_guard lock(_mutex);
             channelCount       = _channels;
             samplesPerChannel  = _filled;
+            oldestAbsolute     = _totalFrames >= _filled ? _totalFrames - _filled : 0UZ;
             perChannel.assign(channelCount, std::vector<T>(samplesPerChannel));
 
             const std::size_t oldest = (_filled == _windowSize) ? _writeIndex : 0UZ;
@@ -103,12 +131,20 @@ public:
                     perChannel[channel][index]  = _ring[channel * _windowSize + ringIndex];
                 }
             }
+
+            visibleTags.reserve(_tags.size());
+            for (const auto& tag : _tags) {
+                if (tag.absoluteIndex >= oldestAbsolute && tag.absoluteIndex < oldestAbsolute + samplesPerChannel) {
+                    visibleTags.push_back(tag);
+                }
+            }
         }
 
         std::ostringstream os;
         os.precision(9);
         if constexpr (std::same_as<T, float>) {
-            os << "{\"sample_type\":\"float32\",";
+            os << "{\"payload_format\":\"series-window-json-v1\",";
+            os << "\"sample_type\":\"float32\",";
             os << "\"channels\":" << channelCount << ",";
             os << "\"samples_per_channel\":" << samplesPerChannel << ",";
             os << "\"layout\":\"channels_first\",";
@@ -126,9 +162,12 @@ public:
                 }
                 os << ']';
             }
-            os << "]}";
+            os << ']';
+            writeTagsJson(os, visibleTags, oldestAbsolute);
+            os << '}';
         } else {
-            os << "{\"sample_type\":\"complex64\",";
+            os << "{\"payload_format\":\"series-window-json-v1\",";
+            os << "\"sample_type\":\"complex64\",";
             os << "\"channels\":" << channelCount << ",";
             os << "\"samples_per_channel\":" << samplesPerChannel << ",";
             os << "\"layout\":\"channels_first_interleaved_complex\",";
@@ -148,7 +187,9 @@ public:
                 }
                 os << ']';
             }
-            os << "]}";
+            os << ']';
+            writeTagsJson(os, visibleTags, oldestAbsolute);
+            os << '}';
         }
 
         return os.str();
@@ -160,8 +201,14 @@ private:
     std::size_t        _windowSize = 1024UZ;
     std::vector<T>     _ring;
     std::vector<T>     _pending;
+    struct WindowTag {
+        std::size_t absoluteIndex = 0UZ;
+        property_map map;
+    };
+    std::vector<WindowTag> _tags;
     std::size_t        _writeIndex = 0UZ;
     std::size_t        _filled     = 0UZ;
+    std::size_t        _totalFrames = 0UZ;
 
     static void writeJsonNumber(std::ostream& os, float value) {
         if (std::isfinite(value)) {
@@ -169,6 +216,154 @@ private:
             return;
         }
         os << '0';
+    }
+
+    static void writeJsonString(std::ostream& os, std::string_view value) {
+        os << '"';
+        for (const char ch : value) {
+            switch (ch) {
+            case '"': os << "\\\""; break;
+            case '\\': os << "\\\\"; break;
+            case '\b': os << "\\b"; break;
+            case '\f': os << "\\f"; break;
+            case '\n': os << "\\n"; break;
+            case '\r': os << "\\r"; break;
+            case '\t': os << "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20U) {
+                    constexpr char hex[] = "0123456789abcdef";
+                    os << "\\u00";
+                    os << hex[(static_cast<unsigned char>(ch) >> 4U) & 0x0FU];
+                    os << hex[static_cast<unsigned char>(ch) & 0x0FU];
+                } else {
+                    os << ch;
+                }
+                break;
+            }
+        }
+        os << '"';
+    }
+
+    static std::optional<std::string> stringValue(const property_map& map, std::string_view key) {
+        const auto it = map.find(std::pmr::string(key));
+        if (it == map.end() || !it->second.is_string()) {
+            return std::nullopt;
+        }
+        return it->second.value_or(std::string{});
+    }
+
+    static std::string eventKeyForTag(const property_map& map) {
+        if (auto key = stringValue(map, "key"); key && !key->empty()) {
+            return *key;
+        }
+        for (const auto& [key, value] : map) {
+            if (key != "label" && key != "key" && value.get_if<bool>() != nullptr) {
+                return std::string(key);
+            }
+        }
+        return map.empty() ? std::string("tag") : std::string(map.begin()->first);
+    }
+
+    static bool writeJsonScalarValue(std::ostream& os, const pmt::Value& value) {
+        if (const auto* item = value.get_if<bool>()) {
+            os << (*item ? "true" : "false");
+            return true;
+        }
+        if (value.is_string()) {
+            writeJsonString(os, value.value_or(std::string{}));
+            return true;
+        }
+        if (const auto* item = value.get_if<std::int64_t>()) {
+            os << *item;
+            return true;
+        }
+        if (const auto* item = value.get_if<std::uint64_t>()) {
+            os << *item;
+            return true;
+        }
+        if (const auto* item = value.get_if<float>()) {
+            if (std::isfinite(*item)) {
+                os << *item;
+            } else {
+                os << "null";
+            }
+            return true;
+        }
+        if (const auto* item = value.get_if<double>()) {
+            if (std::isfinite(*item)) {
+                os << *item;
+            } else {
+                os << "null";
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static void writeTagsJson(std::ostream& os, const std::vector<WindowTag>& tags, std::size_t oldestAbsolute) {
+        if (tags.empty()) {
+            return;
+        }
+
+        os << ",\"tags\":[";
+        for (std::size_t index = 0UZ; index < tags.size(); ++index) {
+            const auto& tag = tags[index];
+            if (index > 0UZ) {
+                os << ',';
+            }
+
+            const std::string key = eventKeyForTag(tag.map);
+            const std::string label = stringValue(tag.map, "label").value_or(key);
+            os << "{\"offset\":" << (tag.absoluteIndex - oldestAbsolute);
+            os << ",\"key\":";
+            writeJsonString(os, key);
+            os << ",\"label\":";
+            writeJsonString(os, label);
+
+            const auto eventValueIt = tag.map.find(std::pmr::string(key));
+            if (eventValueIt != tag.map.end()) {
+                os << ",\"value\":";
+                if (!writeJsonScalarValue(os, eventValueIt->second)) {
+                    os << "null";
+                }
+            }
+
+            bool wroteMetadata = false;
+            for (const auto& [metadataKey, value] : tag.map) {
+                if (metadataKey == "key" || metadataKey == "label" || metadataKey == std::pmr::string(key)) {
+                    continue;
+                }
+                if (!wroteMetadata) {
+                    os << ",\"metadata\":{";
+                    wroteMetadata = true;
+                } else {
+                    os << ',';
+                }
+                writeJsonString(os, metadataKey);
+                os << ':';
+                if (!writeJsonScalarValue(os, value)) {
+                    os << "null";
+                }
+            }
+            if (wroteMetadata) {
+                os << '}';
+            }
+            os << '}';
+        }
+        os << ']';
+    }
+
+    void trimTagsLocked() {
+        const std::size_t oldestAbsolute = _totalFrames >= _windowSize ? _totalFrames - _windowSize : 0UZ;
+        const auto firstKeep = std::ranges::find_if(_tags, [oldestAbsolute](const WindowTag& tag) {
+            return tag.absoluteIndex >= oldestAbsolute;
+        });
+        _tags.erase(_tags.begin(), firstKeep);
+
+        constexpr std::size_t maxTags = 256UZ;
+        if (_tags.size() > maxTags) {
+            _tags.erase(_tags.begin(), _tags.end() - static_cast<std::ptrdiff_t>(maxTags));
+        }
     }
 };
 
@@ -313,6 +508,7 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     Annotated<std::string, "x_label", Doc<"Optional semantic x-axis label for Studio Application">, Visible> x_label = "";
     Annotated<std::string, "y_label", Doc<"Optional semantic y-axis label for Studio Application">, Visible> y_label = "";
     Annotated<std::string, "series_labels", Doc<"Optional comma-separated series labels for Studio Application">, Visible> series_labels = "";
+    Annotated<gr::Size_t, "max_labels", Doc<"Maximum visible tag labels in Studio Application">, Visible> max_labels = 100UZ;
     Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
     Annotated<float, "y_min", Doc<"Optional y-axis minimum when autoscale is disabled">, Visible> y_min = 0.0F;
     Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
@@ -330,6 +526,7 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
         x_label,
         y_label,
         series_labels,
+        max_labels,
         autoscale,
         y_min,
         y_max,
@@ -359,12 +556,15 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
 
     [[nodiscard]] work::Status processBulk(InputSpanLike auto& input) noexcept {
         if (!input.empty()) {
+            _window.pushInputTags(input);
             _window.pushInterleaved(std::span<const T>(input.data(), input.size()));
             publishWebSocketFrame();
             std::ignore = input.consume(input.size());
         }
         return work::Status::OK;
     }
+
+    [[nodiscard]] std::string snapshotJson() const { return _window.snapshotJson(); }
 
 private:
     void startTransport() {
@@ -392,7 +592,7 @@ private:
         }
 
         const auto parsed = detail::parseHttpEndpoint(endpoint.value);
-        if (!_http.start(parsed, [this]() { return _window.snapshotJson(); })) {
+        if (!_http.start(parsed, [this]() { return snapshotJson(); })) {
             throw gr::exception("StudioSeriesSink failed to start HTTP transport endpoint.");
         }
     }
@@ -415,7 +615,7 @@ private:
         }
 
         _lastWebSocketPublishAt = now;
-        _websocket.publishText(_window.snapshotJson());
+        _websocket.publishText(snapshotJson());
     }
 };
 

@@ -118,6 +118,42 @@ describe('vector frame parsing', () => {
     expect(parsed.pointAlpha).toBe(0.6);
   });
 
+  it('parses optional generic XY plot tags', () => {
+    const parsed = parseHttpVectorSnapshot({
+      layout: 'pairs_xy',
+      points: 2,
+      data: [
+        [-1, 1],
+        [1, -1],
+      ],
+      tags: [
+        {
+          x: 1,
+          y: -1,
+          key: 'selected_point',
+          label: 'Selected',
+          value: 'candidate',
+          metadata: {
+            score: 0.75,
+          },
+        },
+      ],
+    });
+
+    expect(parsed.tags).toEqual([
+      {
+        x: 1,
+        y: -1,
+        key: 'selected_point',
+        label: 'Selected',
+        value: 'candidate',
+        metadata: {
+          score: 0.75,
+        },
+      },
+    ]);
+  });
+
   it('fails explicitly for invalid render_mode', () => {
     expect(() =>
       parseHttpVectorSnapshot({
@@ -127,5 +163,16 @@ describe('vector frame parsing', () => {
         data: [[0, 0]],
       }),
     ).toThrow('Vector snapshot payload render_mode must be "line" or "scatter".');
+  });
+
+  it('fails explicitly for malformed plot tags', () => {
+    expect(() =>
+      parseHttpVectorSnapshot({
+        layout: 'pairs_xy',
+        points: 1,
+        data: [[0, 0]],
+        tags: 'not-tags',
+      }),
+    ).toThrow('Plot tags must be an array when present.');
   });
 });

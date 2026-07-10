@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
-import type { PlotAdapterProps, PlotSeriesFrame, PlotViewSpec } from '../model/types';
+import type { PlotAdapterProps, PlotSeriesFrame, PlotTagAnnotation, PlotViewSpec } from '../model/types';
 import { STUDIO_BUILTIN_PLOT_PALETTES } from '../model/plot-style';
+import { buildPlotTagMarkers, type PlotTagMarker } from './timeseries-tag-markers';
 
 const AXIS_STROKE = '#94a3b8';
 const GRID_STROKE = '#334155';
@@ -132,6 +133,110 @@ export function buildEmptyAlignedData(seriesCount: number): uPlot.AlignedData {
   return Array.from({ length: seriesCount + 1 }, () => []) as unknown as uPlot.AlignedData;
 }
 
+function formatTagValue(value: PlotTagAnnotation['value']): string {
+  if (value === undefined) {
+    return '';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  return String(value);
+}
+
+function formatTagTooltip(tag: PlotTagAnnotation): string {
+  const lines = [
+    tag.label || tag.key,
+    `key: ${tag.key}`,
+    ...(tag.offset !== undefined ? [`offset: ${tag.offset}`] : []),
+    ...(tag.x !== undefined ? [`x: ${tag.x}`] : []),
+    ...(tag.y !== undefined ? [`y: ${tag.y}`] : []),
+    ...(tag.value !== undefined ? [`value: ${formatTagValue(tag.value)}`] : []),
+    ...Object.entries(tag.metadata ?? {}).map(([key, value]) => `${key}: ${formatTagValue(value)}`),
+  ];
+  return lines.join('\n');
+}
+
+function clearOverlay(overlay: HTMLDivElement): void {
+  while (overlay.firstChild) {
+    overlay.removeChild(overlay.firstChild);
+  }
+}
+
+function renderTagOverlay(
+  chart: uPlot,
+  overlay: HTMLDivElement,
+  markers: readonly PlotTagMarker[],
+  maxLabels: number,
+): void {
+  clearOverlay(overlay);
+  const bbox = chart.bbox;
+  const plotLeft = bbox.left;
+  const plotTop = bbox.top;
+  const plotRight = bbox.left + bbox.width;
+  const plotBottom = bbox.top + bbox.height;
+
+  markers.forEach((marker, index) => {
+    const plotX = chart.valToPos(marker.x, 'x', false);
+    if (!Number.isFinite(plotX)) {
+      return;
+    }
+    const xPos = plotLeft + plotX;
+    if (xPos < plotLeft || xPos > plotRight) {
+      return;
+    }
+
+    const labelText = marker.tag.label || marker.tag.key;
+    const title = formatTagTooltip(marker.tag);
+    if (marker.kind === 'point' && typeof marker.y === 'number') {
+      const plotY = chart.valToPos(marker.y, 'y', false);
+      if (!Number.isFinite(plotY)) {
+        return;
+      }
+      const yPos = plotTop + plotY;
+      if (yPos < plotTop || yPos > plotBottom) {
+        return;
+      }
+      const point = document.createElement('div');
+      point.className = 'pointer-events-auto absolute z-10 h-2.5 w-2.5 rounded-full border border-amber-200 bg-amber-400 shadow';
+      point.style.left = `${xPos - 5}px`;
+      point.style.top = `${yPos - 5}px`;
+      point.title = title;
+      point.setAttribute('aria-label', title);
+      overlay.appendChild(point);
+
+      if (index < maxLabels) {
+        const label = document.createElement('div');
+        label.className = 'pointer-events-auto absolute z-10 max-w-32 truncate rounded-sm border border-amber-300/60 bg-slate-950/90 px-1 text-[10px] leading-4 text-amber-100 shadow';
+        label.style.left = `${Math.min(plotRight, xPos + 6)}px`;
+        label.style.top = `${Math.max(plotTop, yPos - 10)}px`;
+        label.title = title;
+        label.textContent = labelText;
+        overlay.appendChild(label);
+      }
+      return;
+    }
+
+    const line = document.createElement('div');
+    line.className = 'pointer-events-auto absolute z-10 w-px bg-amber-300/80';
+    line.style.left = `${xPos}px`;
+    line.style.top = `${plotTop}px`;
+    line.style.height = `${bbox.height}px`;
+    line.title = title;
+    line.setAttribute('aria-label', title);
+    overlay.appendChild(line);
+
+    if (index < maxLabels) {
+      const label = document.createElement('div');
+      label.className = 'pointer-events-auto absolute top-1 z-10 max-w-32 -translate-x-1/2 truncate rounded-sm border border-amber-300/60 bg-slate-950/90 px-1 text-[10px] leading-4 text-amber-100 shadow';
+      label.style.left = `${xPos}px`;
+      label.style.top = `${plotTop + 4}px`;
+      label.title = title;
+      label.textContent = labelText;
+      overlay.appendChild(label);
+    }
+  });
+}
+
 function shouldResetScalesForDataUpdate(ranges: Pick<PlotViewSpec, 'xRange' | 'yRange'>): boolean {
   return ranges.xRange?.auto !== false && ranges.yRange?.auto !== false;
 }
@@ -212,6 +317,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
   const canRender = width >= minWidth && height >= minHeight;
   const showLegend = (spec.legend ?? true) && width >= 420 && height >= 220;
   const plotHostRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<uPlot | null>(null);
   const lastDataSignatureRef = useRef<string>('');
   const resolvedPalette = useMemo(() => {
@@ -244,6 +350,14 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
       ),
     [frame.meta?.xyPointAlpha, frame.meta?.xyPointSize, frame.meta?.xyRenderMode, resolvedPalette, seriesLabelSignature],
   );
+  const tagMarkers = useMemo(
+    () => buildPlotTagMarkers(frame.meta?.tags, normalized, frame.meta?.xyRenderMode ?? 'line'),
+    [frame.meta?.tags, frame.meta?.xyRenderMode, normalized],
+  );
+  const maxLabels = useMemo(
+    () => Math.max(0, Math.floor(spec.maxLabels ?? 100)),
+    [spec.maxLabels],
+  );
 
   useEffect(() => {
     const host = plotHostRef.current;
@@ -254,6 +368,9 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     if (!canRender) {
       chartRef.current?.destroy();
       chartRef.current = null;
+      if (overlayRef.current) {
+        clearOverlay(overlayRef.current);
+      }
       return;
     }
 
@@ -262,6 +379,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
       chartRef.current = null;
     }
 
+    const overlay = overlayRef.current;
     const hostWidth = Math.max(minWidth, Math.floor(host.clientWidth || 320));
     const hostHeight = Math.max(minHeight, Math.floor(host.clientHeight || 180));
     const chart = new uPlot(
@@ -326,6 +444,9 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     return () => {
       chartRef.current?.destroy();
       chartRef.current = null;
+      if (overlay) {
+        clearOverlay(overlay);
+      }
     };
   }, [
     canRender,
@@ -347,7 +468,10 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     const nextWidth = Math.max(minWidth, Math.floor(width));
     const nextHeight = Math.max(minHeight, Math.floor(height));
     chartRef.current.setSize({ width: nextWidth, height: nextHeight });
-  }, [canRender, height, minHeight, minWidth, width]);
+    if (overlayRef.current) {
+      renderTagOverlay(chartRef.current, overlayRef.current, tagMarkers, maxLabels);
+    }
+  }, [canRender, height, maxLabels, minHeight, minWidth, tagMarkers, width]);
 
   useEffect(() => {
     if (!chartRef.current) {
@@ -361,6 +485,9 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     const signature = `${sequence}:${firstPoints}:${frame.meta?.state ?? 'na'}`;
     if (signature === lastDataSignatureRef.current) {
       applyDataUpdateScales(chartRef.current, alignedData, { xRange: spec.xRange, yRange: spec.yRange });
+      if (overlayRef.current) {
+        renderTagOverlay(chartRef.current, overlayRef.current, tagMarkers, maxLabels);
+      }
       return;
     }
     lastDataSignatureRef.current = signature;
@@ -368,7 +495,15 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     if (!shouldResetScalesForDataUpdate({ xRange: spec.xRange, yRange: spec.yRange })) {
       applyDataUpdateScales(chartRef.current, alignedData, { xRange: spec.xRange, yRange: spec.yRange });
     }
-  }, [alignedData, frame.meta?.sequence, frame.meta?.state, spec.xRange, spec.yRange]);
+    if (overlayRef.current) {
+      renderTagOverlay(chartRef.current, overlayRef.current, tagMarkers, maxLabels);
+    }
+  }, [alignedData, frame.meta?.sequence, frame.meta?.state, maxLabels, spec.xRange, spec.yRange, tagMarkers]);
 
-  return <div ref={plotHostRef} className="h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-950" />;
+  return (
+    <div className="relative h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-950">
+      <div ref={plotHostRef} className="h-full min-h-0 w-full" />
+      <div ref={overlayRef} className="pointer-events-none absolute inset-0 overflow-hidden" />
+    </div>
+  );
 }

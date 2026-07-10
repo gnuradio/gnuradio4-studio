@@ -40,6 +40,8 @@ Expected payload fields:
 - `data` required, array of per-channel arrays
 - `channels` optional, number
 - `samples_per_channel` optional, number
+- `tags` optional, array of generic plot tag annotations; see Optional Plot Tags below
+- `max_labels` block parameter optional, maximum number of visible tag labels, defaults to `100`; marker lines/points still render when labels are capped
 
 Semantics:
 
@@ -67,6 +69,8 @@ Expected payload fields:
 - `render_mode` optional, `line | scatter`, defaults to `line`
 - `point_size` optional, positive number
 - `point_alpha` optional, number in `[0,1]`
+- `tags` optional, array of generic plot tag annotations; see Optional Plot Tags below
+- `max_labels` block parameter optional, maximum number of visible tag labels, defaults to `100`; marker lines/points still render when labels are capped
 
 Semantics:
 
@@ -80,6 +84,47 @@ Frontend routing:
 
 - `payloadFormat=series2d-xy-json-v1` routes to the vector XY parser, regardless of whether the sink is served over `http_snapshot`, `http_poll`, or websocket transport.
 - `Studio2DSeriesSink` is descriptor-managed when session stream descriptors are present. Browser-facing endpoints come from `session.streams[]`; authored legacy `endpoint` values are hidden from current authoring and omitted from runtime export.
+
+## Optional Plot Tags
+
+`series-window-json-v1`, `series2d-xy-json-v1`, and `dataset-xy-json-v1` payloads may include generic sparse annotations:
+
+```json
+{
+  "tags": [
+    {
+      "offset": 123,
+      "key": "threshold_crossing",
+      "value": true,
+      "label": "threshold_crossing",
+      "metadata": {
+        "confidence": 0.93
+      }
+    }
+  ]
+}
+```
+
+Tag fields:
+
+- `key` required, non-empty string
+- `offset` optional, finite numeric sample offset or frame-local point index
+- `x` optional, finite plot x coordinate
+- `y` optional, finite plot y coordinate for point annotations
+- `value` optional, string, number, boolean, or null
+- `label` optional, display string; defaults to `key`
+- `metadata` optional, object with string, number, boolean, or null values
+
+Rules:
+
+- `tags` is optional; plots without tags render unchanged.
+- A tag must include either `offset` or `x`.
+- The frontend currently renders offset/x-only tags as vertical plot markers.
+- Tags with both `x` and `y` render as point annotations on XY/scatter plots.
+- The frontend bounds each payload to the first 64 tags and labels up to `max_labels` visible markers to limit clutter.
+- Start/end span pairing is intentionally deferred; producers may still emit start/end tags as separate generic markers.
+- `StudioSeriesSink` extracts recent GNU Radio stream tags from its input span and emits visible-window tags from block-owned data-plane state.
+- Other producers that support stream tags should use the same optional field without adding control-plane APIs.
 
 ## Latest Scalar/Status Contract
 
@@ -147,6 +192,7 @@ Expected payload fields:
 - `axis_unit` optional, string
 - `sample_rate` optional, positive number in Hz when emitted by spectrum-producing sinks
 - `center_freq` optional, number in Hz added to relative FFT bin frequencies when emitted by `StudioPowerSpectrumSink`
+- `tags` optional, array of generic plot tag annotations; see Optional Plot Tags above
 
 Semantics:
 

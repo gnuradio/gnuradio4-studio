@@ -11,7 +11,10 @@
 #include <thread>
 
 #include <gnuradio-4.0/BlockRegistry.hpp>
+#include <gnuradio-4.0/Graph.hpp>
+#include <gnuradio-4.0/Scheduler.hpp>
 #include <gnuradio-4.0/studio/StudioSeriesSink.hpp>
+#include <gnuradio-4.0/testing/TagMonitors.hpp>
 
 #if !defined(_WIN32)
 #include <arpa/inet.h>
@@ -84,6 +87,83 @@ void testSnapshotJsonSanitizesNonFiniteComplexSamples() {
     assert(json.find("\"data\":[[1,0,0,2]]") != std::string::npos);
 }
 
+void testSeriesSinkSerializesInputTags() {
+    gr::Graph graph;
+    auto& source = graph.emplaceBlock<gr::testing::TagSource<float, gr::testing::ProcessFunction::USE_PROCESS_BULK>>({
+        {"n_samples_max", gr::Size_t{40UZ}},
+        {"mark_tag", false},
+    });
+    source._tags.push_back(gr::Tag{
+        25UZ,
+        gr::property_map{
+            {std::pmr::string("demo_tag"), true},
+            {std::pmr::string("key"), std::string("demo_tag")},
+            {std::pmr::string("label"), std::string("Demo tag")},
+            {std::pmr::string("sample_index"), 25.0},
+            {std::pmr::string("time_s"), 0.025},
+            {std::pmr::string("value"), 0.707},
+        },
+    });
+
+    auto& sink = graph.emplaceBlock<gr::studio::StudioSeriesSink<float>>();
+    sink.transport = gr::studio::detail::SeriesTransport::http_poll;
+    sink.endpoint = "http://127.0.0.1:0/snapshot";
+    sink.window_size = 64UZ;
+    sink.channels = 1UZ;
+
+    assert(graph.connect(source, "out", sink, "in").has_value());
+    gr::scheduler::Simple sched;
+    assert(sched.exchange(std::move(graph)).has_value());
+    assert(sched.runAndWait().has_value());
+
+    const std::string json = sink.snapshotJson();
+    assert(json.find("\"payload_format\":\"series-window-json-v1\"") != std::string::npos);
+    assert(json.find("\"tags\":[") != std::string::npos);
+    assert(json.find("\"offset\":25") != std::string::npos);
+    assert(json.find("\"key\":\"demo_tag\"") != std::string::npos);
+    assert(json.find("\"label\":\"Demo tag\"") != std::string::npos);
+    assert(json.find("\"value\":true") != std::string::npos);
+    assert(json.find("\"sample_index\":25") != std::string::npos);
+    assert(json.find("\"time_s\":0.025") != std::string::npos);
+}
+
+void testSeriesSinkTagOffsetsFollowSlidingWindow() {
+    gr::Graph graph;
+    auto& source = graph.emplaceBlock<gr::testing::TagSource<float, gr::testing::ProcessFunction::USE_PROCESS_BULK>>({
+        {"n_samples_max", gr::Size_t{300UZ}},
+        {"mark_tag", false},
+    });
+    for (const std::size_t offset : {25UZ, 148UZ, 271UZ}) {
+        source._tags.push_back(gr::Tag{
+            offset,
+            gr::property_map{
+                {std::pmr::string("demo_tag"), true},
+                {std::pmr::string("key"), std::string("demo_tag")},
+                {std::pmr::string("label"), std::string("Demo tag")},
+                {std::pmr::string("sample_index"), static_cast<double>(offset)},
+            },
+        });
+    }
+
+    auto& sink = graph.emplaceBlock<gr::studio::StudioSeriesSink<float>>();
+    sink.transport = gr::studio::detail::SeriesTransport::http_poll;
+    sink.endpoint = "http://127.0.0.1:0/snapshot";
+    sink.window_size = 123UZ;
+    sink.channels = 1UZ;
+
+    assert(graph.connect(source, "out", sink, "in").has_value());
+    gr::scheduler::Simple sched;
+    assert(sched.exchange(std::move(graph)).has_value());
+    assert(sched.runAndWait().has_value());
+
+    const std::string json = sink.snapshotJson();
+    assert(json.find("\"samples_per_channel\":123") != std::string::npos);
+    assert(json.find("\"offset\":94") != std::string::npos);
+    assert(json.find("\"sample_index\":271") != std::string::npos);
+    assert(json.find("\"sample_index\":25") == std::string::npos);
+    assert(json.find("\"sample_index\":148") == std::string::npos);
+}
+
 void testHttpTransportHelpers() {
     const auto parsed = gr::studio::detail::parseHttpEndpoint("http://127.0.0.1:18080/custom/snapshot");
     assert(parsed.host == "127.0.0.1");
@@ -136,6 +216,8 @@ void testWebSocketStopUnblocksIncompleteHandshake() {
 } // namespace
 
 int main() {
+    testSeriesSinkSerializesInputTags();
+    testSeriesSinkTagOffsetsFollowSlidingWindow();
     testSeriesRegistered();
     testDefaultTransportAndCadence();
     testWebSocketTransportLifecycle();

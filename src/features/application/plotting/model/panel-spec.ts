@@ -86,6 +86,18 @@ function parseWindowSize(parameters: PlotParameterMap | undefined): number | und
   return parsed;
 }
 
+function parsePositiveInteger(parameters: PlotParameterMap | undefined, keys: readonly string[]): number | undefined {
+  const raw = readParameterValue(parameters, keys);
+  if (raw === undefined) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(String(raw), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return undefined;
+  }
+  return parsed;
+}
+
 function parseBooleanValue(raw: PlotParameterValue | undefined): boolean | undefined {
   if (typeof raw === 'boolean') {
     return raw;
@@ -238,6 +250,7 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
     parseSeriesLabels(entry.nodeParameters) ??
     (isSeries2D || isWaterfall || isHistogram ? undefined : buildDefaultSeriesLabels(parseChannels(entry.nodeParameters)));
   const windowSize = parseWindowSize(entry.nodeParameters) ?? 1024;
+  const maxLabels = parsePositiveInteger(entry.nodeParameters, ['max_labels', 'maxLabels']) ?? 100;
   const autoscale =
     parseBooleanValue(readParameterValue(entry.nodeParameters, ['autoscale', 'auto_scale'])) ?? true;
   const xMin = parseOptionalNumber(entry.nodeParameters, ['x_min', 'xmin', 'xMin']);
@@ -324,6 +337,7 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
       ...rangeSpec,
       plotColors: resolvedPlotStyle.colors,
       colorAssignmentMode: resolvedPlotStyle.assignmentMode,
+      maxLabels,
     },
   };
 

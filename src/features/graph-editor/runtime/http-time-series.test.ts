@@ -42,6 +42,42 @@ describe('http-time-series helpers', () => {
     expect(snapshot.samplesPerChannel).toBe(3);
     expect(snapshot.seriesByChannel[0]).toEqual([0.1, 0.2, 0.3]);
     expect(snapshot.seriesByChannel[1]).toEqual([1.1, 1.2, 1.3]);
+    expect(snapshot.tags).toBeUndefined();
+  });
+
+  it('parses optional generic plot tags', () => {
+    const snapshot = parseHttpTimeSeriesSnapshot(
+      {
+        sample_type: 'float32',
+        channels: 1,
+        samples_per_channel: 3,
+        layout: 'channels_first',
+        data: [[0.1, 0.2, 0.3]],
+        tags: [
+          {
+            offset: 2,
+            key: 'threshold_crossing',
+            value: true,
+            metadata: {
+              confidence: 0.93,
+            },
+          },
+        ],
+      },
+      'magnitude',
+    );
+
+    expect(snapshot.tags).toEqual([
+      {
+        offset: 2,
+        key: 'threshold_crossing',
+        label: 'threshold_crossing',
+        value: true,
+        metadata: {
+          confidence: 0.93,
+        },
+      },
+    ]);
   });
 
   it('parses complex payload using requested view mode', () => {
@@ -89,5 +125,16 @@ describe('http-time-series helpers', () => {
         'magnitude',
       ),
     ).toThrow('Snapshot channel 0 has odd interleaved complex value count.');
+    expect(() =>
+      parseHttpTimeSeriesSnapshot(
+        {
+          sample_type: 'float32',
+          layout: 'channels_first',
+          data: [[1, 2]],
+          tags: [{ offset: 1 }],
+        },
+        'magnitude',
+      ),
+    ).toThrow('Plot tag key must be a non-empty string.');
   });
 });

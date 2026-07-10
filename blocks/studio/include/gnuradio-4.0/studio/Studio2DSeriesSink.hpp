@@ -289,6 +289,7 @@ struct Studio2DSeriesSink : Block<Studio2DSeriesSink<T>> {
     Annotated<std::string, "render_mode", Doc<"XY render hint: line or scatter">, Visible> render_mode = "line";
     Annotated<float, "point_size", Doc<"Scatter point size hint in pixels">, Visible> point_size = 4.0F;
     Annotated<float, "point_alpha", Doc<"Scatter point alpha hint in [0, 1]">, Visible> point_alpha = 0.9F;
+    Annotated<gr::Size_t, "max_labels", Doc<"Maximum visible tag labels in Studio Application">, Visible> max_labels = 100UZ;
     Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
     Annotated<float, "x_min", Doc<"Optional x-axis minimum when autoscale is disabled">, Visible> x_min = 0.0F;
     Annotated<float, "x_max", Doc<"Optional x-axis maximum when autoscale is disabled">, Visible> x_max = 0.0F;
@@ -296,7 +297,7 @@ struct Studio2DSeriesSink : Block<Studio2DSeriesSink<T>> {
     Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
     Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
 
-    GR_MAKE_REFLECTABLE(Studio2DSeriesSink, in, transport, endpoint, update_ms, window_size, render_mode, point_size, point_alpha, autoscale, x_min, x_max, y_min, y_max, topic);
+    GR_MAKE_REFLECTABLE(Studio2DSeriesSink, in, transport, endpoint, update_ms, window_size, render_mode, point_size, point_alpha, max_labels, autoscale, x_min, x_max, y_min, y_max, topic);
 
     using Block<Studio2DSeriesSink<T>>::Block;
 

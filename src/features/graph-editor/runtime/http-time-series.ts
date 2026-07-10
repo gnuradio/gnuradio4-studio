@@ -1,3 +1,6 @@
+import type { PlotTagAnnotation } from '../../application/plotting/model/types';
+import { parsePlotTags } from './plot-tags';
+
 export type ComplexViewMode = 'magnitude' | 'real' | 'imag';
 
 export type HttpTimeSeriesSnapshot = {
@@ -6,6 +9,7 @@ export type HttpTimeSeriesSnapshot = {
   samplesPerChannel: number;
   layout: string;
   seriesByChannel: number[][];
+  tags?: PlotTagAnnotation[];
 };
 
 const HTTP_TIME_SERIES_BLOCK_NAME = 'HttpTimeSeriesSink';
@@ -125,11 +129,13 @@ export function parseHttpTimeSeriesSnapshot(
       ? record.samples_per_channel
       : Math.max(0, ...seriesByChannel.map((series) => series.length));
 
+  const tags = parsePlotTags(record);
   return {
     sampleType,
     channelCount,
     samplesPerChannel,
     layout,
     seriesByChannel,
+    ...(tags ? { tags } : {}),
   };
 }

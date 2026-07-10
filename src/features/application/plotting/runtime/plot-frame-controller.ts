@@ -19,6 +19,7 @@ export type PlotFrameController = {
       xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
       xyPointSize?: number;
       xyPointAlpha?: number;
+      tags?: NonNullable<PlotDataFrame['meta']>['tags'];
       statusMessage?: string;
       liveIngressFpsHz?: number;
     },
@@ -145,6 +146,7 @@ export function createPlotFrameController(spec: PlotPanelSpec): PlotFrameControl
       xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
       xyPointSize?: number;
       xyPointAlpha?: number;
+      tags?: NonNullable<PlotDataFrame['meta']>['tags'];
       statusMessage?: string;
       liveIngressFpsHz?: number;
     },
@@ -198,6 +200,7 @@ export function createPlotFrameController(spec: PlotPanelSpec): PlotFrameControl
       xyRenderMode: metadata?.xyRenderMode,
       xyPointSize: metadata?.xyPointSize,
       xyPointAlpha: metadata?.xyPointAlpha,
+      tags: metadata?.tags,
       statusMessage: metadata?.statusMessage,
       liveIngressFpsHz: metadata?.liveIngressFpsHz,
       errorKind: undefined,

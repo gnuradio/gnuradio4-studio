@@ -51,6 +51,31 @@ describe('derivePlotPanelSpec', () => {
     expect(spec?.view.seriesLabels).toEqual(['ch0', 'ch1']);
     expect(spec?.view.colorAssignmentMode).toBe('byIndex');
     expect(spec?.view.plotColors?.length).toBeGreaterThan(0);
+    expect(spec?.view.maxLabels).toBe(100);
+  });
+
+  it('honors max_labels as the tag label display cap', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        nodeParameters: {
+          max_labels: '12',
+        },
+      }),
+    );
+
+    expect(spec?.view.maxLabels).toBe(12);
+  });
+
+  it('allows max_labels to hide tag labels while keeping markers renderable', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        nodeParameters: {
+          max_labels: '0',
+        },
+      }),
+    );
+
+    expect(spec?.view.maxLabels).toBe(0);
   });
 
   it('uses panel plot style override when present', () => {
@@ -212,9 +237,9 @@ describe('derivePlotPanelSpec', () => {
         nodeBlockTypeId: 'gr::studio::Studio2DSeriesSink<float32>',
         nodeParameters: {
           autoscale: 'false',
-          x_label: 'Measured range m',
-          y_label: 'Measured velocity m/s',
-          series_labels: 'Measured target',
+          x_label: 'Horizontal position',
+          y_label: 'Vertical position',
+          series_labels: 'Observed point',
           x_min: '0',
           x_max: '1000',
           y_min: '-120',
@@ -224,9 +249,9 @@ describe('derivePlotPanelSpec', () => {
     );
 
     expect(spec?.source.payloadFormat).toBe('series2d-xy-json-v1');
-    expect(spec?.view.xLabel).toBe('Measured range m');
-    expect(spec?.view.yLabel).toBe('Measured velocity m/s');
-    expect(spec?.view.seriesLabels).toEqual(['Measured target']);
+    expect(spec?.view.xLabel).toBe('Horizontal position');
+    expect(spec?.view.yLabel).toBe('Vertical position');
+    expect(spec?.view.seriesLabels).toEqual(['Observed point']);
     expect(spec?.view.xRange).toEqual({
       auto: false,
       min: 0,

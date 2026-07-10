@@ -483,9 +483,9 @@ describe('toGrctrlContentSubmission', () => {
               name: { kind: 'expression', expr: 'xy_sink_1' },
               transport: { kind: 'literal', value: 'websocket' },
               endpoint: { kind: 'literal', value: 'http://legacy-host:18081/legacy-xy' },
-              x_label: { kind: 'literal', value: 'Measured range m' },
-              y_label: { kind: 'literal', value: 'Measured velocity m/s' },
-              series_labels: { kind: 'literal', value: 'Measured target' },
+              x_label: { kind: 'literal', value: 'Horizontal position' },
+              y_label: { kind: 'literal', value: 'Vertical position' },
+              series_labels: { kind: 'literal', value: 'Observed point' },
               render_mode: { kind: 'literal', value: 'scatter' },
               x_min: { kind: 'literal', value: '0' },
               x_max: { kind: 'literal', value: '1000' },
@@ -504,9 +504,9 @@ describe('toGrctrlContentSubmission', () => {
 
     expect(submission.content).not.toContain('endpoint:');
     expect(submission.content).toContain('transport: websocket');
-    expect(submission.content).toContain('x_label: Measured range m');
-    expect(submission.content).toContain('y_label: Measured velocity m/s');
-    expect(submission.content).toContain('series_labels: Measured target');
+    expect(submission.content).toContain('x_label: Horizontal position');
+    expect(submission.content).toContain('y_label: Vertical position');
+    expect(submission.content).toContain('series_labels: Observed point');
     expect(submission.content).toContain('render_mode: scatter');
     expect(submission.content).toContain('x_min: 0');
     expect(submission.content).toContain('x_max: 1000');

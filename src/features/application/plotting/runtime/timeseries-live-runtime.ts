@@ -45,6 +45,7 @@ type ParsedLivePayload =
       xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
       xyPointSize?: number;
       xyPointAlpha?: number;
+      tags?: NonNullable<PlotDataFrame['meta']>['tags'];
     }
   | {
       kind: 'image';
@@ -334,12 +335,14 @@ export function parseLiveFrameFromPayload(params: {
     xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
     xyPointSize?: number;
     xyPointAlpha?: number;
+    tags?: NonNullable<PlotDataFrame['meta']>['tags'];
   } => ({
     kind: 'series',
     series: mapSnapshotToVectorPlotSeriesFrames(snapshot, params.seriesLabels?.[0]),
     xyRenderMode: snapshot.renderMode,
     xyPointSize: snapshot.pointSize,
     xyPointAlpha: snapshot.pointAlpha,
+    ...(snapshot.tags ? { tags: snapshot.tags } : {}),
   });
 
   // Contract-first routing:
@@ -375,11 +378,14 @@ export function parseLiveFrameFromPayload(params: {
       return {
         kind: 'series',
         series,
+        ...(real.tags ? { tags: real.tags } : {}),
       };
     }
+    const snapshot = parseHttpTimeSeriesSnapshot(params.payload, 'magnitude');
     return {
       kind: 'series',
-      series: mapSnapshotToPlotSeriesFrames(parseHttpTimeSeriesSnapshot(params.payload, 'magnitude'), params.seriesLabels),
+      series: mapSnapshotToPlotSeriesFrames(snapshot, params.seriesLabels),
+      ...(snapshot.tags ? { tags: snapshot.tags } : {}),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Malformed payload.';
@@ -480,6 +486,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
           xyRenderMode: parsed.xyRenderMode,
           xyPointSize: parsed.xyPointSize,
           xyPointAlpha: parsed.xyPointAlpha,
+          tags: parsed.tags,
         });
         assertSeriesShape(controllerRef.current.getFrame().series ?? [], {
           stage: 'frame-readback',
@@ -645,6 +652,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
             xyRenderMode: pending.payload.xyRenderMode,
             xyPointSize: pending.payload.xyPointSize,
             xyPointAlpha: pending.payload.xyPointAlpha,
+            tags: pending.payload.tags,
             statusMessage: pending.statusMessage,
             liveIngressFpsHz: pending.liveIngressFpsHz ?? undefined,
           },
@@ -766,6 +774,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
             xyRenderMode: pending.payload.xyRenderMode,
             xyPointSize: pending.payload.xyPointSize,
             xyPointAlpha: pending.payload.xyPointAlpha,
+            tags: pending.payload.tags,
             statusMessage: pending.statusMessage,
             liveIngressFpsHz: pending.liveIngressFpsHz ?? undefined,
           },
@@ -886,6 +895,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
               xyRenderMode: pending.payload.xyRenderMode,
               xyPointSize: pending.payload.xyPointSize,
               xyPointAlpha: pending.payload.xyPointAlpha,
+              tags: pending.payload.tags,
               statusMessage: pending.statusMessage,
               liveIngressFpsHz: pending.liveIngressFpsHz ?? undefined,
             },
