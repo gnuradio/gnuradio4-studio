@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { PlotPanelSpec, PlotRuntimeBinding } from '../model/types';
+import type { PlotAxisMode, PlotPanelSpec, PlotRuntimeBinding } from '../model/types';
 import { PlotSurface } from './plot-surface';
 import { useTimeseriesLiveFrame } from '../runtime/timeseries-live-runtime';
 
@@ -11,6 +11,8 @@ type PlotPanelProps = {
 
 export function PlotPanel({ spec, binding, executionState }: PlotPanelProps) {
   const [isPaused, setIsPaused] = useState(false);
+  const [axisMode, setAxisMode] = useState<PlotAxisMode>('x');
+  const [viewResetKey, setViewResetKey] = useState(0);
   const frame = useTimeseriesLiveFrame({
     spec,
     binding,
@@ -18,5 +20,17 @@ export function PlotPanel({ spec, binding, executionState }: PlotPanelProps) {
     isPaused,
   });
 
-  return <PlotSurface spec={spec.view} frame={frame} binding={binding} isPaused={isPaused} onPausedChange={setIsPaused} />;
+  return (
+    <PlotSurface
+      spec={spec.view}
+      frame={frame}
+      binding={binding}
+      isPaused={isPaused}
+      onPausedChange={setIsPaused}
+      axisMode={axisMode}
+      onAxisModeChange={setAxisMode}
+      viewResetKey={viewResetKey}
+      onViewReset={() => setViewResetKey((key) => key + 1)}
+    />
+  );
 }

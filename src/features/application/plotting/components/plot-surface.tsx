@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { PlotAdapterSwitch } from '../adapters/plot-adapter-switch';
-import type { PlotDataFrame, PlotRuntimeBinding, PlotViewSpec } from '../model/types';
+import type { PlotAxisMode, PlotDataFrame, PlotRuntimeBinding, PlotViewSpec } from '../model/types';
 import { derivePlotVisibleState, hasRenderableImage, hasRenderableSeries } from './plot-visible-state';
 
 type PlotSurfaceProps = {
@@ -9,6 +9,10 @@ type PlotSurfaceProps = {
   binding?: PlotRuntimeBinding;
   isPaused?: boolean;
   onPausedChange?: (paused: boolean) => void;
+  axisMode?: PlotAxisMode;
+  onAxisModeChange?: (mode: PlotAxisMode) => void;
+  viewResetKey?: number;
+  onViewReset?: () => void;
 };
 
 type ContextMenuState = {
@@ -93,7 +97,17 @@ function formatConnectionBadge(frame: PlotDataFrame): string | null {
   return null;
 }
 
-export function PlotSurface({ spec, frame, binding, isPaused = false, onPausedChange }: PlotSurfaceProps) {
+export function PlotSurface({
+  spec,
+  frame,
+  binding,
+  isPaused = false,
+  onPausedChange,
+  axisMode = 'x',
+  onAxisModeChange,
+  viewResetKey = 0,
+  onViewReset,
+}: PlotSurfaceProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [diagnosticsCollapsed, setDiagnosticsCollapsed] = useState(true);
@@ -188,13 +202,13 @@ export function PlotSurface({ spec, frame, binding, isPaused = false, onPausedCh
       : 'Waiting for live data.';
 
   const openContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!onPausedChange) {
+    if (!onPausedChange && !onViewReset && !onAxisModeChange) {
       return;
     }
     event.preventDefault();
     const hostBounds = hostRef.current?.getBoundingClientRect();
     const menuWidth = 176;
-    const menuHeight = 44;
+    const menuHeight = 168;
     const maxX = Math.max(0, (hostBounds?.width ?? size.width) - menuWidth - 4);
     const maxY = Math.max(0, (hostBounds?.height ?? size.height) - menuHeight - 4);
     const localX = hostBounds ? event.clientX - hostBounds.left : event.clientX;
@@ -210,9 +224,28 @@ export function PlotSurface({ spec, frame, binding, isPaused = false, onPausedCh
     setContextMenu(null);
   };
 
+  const selectAxisMode = (mode: PlotAxisMode) => {
+    onAxisModeChange?.(mode);
+    setContextMenu(null);
+  };
+
+  const resetView = () => {
+    onViewReset?.();
+    setContextMenu(null);
+  };
+
   return (
     <div ref={hostRef} className="relative h-full w-full min-h-0 min-w-0" onContextMenu={openContextMenu}>
-      {showAdapter ? <PlotAdapterSwitch spec={spec} frame={frame} width={size.width} height={size.height} /> : null}
+      {showAdapter ? (
+        <PlotAdapterSwitch
+          spec={spec}
+          frame={frame}
+          width={size.width}
+          height={size.height}
+          axisMode={axisMode}
+          viewResetKey={viewResetKey}
+        />
+      ) : null}
       {isPaused ? (
         <div className="pointer-events-none absolute left-2 top-2 z-20 rounded border border-amber-500/50 bg-slate-950/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200 shadow-lg shadow-slate-950/30">
           Paused
@@ -220,21 +253,51 @@ export function PlotSurface({ spec, frame, binding, isPaused = false, onPausedCh
       ) : null}
       {contextMenu ? (
         <div
-          className="absolute z-40 w-44 rounded border border-slate-700 bg-slate-950 py-1 text-xs text-slate-100 shadow-xl shadow-slate-950/50"
+          className="absolute z-40 w-48 rounded border border-slate-700 bg-slate-950 py-1 text-xs text-slate-100 shadow-xl shadow-slate-950/50"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           role="menu"
           onContextMenu={(event) => event.preventDefault()}
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <button
-            type="button"
-            className="flex w-full items-center justify-between px-3 py-1.5 text-left transition hover:bg-slate-800 focus:bg-slate-800 focus:outline-none"
-            role="menuitem"
-            onClick={togglePaused}
-          >
-            <span>{isPaused ? 'Resume updates' : 'Pause updates'}</span>
-            <span className="text-[10px] text-slate-500">{isPaused ? 'running' : 'freeze'}</span>
-          </button>
+          {onPausedChange ? (
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-3 py-1.5 text-left transition hover:bg-slate-800 focus:bg-slate-800 focus:outline-none"
+              role="menuitem"
+              onClick={togglePaused}
+            >
+              <span>{isPaused ? 'Resume updates' : 'Pause updates'}</span>
+              <span className="text-[10px] text-slate-500">{isPaused ? 'running' : 'freeze'}</span>
+            </button>
+          ) : null}
+          {onViewReset ? (
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-3 py-1.5 text-left transition hover:bg-slate-800 focus:bg-slate-800 focus:outline-none"
+              role="menuitem"
+              onClick={resetView}
+            >
+              <span>Reset view</span>
+              <span className="text-[10px] text-slate-500">autoscale</span>
+            </button>
+          ) : null}
+          {onAxisModeChange ? (
+            <div className="my-1 border-t border-slate-800 pt-1" role="group" aria-label="Navigation axes">
+              {(['x', 'y', 'xy'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className="flex w-full items-center justify-between px-3 py-1.5 text-left transition hover:bg-slate-800 focus:bg-slate-800 focus:outline-none"
+                  role="menuitemradio"
+                  aria-checked={axisMode === mode}
+                  onClick={() => selectAxisMode(mode)}
+                >
+                  <span>{mode === 'x' ? 'X axis' : mode === 'y' ? 'Y axis' : 'X/Y axes'}</span>
+                  <span className="text-[10px] text-slate-500">{axisMode === mode ? 'selected' : ''}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {showDiagnostics ? (

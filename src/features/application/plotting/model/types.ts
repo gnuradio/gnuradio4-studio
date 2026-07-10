@@ -68,6 +68,7 @@ export type PlotImageFrame = {
 };
 
 export type PlotXyRenderMode = 'line' | 'scatter';
+export type PlotAxisMode = 'x' | 'y' | 'xy';
 
 export type PlotDataFrame = {
   kind: PlotKind;
@@ -116,4 +117,6 @@ export type PlotAdapterProps = {
   frame: PlotDataFrame;
   width: number;
   height: number;
+  axisMode?: PlotAxisMode;
+  viewResetKey?: number;
 };

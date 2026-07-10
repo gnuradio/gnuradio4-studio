@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   assertTimeseriesAdapterShape,
   buildSeriesOptions,
+  buildTimeseriesScaleOptions,
   normalizeSeriesData,
+  panRangesByPixels,
+  shouldAutoscaleOnDataUpdate,
 } from './timeseries-uplot-adapter';
 import { buildPlotTagMarkers } from './timeseries-tag-markers';
 
@@ -67,6 +70,86 @@ describe('timeseries uPlot adapter shape helpers', () => {
         stroke: '#22c55e',
         fill: '#22c55e80',
       },
+    });
+  });
+
+  it('keeps user zoom scales during live data updates', () => {
+    expect(
+      shouldAutoscaleOnDataUpdate(
+        {
+          xRange: { auto: true },
+          yRange: { auto: true },
+        },
+        true,
+      ),
+    ).toBe(false);
+  });
+
+  it('autoscale resets data update scales before user zoom', () => {
+    expect(
+      shouldAutoscaleOnDataUpdate(
+        {
+          xRange: { auto: true },
+          yRange: { auto: true },
+        },
+        false,
+      ),
+    ).toBe(true);
+  });
+
+  it('honors explicit axis ranges by avoiding automatic scale reset', () => {
+    expect(
+      shouldAutoscaleOnDataUpdate(
+        {
+          xRange: { auto: false, min: 10, max: 20 },
+          yRange: { auto: true },
+        },
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it('does not lock uPlot scales to configured ranges that would override user zoom', () => {
+    expect(buildTimeseriesScaleOptions('sample-index')).toEqual({
+      x: { time: false },
+      y: {},
+    });
+  });
+
+  it('pans the selected axes by their visible pixel-scaled ranges', () => {
+    expect(
+      panRangesByPixels(
+        {
+          x: { min: 100, max: 300 },
+          y: { min: -1, max: 1 },
+        },
+        50,
+        25,
+        200,
+        100,
+        'xy',
+      ),
+    ).toEqual({
+      x: { min: 50, max: 250 },
+      y: { min: -0.5, max: 1.5 },
+    });
+  });
+
+  it('limits panning to the active axis mode', () => {
+    expect(
+      panRangesByPixels(
+        {
+          x: { min: 0, max: 10 },
+          y: { min: 0, max: 20 },
+        },
+        -20,
+        50,
+        100,
+        100,
+        'x',
+      ),
+    ).toEqual({
+      x: { min: 2, max: 12 },
     });
   });
 

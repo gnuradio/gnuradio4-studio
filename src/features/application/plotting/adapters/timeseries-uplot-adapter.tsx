@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
-import type { PlotAdapterProps, PlotSeriesFrame, PlotTagAnnotation, PlotViewSpec } from '../model/types';
+import type { PlotAdapterProps, PlotAxisMode, PlotSeriesFrame, PlotTagAnnotation, PlotViewSpec } from '../model/types';
 import { STUDIO_BUILTIN_PLOT_PALETTES } from '../model/plot-style';
 import { buildPlotTagMarkers, type PlotTagMarker } from './timeseries-tag-markers';
 
 const AXIS_STROKE = '#94a3b8';
 const GRID_STROKE = '#334155';
+const X_SCALE_KEY = 'x';
+const Y_SCALE_KEY = 'y';
+
+type NumericRange = {
+  min: number;
+  max: number;
+};
+
+type ViewRanges = {
+  x?: NumericRange;
+  y?: NumericRange;
+};
 
 function toNumberArray(values: number[] | Float32Array | Float64Array): number[] {
   return Array.isArray(values) ? values : Array.from(values);
@@ -133,6 +145,13 @@ export function buildEmptyAlignedData(seriesCount: number): uPlot.AlignedData {
   return Array.from({ length: seriesCount + 1 }, () => []) as unknown as uPlot.AlignedData;
 }
 
+export function buildTimeseriesScaleOptions(xMode: PlotViewSpec['xMode']): uPlot.Options['scales'] {
+  return {
+    x: { time: xMode === 'time' },
+    y: {},
+  };
+}
+
 function formatTagValue(value: PlotTagAnnotation['value']): string {
   if (value === undefined) {
     return '';
@@ -237,8 +256,11 @@ function renderTagOverlay(
   });
 }
 
-function shouldResetScalesForDataUpdate(ranges: Pick<PlotViewSpec, 'xRange' | 'yRange'>): boolean {
-  return ranges.xRange?.auto !== false && ranges.yRange?.auto !== false;
+export function shouldAutoscaleOnDataUpdate(
+  ranges: Pick<PlotViewSpec, 'xRange' | 'yRange'>,
+  hasCustomView: boolean,
+): boolean {
+  return !hasCustomView && ranges.xRange?.auto !== false && ranges.yRange?.auto !== false;
 }
 
 function finiteExtent(values: readonly number[]): { min: number; max: number } | null {
@@ -264,13 +286,13 @@ function finiteExtent(values: readonly number[]): { min: number; max: number } |
 
 function applyExplicitScales(chart: uPlot, ranges: Pick<PlotViewSpec, 'xRange' | 'yRange'>): void {
   if (ranges.xRange?.auto === false) {
-    chart.setScale('x', {
+    chart.setScale(X_SCALE_KEY, {
       min: ranges.xRange.min ?? 0,
       max: ranges.xRange.max ?? 1,
     });
   }
   if (ranges.yRange?.auto === false) {
-    chart.setScale('y', {
+    chart.setScale(Y_SCALE_KEY, {
       min: ranges.yRange.min ?? 0,
       max: ranges.yRange.max ?? 1,
     });
@@ -283,19 +305,19 @@ function applyDataUpdateScales(
   ranges: Pick<PlotViewSpec, 'xRange' | 'yRange'>,
 ): void {
   if (ranges.xRange?.auto === false) {
-    chart.setScale('x', {
+    chart.setScale(X_SCALE_KEY, {
       min: ranges.xRange.min ?? 0,
       max: ranges.xRange.max ?? 1,
     });
   } else {
     const xExtent = finiteExtent((data[0] ?? []) as readonly number[]);
     if (xExtent) {
-      chart.setScale('x', xExtent);
+      chart.setScale(X_SCALE_KEY, xExtent);
     }
   }
 
   if (ranges.yRange?.auto === false) {
-    chart.setScale('y', {
+    chart.setScale(Y_SCALE_KEY, {
       min: ranges.yRange.min ?? 0,
       max: ranges.yRange.max ?? 1,
     });
@@ -306,12 +328,166 @@ function applyDataUpdateScales(
     });
     const yExtent = finiteExtent(values);
     if (yExtent) {
-      chart.setScale('y', yExtent);
+      chart.setScale(Y_SCALE_KEY, yExtent);
     }
   }
 }
 
-export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapterProps) {
+function includesAxis(mode: PlotAxisMode | undefined, scaleKey: 'x' | 'y'): boolean {
+  const resolved = mode ?? 'x';
+  return resolved === scaleKey || resolved === 'xy';
+}
+
+function zoomRangeAroundAnchor(min: number, max: number, anchor: number, factor: number): { min: number; max: number } | null {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(anchor) || !Number.isFinite(factor) || factor <= 0) {
+    return null;
+  }
+  const span = max - min;
+  if (span <= 0) {
+    return null;
+  }
+  const nextSpan = span * factor;
+  const ratio = (anchor - min) / span;
+  return {
+    min: anchor - nextSpan * ratio,
+    max: anchor + nextSpan * (1 - ratio),
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function deriveWheelZoomRanges(chart: uPlot, event: WheelEvent, mode: PlotAxisMode | undefined): ViewRanges {
+  const factor = event.deltaY < 0 ? 0.82 : 1.22;
+  const rect = chart.over.getBoundingClientRect();
+  const cursorLeft = clamp(event.clientX - rect.left, 0, rect.width);
+  const cursorTop = clamp(event.clientY - rect.top, 0, rect.height);
+  const ranges: ViewRanges = {};
+
+  if (includesAxis(mode, 'x')) {
+    const scale = chart.scales[X_SCALE_KEY];
+    const anchor = chart.posToVal(cursorLeft, X_SCALE_KEY);
+    const next = zoomRangeAroundAnchor(scale.min ?? 0, scale.max ?? 1, anchor, factor);
+    if (next) {
+      ranges.x = next;
+    }
+  }
+
+  if (includesAxis(mode, 'y')) {
+    const scale = chart.scales[Y_SCALE_KEY];
+    const anchor = chart.posToVal(cursorTop, Y_SCALE_KEY);
+    const next = zoomRangeAroundAnchor(scale.min ?? 0, scale.max ?? 1, anchor, factor);
+    if (next) {
+      ranges.y = next;
+    }
+  }
+
+  return ranges;
+}
+
+function createZoomSelectionElement(): HTMLDivElement {
+  const element = document.createElement('div');
+  element.className = 'absolute z-20 border border-cyan-300/90 bg-cyan-400/20 shadow-[0_0_0_1px_rgba(8,47,73,0.65)]';
+  element.style.pointerEvents = 'none';
+  element.style.display = 'none';
+  return element;
+}
+
+function updateZoomSelectionElement(
+  element: HTMLDivElement,
+  start: { left: number; top: number },
+  end: { left: number; top: number },
+  mode: PlotAxisMode,
+  bounds: { width: number; height: number },
+): void {
+  const x0 = Math.min(start.left, end.left);
+  const x1 = Math.max(start.left, end.left);
+  const y0 = Math.min(start.top, end.top);
+  const y1 = Math.max(start.top, end.top);
+  const left = includesAxis(mode, 'x') ? x0 : 0;
+  const top = includesAxis(mode, 'y') ? y0 : 0;
+  const width = includesAxis(mode, 'x') ? x1 - x0 : bounds.width;
+  const height = includesAxis(mode, 'y') ? y1 - y0 : bounds.height;
+
+  element.style.display = 'block';
+  element.style.left = `${left}px`;
+  element.style.top = `${top}px`;
+  element.style.width = `${Math.max(1, width)}px`;
+  element.style.height = `${Math.max(1, height)}px`;
+}
+
+function deriveDragZoomRanges(
+  chart: uPlot,
+  start: { left: number; top: number },
+  end: { left: number; top: number },
+  mode: PlotAxisMode,
+): ViewRanges {
+  const x0 = Math.min(start.left, end.left);
+  const x1 = Math.max(start.left, end.left);
+  const y0 = Math.min(start.top, end.top);
+  const y1 = Math.max(start.top, end.top);
+  const ranges: ViewRanges = {};
+
+  if (includesAxis(mode, 'x') && x1 - x0 >= 3) {
+    ranges.x = {
+      min: chart.posToVal(x0, X_SCALE_KEY),
+      max: chart.posToVal(x1, X_SCALE_KEY),
+    };
+  }
+
+  if (includesAxis(mode, 'y') && y1 - y0 >= 3) {
+    ranges.y = {
+      min: chart.posToVal(y1, Y_SCALE_KEY),
+      max: chart.posToVal(y0, Y_SCALE_KEY),
+    };
+  }
+
+  return ranges;
+}
+
+function hasViewRanges(ranges: ViewRanges): boolean {
+  return Boolean(ranges.x || ranges.y);
+}
+
+export function panRangesByPixels(
+  ranges: ViewRanges,
+  deltaX: number,
+  deltaY: number,
+  width: number,
+  height: number,
+  mode: PlotAxisMode,
+): ViewRanges {
+  const next: ViewRanges = {};
+  if (includesAxis(mode, 'x') && ranges.x && width > 0) {
+    const shift = -deltaX * (ranges.x.max - ranges.x.min) / width;
+    next.x = {
+      min: ranges.x.min + shift,
+      max: ranges.x.max + shift,
+    };
+  }
+  if (includesAxis(mode, 'y') && ranges.y && height > 0) {
+    const shift = deltaY * (ranges.y.max - ranges.y.min) / height;
+    next.y = {
+      min: ranges.y.min + shift,
+      max: ranges.y.max + shift,
+    };
+  }
+  return next;
+}
+
+function applyViewRanges(chart: uPlot, ranges: ViewRanges): void {
+  chart.batch(() => {
+    if (ranges.x) {
+      chart.setScale(X_SCALE_KEY, ranges.x);
+    }
+    if (ranges.y) {
+      chart.setScale(Y_SCALE_KEY, ranges.y);
+    }
+  });
+}
+
+export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 'x', viewResetKey = 0 }: PlotAdapterProps) {
   const minWidth = 180;
   const minHeight = 120;
   const canRender = width >= minWidth && height >= minHeight;
@@ -320,6 +496,11 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<uPlot | null>(null);
   const lastDataSignatureRef = useRef<string>('');
+  const customViewRangesRef = useRef<ViewRanges>({});
+  const axisModeRef = useRef(axisMode);
+  const alignedDataRef = useRef<uPlot.AlignedData>(buildEmptyAlignedData(0));
+  const tagMarkersRef = useRef<readonly PlotTagMarker[]>([]);
+  const maxLabelsRef = useRef(100);
   const resolvedPalette = useMemo(() => {
     if (spec.plotColors && spec.plotColors.length > 0) {
       return spec.plotColors;
@@ -358,6 +539,10 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     () => Math.max(0, Math.floor(spec.maxLabels ?? 100)),
     [spec.maxLabels],
   );
+  alignedDataRef.current = alignedData;
+  tagMarkersRef.current = tagMarkers;
+  maxLabelsRef.current = maxLabels;
+  axisModeRef.current = axisMode;
 
   useEffect(() => {
     const host = plotHostRef.current;
@@ -390,31 +575,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
           show: showLegend,
         },
         series: seriesOptions,
-        scales: {
-          x:
-            spec.xRange?.auto === false
-              ? {
-                  time: spec.xMode === 'time',
-                  auto: false,
-                  range: [
-                    spec.xRange.min ?? 0,
-                    spec.xRange.max ?? 1,
-                  ],
-                }
-              : {
-                  time: spec.xMode === 'time',
-                },
-          y:
-            spec.yRange?.auto === false
-              ? {
-                  auto: false,
-                  range: [
-                    spec.yRange.min ?? 0,
-                    spec.yRange.max ?? 1,
-                  ],
-                }
-              : {},
-        },
+        scales: buildTimeseriesScaleOptions(spec.xMode),
         axes: [
           {
             label: spec.xLabel ?? 'sample',
@@ -433,15 +594,203 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
             },
           },
         ],
+        cursor: {
+          drag: {
+            x: false,
+            y: false,
+            setScale: false,
+            dist: 0,
+          },
+        },
       },
       buildEmptyAlignedData(seriesOptions.length - 1),
       host,
     );
+    const selectionElement = createZoomSelectionElement();
+    chart.over.appendChild(selectionElement);
+    const renderCurrentTags = () => {
+      if (overlayRef.current) {
+        renderTagOverlay(chart, overlayRef.current, tagMarkersRef.current, maxLabelsRef.current);
+      }
+    };
+    const applyCustomView = (deriveRanges: () => ViewRanges) => {
+      const ranges = deriveRanges();
+      if (hasViewRanges(ranges)) {
+        customViewRangesRef.current = {
+          ...customViewRangesRef.current,
+          ...ranges,
+        };
+        applyViewRanges(chart, customViewRangesRef.current);
+        renderCurrentTags();
+      }
+    };
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      applyCustomView(() => deriveWheelZoomRanges(chart, event, axisModeRef.current));
+    };
+    chart.over.addEventListener('wheel', handleWheel, { passive: false });
+
+    type DragGesture =
+      | {
+          kind: 'zoom';
+          start: { left: number; top: number };
+          latest: { left: number; top: number };
+        }
+      | {
+          kind: 'pan';
+          start: { left: number; top: number };
+          ranges: ViewRanges;
+          previousCustomView: ViewRanges;
+        };
+    let dragGesture: DragGesture | null = null;
+    const readPlotPosition = (event: MouseEvent) => {
+      const rect = chart.over.getBoundingClientRect();
+      return {
+        left: clamp(event.clientX - rect.left, 0, rect.width),
+        top: clamp(event.clientY - rect.top, 0, rect.height),
+        width: rect.width,
+        height: rect.height,
+      };
+    };
+    const readCurrentRanges = (): ViewRanges => ({
+      x:
+        Number.isFinite(chart.scales[X_SCALE_KEY]?.min) && Number.isFinite(chart.scales[X_SCALE_KEY]?.max)
+          ? { min: chart.scales[X_SCALE_KEY].min!, max: chart.scales[X_SCALE_KEY].max! }
+          : undefined,
+      y:
+        Number.isFinite(chart.scales[Y_SCALE_KEY]?.min) && Number.isFinite(chart.scales[Y_SCALE_KEY]?.max)
+          ? { min: chart.scales[Y_SCALE_KEY].min!, max: chart.scales[Y_SCALE_KEY].max! }
+          : undefined,
+    });
+    const applyPan = (
+      gesture: Extract<DragGesture, { kind: 'pan' }>,
+      position: ReturnType<typeof readPlotPosition>,
+    ) => {
+      const ranges = panRangesByPixels(
+        gesture.ranges,
+        position.left - gesture.start.left,
+        position.top - gesture.start.top,
+        position.width,
+        position.height,
+        axisModeRef.current,
+      );
+      if (!hasViewRanges(ranges)) {
+        return;
+      }
+      customViewRangesRef.current = {
+        ...customViewRangesRef.current,
+        ...ranges,
+      };
+      applyViewRanges(chart, customViewRangesRef.current);
+      renderCurrentTags();
+    };
+    const removeDragListeners = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', finishDrag);
+      window.removeEventListener('keydown', cancelDrag);
+    };
+    const clearDrag = () => {
+      selectionElement.style.display = 'none';
+      chart.over.style.cursor = '';
+      dragGesture = null;
+      removeDragListeners();
+    };
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!dragGesture) {
+        return;
+      }
+      event.preventDefault();
+      const next = readPlotPosition(event);
+      if (dragGesture.kind === 'pan') {
+        applyPan(dragGesture, next);
+      } else {
+        dragGesture.latest = { left: next.left, top: next.top };
+        updateZoomSelectionElement(selectionElement, dragGesture.start, dragGesture.latest, axisModeRef.current, {
+          width: next.width,
+          height: next.height,
+        });
+      }
+    };
+    const finishDrag = (event: MouseEvent) => {
+      if (!dragGesture) {
+        return;
+      }
+      event.preventDefault();
+      const next = readPlotPosition(event);
+      const gesture = dragGesture;
+      if (gesture.kind === 'pan') {
+        applyPan(gesture, next);
+      } else {
+        applyCustomView(() => deriveDragZoomRanges(chart, gesture.start, gesture.latest, axisModeRef.current));
+      }
+      clearDrag();
+    };
+    const cancelDrag = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !dragGesture) {
+        return;
+      }
+      event.preventDefault();
+      if (dragGesture.kind === 'pan') {
+        customViewRangesRef.current = dragGesture.previousCustomView;
+        applyViewRanges(chart, dragGesture.ranges);
+        renderCurrentTags();
+      }
+      clearDrag();
+    };
+    const handleMouseDown = (event: MouseEvent) => {
+      const isPan = event.button === 1 || (event.button === 0 && event.shiftKey);
+      const isZoom = event.button === 0 && !event.shiftKey;
+      if (!isPan && !isZoom) {
+        return;
+      }
+      event.preventDefault();
+      const next = readPlotPosition(event);
+      if (isPan) {
+        dragGesture = {
+          kind: 'pan',
+          start: { left: next.left, top: next.top },
+          ranges: readCurrentRanges(),
+          previousCustomView: { ...customViewRangesRef.current },
+        };
+        chart.over.style.cursor = 'grabbing';
+      } else {
+        const start = { left: next.left, top: next.top };
+        dragGesture = { kind: 'zoom', start, latest: start };
+        updateZoomSelectionElement(selectionElement, start, start, axisModeRef.current, {
+          width: next.width,
+          height: next.height,
+        });
+      }
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', finishDrag);
+      window.addEventListener('keydown', cancelDrag);
+    };
+    const preventMiddleClick = (event: MouseEvent) => {
+      if (event.button === 1) {
+        event.preventDefault();
+      }
+    };
+    chart.over.addEventListener('mousedown', handleMouseDown);
+    chart.over.addEventListener('auxclick', preventMiddleClick);
+
+    chart.root.addEventListener('dblclick', () => {
+      customViewRangesRef.current = {};
+      chart.setData(alignedDataRef.current, true);
+      applyDataUpdateScales(chart, alignedDataRef.current, { xRange: spec.xRange, yRange: spec.yRange });
+      if (overlayRef.current) {
+        renderTagOverlay(chart, overlayRef.current, tagMarkersRef.current, maxLabelsRef.current);
+      }
+    });
     applyExplicitScales(chart, { xRange: spec.xRange, yRange: spec.yRange });
     chartRef.current = chart;
     lastDataSignatureRef.current = '';
 
     return () => {
+      chart.over.removeEventListener('wheel', handleWheel);
+      chart.over.removeEventListener('mousedown', handleMouseDown);
+      chart.over.removeEventListener('auxclick', preventMiddleClick);
+      removeDragListeners();
+      selectionElement.remove();
       chartRef.current?.destroy();
       chartRef.current = null;
       if (overlay) {
@@ -468,6 +817,9 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     const nextWidth = Math.max(minWidth, Math.floor(width));
     const nextHeight = Math.max(minHeight, Math.floor(height));
     chartRef.current.setSize({ width: nextWidth, height: nextHeight });
+    if (hasViewRanges(customViewRangesRef.current)) {
+      applyViewRanges(chartRef.current, customViewRangesRef.current);
+    }
     if (overlayRef.current) {
       renderTagOverlay(chartRef.current, overlayRef.current, tagMarkers, maxLabels);
     }
@@ -484,21 +836,43 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height }: PlotAdapt
     const firstPoints = alignedData[0]?.length ?? 0;
     const signature = `${sequence}:${firstPoints}:${frame.meta?.state ?? 'na'}`;
     if (signature === lastDataSignatureRef.current) {
-      applyDataUpdateScales(chartRef.current, alignedData, { xRange: spec.xRange, yRange: spec.yRange });
+      if (hasViewRanges(customViewRangesRef.current)) {
+        applyViewRanges(chartRef.current, customViewRangesRef.current);
+      } else {
+        applyDataUpdateScales(chartRef.current, alignedData, { xRange: spec.xRange, yRange: spec.yRange });
+      }
       if (overlayRef.current) {
         renderTagOverlay(chartRef.current, overlayRef.current, tagMarkers, maxLabels);
       }
       return;
     }
     lastDataSignatureRef.current = signature;
-    chartRef.current.setData(alignedData, shouldResetScalesForDataUpdate({ xRange: spec.xRange, yRange: spec.yRange }));
-    if (!shouldResetScalesForDataUpdate({ xRange: spec.xRange, yRange: spec.yRange })) {
+    const shouldAutoscale = shouldAutoscaleOnDataUpdate(
+      { xRange: spec.xRange, yRange: spec.yRange },
+      hasViewRanges(customViewRangesRef.current),
+    );
+    chartRef.current.setData(alignedData, shouldAutoscale);
+    if (hasViewRanges(customViewRangesRef.current)) {
+      applyViewRanges(chartRef.current, customViewRangesRef.current);
+    } else if (!shouldAutoscale) {
       applyDataUpdateScales(chartRef.current, alignedData, { xRange: spec.xRange, yRange: spec.yRange });
     }
     if (overlayRef.current) {
       renderTagOverlay(chartRef.current, overlayRef.current, tagMarkers, maxLabels);
     }
   }, [alignedData, frame.meta?.sequence, frame.meta?.state, maxLabels, spec.xRange, spec.yRange, tagMarkers]);
+
+  useEffect(() => {
+    if (!chartRef.current) {
+      return;
+    }
+    customViewRangesRef.current = {};
+    chartRef.current.setData(alignedDataRef.current, true);
+    applyDataUpdateScales(chartRef.current, alignedDataRef.current, { xRange: spec.xRange, yRange: spec.yRange });
+    if (overlayRef.current) {
+      renderTagOverlay(chartRef.current, overlayRef.current, tagMarkersRef.current, maxLabelsRef.current);
+    }
+  }, [spec.xRange, spec.yRange, viewResetKey]);
 
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden rounded border border-slate-800 bg-slate-950">
