@@ -26,6 +26,15 @@
 
 namespace {
 
+struct TaggedInputStub {
+    std::ptrdiff_t relativeIndex;
+    gr::property_map map;
+
+    auto tags() {
+        return std::array{gr::PairRelIndexMapRef{relativeIndex, std::cref(map)}};
+    }
+};
+
 template<typename T, std::size_t N>
 void pushSeriesInputs(
     gr::studio::detail::SeriesWindow<T>& window,
@@ -251,6 +260,50 @@ void testSeriesWindowBufferedModePublishesOnlyFullBuffers() {
     assert(json.find("\"data\":[[10,11,12,13]]") == std::string::npos);
 }
 
+void testSeriesWindowPublishesFirstBufferTags() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ, gr::studio::detail::SeriesWindowMode::buffered};
+    TaggedInputStub tag{
+        .relativeIndex = 2,
+        .map = {
+            {std::pmr::string("demo_tag"), true},
+            {std::pmr::string("label"), std::string("Demo tag")},
+        },
+    };
+    const float samples[] = {1.0F, 2.0F, 3.0F, 4.0F};
+
+    window.pushInputTags(tag, 4UZ);
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
+
+    const std::string json = window.snapshotJson();
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+    assert(json.find("\"tags\":[") != std::string::npos);
+    assert(json.find("\"offset\":2") != std::string::npos);
+    assert(json.find("\"label\":\"Demo tag\"") != std::string::npos);
+}
+
+void testSeriesWindowAddsLateTagToPublishedBuffer() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ, gr::studio::detail::SeriesWindowMode::buffered};
+    const float samples[] = {1.0F, 2.0F, 3.0F, 4.0F};
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
+
+    const std::size_t publishedVersion = window.version();
+    TaggedInputStub lateTag{
+        .relativeIndex = -2,
+        .map = {
+            {std::pmr::string("demo_tag"), true},
+            {std::pmr::string("label"), std::string("Demo tag")},
+        },
+    };
+    window.pushInputTags(lateTag, 1UZ);
+
+    const std::string json = window.snapshotJson();
+    assert(window.version() == publishedVersion + 1UZ);
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+    assert(json.find("\"tags\":[") != std::string::npos);
+    assert(json.find("\"offset\":2") != std::string::npos);
+    assert(json.find("\"label\":\"Demo tag\"") != std::string::npos);
+}
+
 void testHttpTransportHelpers() {
     const auto parsed = gr::studio::detail::parseHttpEndpoint("http://127.0.0.1:18080/custom/snapshot");
     assert(parsed.host == "127.0.0.1");
@@ -308,6 +361,8 @@ int main() {
     testSeriesSinkPublishesOneSeriesPerInputPort();
     testSeriesWindowRollingModePublishesLatestSamples();
     testSeriesWindowBufferedModePublishesOnlyFullBuffers();
+    testSeriesWindowPublishesFirstBufferTags();
+    testSeriesWindowAddsLateTagToPublishedBuffer();
     testSeriesRegistered();
     testDefaultTransportAndCadence();
     testWebSocketTransportLifecycle();

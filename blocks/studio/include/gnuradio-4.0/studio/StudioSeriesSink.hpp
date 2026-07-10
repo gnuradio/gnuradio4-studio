@@ -78,22 +78,38 @@ public:
         _publishedTags.clear();
     }
 
-    void pushInputTags(InputSpanLike auto& input, std::size_t sample_count) {
+    template<typename TInputSpan>
+    void pushInputTags(TInputSpan& input, std::size_t sample_count) {
         std::lock_guard lock(_mutex);
+        bool publishedTagsChanged = false;
         for (const auto& [relIndex, tagMapRef] : input.tags()) {
-            if (relIndex < 0) {
+            if (relIndex >= static_cast<std::ptrdiff_t>(sample_count)) {
                 continue;
             }
-            const std::size_t sampleOffset = static_cast<std::size_t>(relIndex);
-            if (sampleOffset >= sample_count) {
+
+            const auto absoluteIndex = absoluteIndexForRelativeTag(_totalFrames, relIndex);
+            if (!absoluteIndex) {
                 continue;
             }
-            _tags.push_back(WindowTag{
-                .absoluteIndex = _totalFrames + sampleOffset,
+
+            WindowTag tag{
+                .absoluteIndex = *absoluteIndex,
                 .map = tagMapRef.get(),
-            });
+            };
+            _tags.push_back(tag);
+
+            if (_mode == SeriesWindowMode::buffered && _hasPublishedBuffer &&
+                tag.absoluteIndex >= _publishedOldestAbsolute &&
+                tag.absoluteIndex < _publishedOldestAbsolute + _publishedFrames) {
+                _publishedTags.push_back(std::move(tag));
+                publishedTagsChanged = true;
+            }
         }
         trimTagsLocked();
+        if (publishedTagsChanged) {
+            trimPublishedTagsLocked();
+            ++_snapshotVersion;
+        }
     }
 
     template<typename TInputSpan, std::size_t Extent>
@@ -279,6 +295,22 @@ private:
         os << '"';
     }
 
+    static std::optional<std::size_t> absoluteIndexForRelativeTag(std::size_t baseAbsolute, std::ptrdiff_t relativeIndex) {
+        if (relativeIndex >= 0) {
+            const auto forward = static_cast<std::size_t>(relativeIndex);
+            if (forward > std::numeric_limits<std::size_t>::max() - baseAbsolute) {
+                return std::nullopt;
+            }
+            return baseAbsolute + forward;
+        }
+
+        const auto behind = static_cast<std::size_t>(-(relativeIndex + 1)) + 1UZ;
+        if (behind > baseAbsolute) {
+            return std::nullopt;
+        }
+        return baseAbsolute - behind;
+    }
+
     static std::optional<std::string> stringValue(const property_map& map, std::string_view key) {
         const auto it = map.find(std::pmr::string(key));
         if (it == map.end() || !it->second.is_string()) {
@@ -398,6 +430,13 @@ private:
         constexpr std::size_t maxTags = 256UZ;
         if (_tags.size() > maxTags) {
             _tags.erase(_tags.begin(), _tags.end() - static_cast<std::ptrdiff_t>(maxTags));
+        }
+    }
+
+    void trimPublishedTagsLocked() {
+        constexpr std::size_t maxTags = 256UZ;
+        if (_publishedTags.size() > maxTags) {
+            _publishedTags.erase(_publishedTags.begin(), _publishedTags.end() - static_cast<std::ptrdiff_t>(maxTags));
         }
     }
 
