@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include <array>
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -14,6 +15,7 @@
 #include <gnuradio-4.0/Graph.hpp>
 #include <gnuradio-4.0/Scheduler.hpp>
 #include <gnuradio-4.0/studio/StudioSeriesSink.hpp>
+#include <gnuradio-4.0/testing/NullSources.hpp>
 #include <gnuradio-4.0/testing/TagMonitors.hpp>
 
 #if !defined(_WIN32)
@@ -23,6 +25,15 @@
 #endif
 
 namespace {
+
+template<typename T, std::size_t N>
+void pushSeriesInputs(
+    gr::studio::detail::SeriesWindow<T>& window,
+    const std::array<std::span<const T>, N>& inputs) {
+    auto spans = inputs;
+    const std::size_t sampleCount = std::ranges::min(spans | std::views::transform([](const auto input) { return input.size(); }));
+    window.pushInputs(std::span(spans), sampleCount);
+}
 
 void testSeriesRegistered() {
     const auto keys = gr::globalBlockRegistry().keys();
@@ -37,6 +48,8 @@ void testDefaultTransportAndCadence() {
     assert(block.transport.value == gr::studio::detail::SeriesTransport::http_poll);
     assert(block.window_mode.value == gr::studio::detail::SeriesWindowMode::rolling);
     assert(block.update_ms == 250U);
+    assert(block.n_inputs == 1UZ);
+    assert(block.in.size() == 1UZ);
 }
 
 void testWebSocketTransportLifecycle() {
@@ -62,7 +75,7 @@ void testSnapshotJsonSanitizesNonFiniteFloatSamples() {
         negativeNan,
     };
 
-    window.pushInterleaved(samples);
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
 
     const std::string json = window.snapshotJson();
     assert(json.find("nan") == std::string::npos);
@@ -79,7 +92,7 @@ void testSnapshotJsonSanitizesNonFiniteComplexSamples() {
         {-std::numeric_limits<float>::infinity(), 2.0F},
     };
 
-    window.pushInterleaved(samples);
+    pushSeriesInputs(window, std::array{std::span<const std::complex<float>>(samples)});
 
     const std::string json = window.snapshotJson();
     assert(json.find("nan") == std::string::npos);
@@ -110,9 +123,8 @@ void testSeriesSinkSerializesInputTags() {
     sink.transport = gr::studio::detail::SeriesTransport::http_poll;
     sink.endpoint = "http://127.0.0.1:0/snapshot";
     sink.window_size = 64UZ;
-    sink.channels = 1UZ;
 
-    assert(graph.connect(source, "out", sink, "in").has_value());
+    assert(graph.connect(source, "out", sink, "in#0").has_value());
     gr::scheduler::Simple sched;
     assert(sched.exchange(std::move(graph)).has_value());
     assert(sched.runAndWait().has_value());
@@ -150,9 +162,8 @@ void testSeriesSinkTagOffsetsFollowSlidingWindow() {
     sink.transport = gr::studio::detail::SeriesTransport::http_poll;
     sink.endpoint = "http://127.0.0.1:0/snapshot";
     sink.window_size = 123UZ;
-    sink.channels = 1UZ;
 
-    assert(graph.connect(source, "out", sink, "in").has_value());
+    assert(graph.connect(source, "out", sink, "in#0").has_value());
     gr::scheduler::Simple sched;
     assert(sched.exchange(std::move(graph)).has_value());
     assert(sched.runAndWait().has_value());
@@ -165,11 +176,42 @@ void testSeriesSinkTagOffsetsFollowSlidingWindow() {
     assert(json.find("\"sample_index\":148") == std::string::npos);
 }
 
+void testSeriesSinkPublishesOneSeriesPerInputPort() {
+    gr::Graph graph;
+    auto& first = graph.emplaceBlock<gr::testing::CountingSource<float>>({
+        {"default_value", 0.0F},
+        {"n_samples_max", gr::Size_t{4UZ}},
+    });
+    auto& second = graph.emplaceBlock<gr::testing::CountingSource<float>>({
+        {"default_value", 100.0F},
+        {"n_samples_max", gr::Size_t{4UZ}},
+    });
+    auto& sink = graph.emplaceBlock<gr::studio::StudioSeriesSink<float>>({
+        {"n_inputs", gr::Size_t{2UZ}},
+        {"transport", std::string("http_poll")},
+        {"endpoint", std::string("http://127.0.0.1:0/snapshot")},
+        {"window_size", gr::Size_t{4UZ}},
+    });
+
+    assert(sink.in.size() == 2UZ);
+    assert(graph.connect(first, "out", sink, "in#0").has_value());
+    assert(graph.connect(second, "out", sink, "in#1").has_value());
+
+    gr::scheduler::Simple sched;
+    assert(sched.exchange(std::move(graph)).has_value());
+    assert(sched.runAndWait().has_value());
+
+    const std::string json = sink.snapshotJson();
+    assert(json.find("\"channels\":2") != std::string::npos);
+    assert(json.find("\"samples_per_channel\":4") != std::string::npos);
+    assert(json.find("\"data\":[[1,2,3,4],[101,102,103,104]]") != std::string::npos);
+}
+
 void testSeriesWindowRollingModePublishesLatestSamples() {
     gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ};
     const float samples[] = {1.0F, 2.0F, 3.0F, 4.0F, 5.0F};
 
-    window.pushInterleaved(samples);
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
 
     const std::string json = window.snapshotJson();
     assert(json.find("\"samples_per_channel\":4") != std::string::npos);
@@ -184,26 +226,26 @@ void testSeriesWindowBufferedModePublishesOnlyFullBuffers() {
     const float completesSecond[] = {8.0F};
     const float oversizedThird[] = {9.0F, 10.0F, 11.0F, 12.0F, 13.0F};
 
-    window.pushInterleaved(firstPartial);
+    pushSeriesInputs(window, std::array{std::span<const float>(firstPartial)});
     std::string json = window.snapshotJson();
     assert(json.find("\"samples_per_channel\":0") != std::string::npos);
     assert(json.find("\"data\":[[]]") != std::string::npos);
 
-    window.pushInterleaved(completesFirst);
+    pushSeriesInputs(window, std::array{std::span<const float>(completesFirst)});
     json = window.snapshotJson();
     assert(json.find("\"samples_per_channel\":4") != std::string::npos);
     assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
 
-    window.pushInterleaved(secondPartial);
+    pushSeriesInputs(window, std::array{std::span<const float>(secondPartial)});
     json = window.snapshotJson();
     assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
     assert(json.find("\"data\":[[4,5,6,7]]") == std::string::npos);
 
-    window.pushInterleaved(completesSecond);
+    pushSeriesInputs(window, std::array{std::span<const float>(completesSecond)});
     json = window.snapshotJson();
     assert(json.find("\"data\":[[5,6,7,8]]") != std::string::npos);
 
-    window.pushInterleaved(oversizedThird);
+    pushSeriesInputs(window, std::array{std::span<const float>(oversizedThird)});
     json = window.snapshotJson();
     assert(json.find("\"data\":[[9,10,11,12]]") != std::string::npos);
     assert(json.find("\"data\":[[10,11,12,13]]") == std::string::npos);
@@ -263,6 +305,7 @@ void testWebSocketStopUnblocksIncompleteHandshake() {
 int main() {
     testSeriesSinkSerializesInputTags();
     testSeriesSinkTagOffsetsFollowSlidingWindow();
+    testSeriesSinkPublishesOneSeriesPerInputPort();
     testSeriesWindowRollingModePublishesLatestSamples();
     testSeriesWindowBufferedModePublishesOnlyFullBuffers();
     testSeriesRegistered();

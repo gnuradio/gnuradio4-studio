@@ -20,6 +20,7 @@
 #include <mutex>
 #include <limits>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <sstream>
 #include <string>
@@ -52,20 +53,19 @@ template<SupportedSample T>
 class SeriesWindow {
 public:
     explicit SeriesWindow(
-        std::size_t channel_count = 1UZ,
+        std::size_t series_count = 1UZ,
         std::size_t window_size = 1024UZ,
         SeriesWindowMode mode = SeriesWindowMode::rolling) {
-        configure(channel_count, window_size, mode);
+        configure(series_count, window_size, mode);
     }
 
-    void configure(std::size_t channel_count, std::size_t window_size, SeriesWindowMode mode = SeriesWindowMode::rolling) {
+    void configure(std::size_t series_count, std::size_t window_size, SeriesWindowMode mode = SeriesWindowMode::rolling) {
         std::lock_guard lock(_mutex);
-        _channels   = std::max<std::size_t>(1UZ, channel_count);
+        _seriesCount = std::max<std::size_t>(1UZ, series_count);
         _windowSize = std::max<std::size_t>(1UZ, window_size);
         _mode       = mode;
-        _ring.assign(_channels * _windowSize, T{});
-        _published.assign(_channels * _windowSize, T{});
-        _pending.clear();
+        _ring.assign(_seriesCount * _windowSize, T{});
+        _published.assign(_seriesCount * _windowSize, T{});
         _writeIndex = 0UZ;
         _filled     = 0UZ;
         _totalFrames = 0UZ;
@@ -78,38 +78,34 @@ public:
         _publishedTags.clear();
     }
 
-    void pushInputTags(InputSpanLike auto& input) {
+    void pushInputTags(InputSpanLike auto& input, std::size_t sample_count) {
         std::lock_guard lock(_mutex);
         for (const auto& [relIndex, tagMapRef] : input.tags()) {
             if (relIndex < 0) {
                 continue;
             }
             const std::size_t sampleOffset = static_cast<std::size_t>(relIndex);
-            if (sampleOffset >= input.size()) {
+            if (sampleOffset >= sample_count) {
                 continue;
             }
-            const std::size_t frameOffset = sampleOffset / _channels;
             _tags.push_back(WindowTag{
-                .absoluteIndex = _totalFrames + frameOffset,
+                .absoluteIndex = _totalFrames + sampleOffset,
                 .map = tagMapRef.get(),
             });
         }
         trimTagsLocked();
     }
 
-    void pushInterleaved(std::span<const T> input) {
-        if (input.empty()) {
+    template<typename TInputSpan, std::size_t Extent>
+    void pushInputs(std::span<TInputSpan, Extent> inputs, std::size_t sample_count) {
+        if (inputs.size() != _seriesCount || sample_count == 0UZ) {
             return;
         }
 
         std::lock_guard lock(_mutex);
-        _pending.insert(_pending.end(), input.begin(), input.end());
-
-        const std::size_t frames = _pending.size() / _channels;
-        for (std::size_t frame = 0UZ; frame < frames; ++frame) {
-            for (std::size_t channel = 0UZ; channel < _channels; ++channel) {
-                const std::size_t srcIndex = frame * _channels + channel;
-                _ring[channel * _windowSize + _writeIndex] = _pending[srcIndex];
+        for (std::size_t sample = 0UZ; sample < sample_count; ++sample) {
+            for (std::size_t series = 0UZ; series < _seriesCount; ++series) {
+                _ring[series * _windowSize + _writeIndex] = inputs[series][sample];
             }
 
             _writeIndex = (_writeIndex + 1UZ) % _windowSize;
@@ -122,15 +118,9 @@ public:
             }
         }
 
-        const std::size_t consumed = frames * _channels;
-        if (consumed > 0UZ) {
-            _pending.erase(_pending.begin(), _pending.begin() + static_cast<std::ptrdiff_t>(consumed));
-        }
         trimTagsLocked();
-        if (frames > 0UZ) {
-            if (_mode == SeriesWindowMode::rolling) {
-                ++_snapshotVersion;
-            }
+        if (_mode == SeriesWindowMode::rolling) {
+            ++_snapshotVersion;
         }
     }
 
@@ -148,7 +138,7 @@ public:
 
         {
             std::lock_guard lock(_mutex);
-            channelCount       = _channels;
+            channelCount       = _seriesCount;
             samplesPerChannel  = _mode == SeriesWindowMode::buffered ? _publishedFrames : _filled;
             oldestAbsolute     = _mode == SeriesWindowMode::buffered ? _publishedOldestAbsolute : (_totalFrames >= _filled ? _totalFrames - _filled : 0UZ);
             perChannel.assign(channelCount, std::vector<T>(samplesPerChannel));
@@ -235,12 +225,11 @@ public:
 
 private:
     mutable std::mutex _mutex;
-    std::size_t        _channels   = 1UZ;
+    std::size_t        _seriesCount = 1UZ;
     std::size_t        _windowSize = 1024UZ;
     SeriesWindowMode   _mode       = SeriesWindowMode::rolling;
     std::vector<T>     _ring;
     std::vector<T>     _published;
-    std::vector<T>     _pending;
     struct WindowTag {
         std::size_t absoluteIndex = 0UZ;
         property_map map;
@@ -423,7 +412,7 @@ private:
         _publishedFrames = _windowSize;
         _publishedOldestAbsolute = _totalFrames - _windowSize;
         const std::size_t oldest = _writeIndex;
-        for (std::size_t channel = 0UZ; channel < _channels; ++channel) {
+        for (std::size_t channel = 0UZ; channel < _seriesCount; ++channel) {
             for (std::size_t index = 0UZ; index < _publishedFrames; ++index) {
                 const std::size_t ringIndex = (oldest + index) % _windowSize;
                 _published[channel * _windowSize + index] = _ring[channel * _windowSize + ringIndex];
@@ -574,14 +563,14 @@ template<detail::SupportedSample T>
 struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     using Description = Doc<"@brief Studio 1D series sink with explicit transport configuration.">;
 
-    PortIn<T> in;
+    std::vector<PortIn<T>> in{1UZ};
 
     Annotated<detail::SeriesTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = detail::SeriesTransport::http_poll;
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18080/snapshot";
     Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 250U;
     Annotated<gr::Size_t, "window_size", Doc<"Samples per channel kept in memory">, Visible> window_size = 1024UZ;
     Annotated<detail::SeriesWindowMode, "window_mode", Doc<"Window update mode">, Visible> window_mode = detail::SeriesWindowMode::rolling;
-    Annotated<gr::Size_t, "channels", Doc<"Interleaved input channel count">, Visible> channels = 1UZ;
+    Annotated<gr::Size_t, "n_inputs", Doc<"Number of input series">, Visible, Limits<1U, 32U>> n_inputs = 1UZ;
     Annotated<std::string, "plot_title", Doc<"Optional semantic plot title for Studio Application">, Visible> plot_title = "";
     Annotated<std::string, "x_label", Doc<"Optional semantic x-axis label for Studio Application">, Visible> x_label = "";
     Annotated<std::string, "y_label", Doc<"Optional semantic y-axis label for Studio Application">, Visible> y_label = "";
@@ -600,7 +589,7 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
         update_ms,
         window_size,
         window_mode,
-        channels,
+        n_inputs,
         plot_title,
         x_label,
         y_label,
@@ -615,7 +604,7 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
 
     void start() {
         _window.configure(
-            static_cast<std::size_t>(channels),
+            static_cast<std::size_t>(n_inputs),
             static_cast<std::size_t>(window_size),
             window_mode.value);
         startTransport();
@@ -627,9 +616,13 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     }
 
     void settingsChanged(const property_map&, const property_map& new_settings) {
-        if (new_settings.contains("channels") || new_settings.contains("window_size") || new_settings.contains("window_mode")) {
+        if (new_settings.contains("n_inputs")) {
+            in.resize(static_cast<std::size_t>(n_inputs));
+        }
+
+        if (new_settings.contains("n_inputs") || new_settings.contains("window_size") || new_settings.contains("window_mode")) {
             _window.configure(
-                static_cast<std::size_t>(channels),
+                static_cast<std::size_t>(n_inputs),
                 static_cast<std::size_t>(window_size),
                 window_mode.value);
         }
@@ -639,12 +632,24 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
         }
     }
 
-    [[nodiscard]] work::Status processBulk(InputSpanLike auto& input) noexcept {
-        if (!input.empty()) {
-            _window.pushInputTags(input);
-            _window.pushInterleaved(std::span<const T>(input.data(), input.size()));
-            publishWebSocketFrame();
-            std::ignore = input.consume(input.size());
+    template<InputSpanLike TInputSpan>
+    [[nodiscard]] work::Status processBulk(std::span<TInputSpan>& inputs) noexcept {
+        if (inputs.empty()) {
+            return work::Status::INSUFFICIENT_INPUT_ITEMS;
+        }
+
+        const std::size_t sampleCount = std::ranges::min(inputs | std::views::transform([](const auto& input) { return input.size(); }));
+        if (sampleCount == 0UZ) {
+            return work::Status::INSUFFICIENT_INPUT_ITEMS;
+        }
+
+        for (auto& input : inputs) {
+            _window.pushInputTags(input, sampleCount);
+        }
+        _window.pushInputs(inputs, sampleCount);
+        publishWebSocketFrame();
+        for (auto& input : inputs) {
+            std::ignore = input.consume(sampleCount);
         }
         return work::Status::OK;
     }

@@ -43,10 +43,12 @@ Expected payload fields:
 - `tags` optional, array of generic plot tag annotations; see Optional Plot Tags below
 - `max_labels` block parameter optional, maximum number of visible tag labels, defaults to `100`; marker lines/points still render when labels are capped
 - `window_mode` block parameter optional, `rolling | buffered`, defaults to `rolling`
+- `n_inputs` block parameter controls the number of independent input ports and plotted series
 
 Semantics:
 
 - `data` is channel-major series payload.
+- Each `StudioSeriesSink` input port maps directly to one channel array in `data`; input samples are not interleaved.
 - Real scalar payloads normalize to one plotted series per logical channel.
 - Complex scalar payloads normalize to two plotted series per logical channel:
   - `<base> (real)`
@@ -126,7 +128,7 @@ Rules:
 - Tags with both `x` and `y` render as point annotations on XY/scatter plots.
 - The frontend bounds each payload to the first 64 tags and labels up to `max_labels` visible markers to limit clutter.
 - Start/end span pairing is intentionally deferred; producers may still emit start/end tags as separate generic markers.
-- `StudioSeriesSink` extracts recent GNU Radio stream tags from its input span and emits visible-window tags from block-owned data-plane state.
+- `StudioSeriesSink` extracts recent GNU Radio stream tags from all input spans and emits visible-window tags from block-owned data-plane state.
 - Other producers that support stream tags should use the same optional field without adding control-plane APIs.
 
 ## Latest Scalar/Status Contract

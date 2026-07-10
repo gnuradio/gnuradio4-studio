@@ -93,7 +93,7 @@ describe('known Studio block bindings', () => {
       transport: 'websocket',
       endpoint: 'http://127.0.0.1:18080/snapshot',
       update_ms: '250',
-      channels: '2',
+      n_inputs: '2',
       topic: 'demo',
     });
 
@@ -102,7 +102,7 @@ describe('known Studio block bindings', () => {
       transport: 'websocket',
       endpoint: 'http://127.0.0.1:18080/snapshot',
       updateMs: 250,
-      channels: 2,
+      channels: undefined,
       topic: 'demo',
       sampleRate: undefined,
     });

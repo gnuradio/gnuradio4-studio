@@ -72,13 +72,13 @@ describe('graph node short-name presentation', () => {
         parameters: {
           transport: { value: 'http_poll', bindingKind: 'literal' },
           endpoint: { value: 'http://127.0.0.1:18080/snapshot', bindingKind: 'literal' },
-          channels: { value: '1', bindingKind: 'literal' },
+          n_inputs: { value: '1', bindingKind: 'literal' },
         },
       },
       undefined,
     );
 
-    expect(summary.parameterLines).toEqual(['transport=http_poll', 'channels=1']);
+    expect(summary.parameterLines).toEqual(['transport=http_poll', 'n_inputs=1']);
     expect(summary.parameterLines.some((line) => line.startsWith('endpoint='))).toBe(false);
   });
 

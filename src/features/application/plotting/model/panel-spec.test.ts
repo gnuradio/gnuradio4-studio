@@ -13,6 +13,7 @@ function makeSeriesEntry(overrides: Partial<WorkspacePanelViewModel> = {}): Work
       previewOnCanvas: false,
     },
     nodeDisplayName: 'Node Display',
+    nodeBlockTypeId: 'gr::studio::StudioSeriesSink<float32>',
     ...overrides,
   };
 }
@@ -40,7 +41,7 @@ describe('derivePlotPanelSpec', () => {
     const spec = derivePlotPanelSpec(
       makeSeriesEntry({
         nodeParameters: {
-          channels: '2',
+          n_inputs: '2',
         },
       }),
     );
@@ -151,14 +152,14 @@ describe('derivePlotPanelSpec', () => {
     const first = derivePlotPanelSpec(
       makeSeriesEntry({
         nodeParameters: {
-          channels: '2',
+          n_inputs: '2',
         },
       }),
     );
     const second = derivePlotPanelSpec(
       makeSeriesEntry({
         nodeParameters: {
-          channels: '2',
+          n_inputs: '2',
         },
       }),
     );

@@ -26,6 +26,8 @@ Spectrum and waterfall sinks expose FFT window selection through reflected enum 
 
 Studio series, 2D series, spectrum, waterfall, scalar/status, and audio sinks use runtime-managed stream descriptors for Studio browser-facing endpoints when session stream descriptors are available. Scalar/status sinks support only `http_poll` and `websocket`.
 
+`StudioSeriesSink` uses `n_inputs` to expose independent dynamic input ports, with one plotted series per input.
+
 ## License
 
 The contents of this `blocks/` directory are licensed under the MIT License. See `LICENSE`.

@@ -55,8 +55,8 @@ function parseSeriesLabels(parameters: PlotParameterMap | undefined): string[] |
   return labels.length > 0 ? labels : undefined;
 }
 
-function parseChannels(parameters: PlotParameterMap | undefined): number | undefined {
-  const raw = readParameterValue(parameters, ['channels']);
+function parseSeriesCount(parameters: PlotParameterMap | undefined, isSeriesSink: boolean): number | undefined {
+  const raw = readParameterValue(parameters, isSeriesSink ? ['n_inputs'] : ['channels']);
   if (raw === undefined) {
     return undefined;
   }
@@ -248,7 +248,11 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
   // 3) stable defaults
   const seriesLabels =
     parseSeriesLabels(entry.nodeParameters) ??
-    (isSeries2D || isWaterfall || isHistogram ? undefined : buildDefaultSeriesLabels(parseChannels(entry.nodeParameters)));
+    (isSeries2D || isWaterfall || isHistogram
+      ? undefined
+      : buildDefaultSeriesLabels(
+          parseSeriesCount(entry.nodeParameters, Boolean(binding?.blockTypeId.startsWith('gr::studio::StudioSeriesSink<'))),
+        ));
   const windowSize = parseWindowSize(entry.nodeParameters) ?? 1024;
   const maxLabels = parsePositiveInteger(entry.nodeParameters, ['max_labels', 'maxLabels']) ?? 100;
   const autoscale =

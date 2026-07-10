@@ -26,6 +26,7 @@ Current included blocks:
 Notes:
 
 - HTTP snapshot/poll semantics for series-style sinks should follow `HttpTimeSeriesSink` behavior where applicable.
+- `StudioSeriesSink` exposes `n_inputs` independent dynamic input ports. Each input maps directly to one plotted series; it does not accept interleaved channels on a single input.
 - `Studio2DSeriesSink` exposes generic XY `series2d-xy-json-v1` payloads and supports websocket transport using the same JSON frame contract as its HTTP snapshot path. Live cadence is controlled by `update_ms`; authored labels, render mode, ranges, and plot style are handled by Studio's generic XY renderer.
 - `StudioDataSetSink` exposes `dataset-xy-json-v1` payloads (`layout: pairs_xy`) for DataSet-backed visualization paths.
 - `StudioPowerSpectrumSink` also exposes `dataset-xy-json-v1` payloads and is intended for FFT-based averaged power spectrum visualization.
@@ -43,6 +44,7 @@ Notes:
 
 Native QA target:
 
+- `qa_StudioSeriesSink`
 - `qa_Studio2DSeriesSink`
 - `qa_StudioPowerSpectrumSink`
 - `qa_StudioWaterfallSink`
