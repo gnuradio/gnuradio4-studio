@@ -52,4 +52,19 @@ describe('resolveStudioPlotStyle', () => {
     expect(defaults[0]).toHaveProperty('id');
     expect(defaults[0].colors.length).toBeGreaterThan(0);
   });
+
+  it('uses a GNU Radio-style default series color order', () => {
+    expect(STUDIO_BUILTIN_PLOT_PALETTES['studio-default']).toEqual([
+      '#3b82f6',
+      '#ef4444',
+      '#22c55e',
+      '#f8fafc',
+      '#06b6d4',
+      '#d946ef',
+      '#facc15',
+      '#be123c',
+      '#15803d',
+      '#1d4ed8',
+    ]);
+  });
 });
