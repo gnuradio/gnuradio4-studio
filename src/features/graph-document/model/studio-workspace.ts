@@ -2,7 +2,7 @@ import type { ExpressionBinding } from '../../variables/model/types';
 
 // StudioPanelSpec describes one panel definition (what exists).
 // It is panel identity + source + display intent, independent of arrangement.
-export type StudioPanelKind = 'series' | 'series2d' | 'histogram' | 'waterfall' | 'image' | 'audio' | 'control';
+export type StudioPanelKind = 'series' | 'series2d' | 'histogram' | 'waterfall' | 'image' | 'audio' | 'scalar' | 'status' | 'control';
 
 export type StudioPlotPaletteRef = {
   kind: 'builtin' | 'studio';

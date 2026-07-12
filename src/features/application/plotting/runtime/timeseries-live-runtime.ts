@@ -45,6 +45,7 @@ type ParsedLivePayload =
       xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
       xyPointSize?: number;
       xyPointAlpha?: number;
+      tags?: NonNullable<PlotDataFrame['meta']>['tags'];
     }
   | {
       kind: 'image';
@@ -334,12 +335,14 @@ export function parseLiveFrameFromPayload(params: {
     xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
     xyPointSize?: number;
     xyPointAlpha?: number;
+    tags?: NonNullable<PlotDataFrame['meta']>['tags'];
   } => ({
     kind: 'series',
     series: mapSnapshotToVectorPlotSeriesFrames(snapshot, params.seriesLabels?.[0]),
     xyRenderMode: snapshot.renderMode,
     xyPointSize: snapshot.pointSize,
     xyPointAlpha: snapshot.pointAlpha,
+    ...(snapshot.tags ? { tags: snapshot.tags } : {}),
   });
 
   // Contract-first routing:
@@ -375,11 +378,14 @@ export function parseLiveFrameFromPayload(params: {
       return {
         kind: 'series',
         series,
+        ...(real.tags ? { tags: real.tags } : {}),
       };
     }
+    const snapshot = parseHttpTimeSeriesSnapshot(params.payload, 'magnitude');
     return {
       kind: 'series',
-      series: mapSnapshotToPlotSeriesFrames(parseHttpTimeSeriesSnapshot(params.payload, 'magnitude'), params.seriesLabels),
+      series: mapSnapshotToPlotSeriesFrames(snapshot, params.seriesLabels),
+      ...(snapshot.tags ? { tags: snapshot.tags } : {}),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Malformed payload.';
@@ -391,12 +397,15 @@ type UseTimeseriesLiveFrameArgs = {
   spec: PlotPanelSpec;
   binding: PlotRuntimeBinding;
   executionState?: 'idle' | 'ready' | 'running' | 'stopped' | 'error';
+  isPaused?: boolean;
 };
 
-export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTimeseriesLiveFrameArgs): PlotDataFrame {
+export function useTimeseriesLiveFrame({ spec, binding, executionState, isPaused = false }: UseTimeseriesLiveFrameArgs): PlotDataFrame {
   const controllerRef = useRef(createPlotFrameController(spec));
   const [frame, setFrame] = useState<PlotDataFrame>(() => controllerRef.current.getFrame());
   const frameRef = useRef(frame);
+  const pausedRef = useRef(isPaused);
+  pausedRef.current = isPaused;
   const isFetchingRef = useRef(false);
   const fetchGenerationRef = useRef(0);
   const lastPublishedVersionRef = useRef(-1);
@@ -448,7 +457,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
   }, [spec]);
 
   const refresh = useCallback(async () => {
-    if (!supportsHttpLivePath || !endpoint || isFetchingRef.current) {
+    if (!supportsHttpLivePath || !endpoint || isFetchingRef.current || pausedRef.current) {
       return;
     }
 
@@ -456,7 +465,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
     isFetchingRef.current = true;
     try {
       const payload = await fetchRuntimeJsonPayload(endpoint);
-      if (refreshGeneration !== fetchGenerationRef.current) {
+      if (refreshGeneration !== fetchGenerationRef.current || pausedRef.current) {
         return;
       }
       const parsed = parseLiveFrameFromPayload({
@@ -480,13 +489,14 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
           xyRenderMode: parsed.xyRenderMode,
           xyPointSize: parsed.xyPointSize,
           xyPointAlpha: parsed.xyPointAlpha,
+          tags: parsed.tags,
         });
         assertSeriesShape(controllerRef.current.getFrame().series ?? [], {
           stage: 'frame-readback',
         });
       }
     } catch (error) {
-      if (refreshGeneration !== fetchGenerationRef.current) {
+      if (refreshGeneration !== fetchGenerationRef.current || pausedRef.current) {
         return;
       }
       const message = error instanceof Error ? error.message : 'Failed to load timeseries snapshot.';
@@ -594,14 +604,21 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
   ]);
 
   useEffect(() => {
-    if (!supportsHttpLivePath) {
+    if (!supportsHttpLivePath || isPaused) {
       return undefined;
     }
 
     return createSeriesPollSubscription(binding.transport, updateMs, () => {
       void refresh();
     });
-  }, [binding.transport, refresh, supportsHttpLivePath, updateMs]);
+  }, [binding.transport, isPaused, refresh, supportsHttpLivePath, updateMs]);
+
+  useEffect(() => {
+    if (!supportsHttpLivePath || isPaused) {
+      return;
+    }
+    void refresh();
+  }, [isPaused, refresh, supportsHttpLivePath]);
 
   useEffect(() => {
     if (!supportsJsonWebSocketLivePath) {
@@ -615,6 +632,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
     };
     websocketPendingFrameRef.current = null;
     const publishControllerFrame = () => {
+      if (pausedRef.current) {
+        return frameRef.current;
+      }
       const nextFrame = controllerRef.current.getFrame();
       frameRef.current = nextFrame;
       setFrame(nextFrame);
@@ -634,6 +654,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
         }
 
         websocketPendingFrameRef.current = null;
+        if (pausedRef.current) {
+          return;
+        }
         if (pending.payload.kind !== 'series') {
           return;
         }
@@ -645,6 +668,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
             xyRenderMode: pending.payload.xyRenderMode,
             xyPointSize: pending.payload.xyPointSize,
             xyPointAlpha: pending.payload.xyPointAlpha,
+            tags: pending.payload.tags,
             statusMessage: pending.statusMessage,
             liveIngressFpsHz: pending.liveIngressFpsHz ?? undefined,
           },
@@ -663,6 +687,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
     return createJsonWebSocketSubscription({
       endpoint: seriesWebSocketEndpoint,
       onMessage: (payload) => {
+        if (pausedRef.current) {
+          return;
+        }
         const nowMs = Date.now();
         const previous = websocketStatsRef.current;
         const liveIngressFpsHz = deriveWebSocketIngressFps({
@@ -736,6 +763,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
     };
     websocketPendingFrameRef.current = null;
     const publishControllerFrame = () => {
+      if (pausedRef.current) {
+        return frameRef.current;
+      }
       const nextFrame = controllerRef.current.getFrame();
       frameRef.current = nextFrame;
       setFrame(nextFrame);
@@ -755,6 +785,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
         }
 
         websocketPendingFrameRef.current = null;
+        if (pausedRef.current) {
+          return;
+        }
         if (pending.payload.kind !== 'series') {
           return;
         }
@@ -766,6 +799,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
             xyRenderMode: pending.payload.xyRenderMode,
             xyPointSize: pending.payload.xyPointSize,
             xyPointAlpha: pending.payload.xyPointAlpha,
+            tags: pending.payload.tags,
             statusMessage: pending.statusMessage,
             liveIngressFpsHz: pending.liveIngressFpsHz ?? undefined,
           },
@@ -784,6 +818,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
     return createPowerSpectrumWebSocketSubscription({
       endpoint: powerSpectrumWebSocketEndpoint,
       onFrame: (spectrumFrame) => {
+        if (pausedRef.current) {
+          return;
+        }
         const nowMs = Date.now();
         const previous = websocketStatsRef.current;
         const liveIngressFpsHz = deriveWebSocketIngressFps({
@@ -858,6 +895,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
     };
     websocketPendingFrameRef.current = null;
     const publishControllerFrame = () => {
+      if (pausedRef.current) {
+        return frameRef.current;
+      }
       const nextFrame = controllerRef.current.getFrame();
       frameRef.current = nextFrame;
       setFrame(nextFrame);
@@ -877,6 +917,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
         }
 
         websocketPendingFrameRef.current = null;
+        if (pausedRef.current) {
+          return;
+        }
         if (pending.payload.kind === 'series') {
           controllerRef.current.ingestSeries(
             pending.payload.series,
@@ -886,6 +929,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
               xyRenderMode: pending.payload.xyRenderMode,
               xyPointSize: pending.payload.xyPointSize,
               xyPointAlpha: pending.payload.xyPointAlpha,
+              tags: pending.payload.tags,
               statusMessage: pending.statusMessage,
               liveIngressFpsHz: pending.liveIngressFpsHz ?? undefined,
             },
@@ -910,6 +954,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
     return createJsonWebSocketSubscription({
       endpoint: waterfallWebSocketEndpoint,
       onMessage: (payload) => {
+        if (pausedRef.current) {
+          return;
+        }
         const nowMs = Date.now();
         const previous = websocketStatsRef.current;
         const liveIngressFpsHz = deriveWebSocketIngressFps({
@@ -973,6 +1020,9 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState }: UseTim
 
   useEffect(() => {
     const handle = window.setInterval(() => {
+      if (pausedRef.current) {
+        return;
+      }
       const nextVersion = controllerRef.current.getVersion();
       if (nextVersion === lastPublishedVersionRef.current) {
         return;

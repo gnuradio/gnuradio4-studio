@@ -15,6 +15,8 @@ const PANEL_KIND_BY_FAMILY: Readonly<Record<string, Exclude<StudioPanelKind, 'co
   waterfall: 'waterfall',
   image: 'image',
   audio: 'audio',
+  scalar: 'scalar',
+  status: 'status',
 };
 
 function makeDeterministicPanelId(nodeId: string): string {

@@ -4,6 +4,7 @@
 
 #include <gnuradio-4.0/Block.hpp>
 #include <gnuradio-4.0/BlockRegistry.hpp>
+#include <gnuradio-4.0/Tag.hpp>
 
 #include <chrono>
 #include <httplib.h>
@@ -18,6 +19,8 @@
 #include <memory>
 #include <mutex>
 #include <limits>
+#include <optional>
+#include <ranges>
 #include <span>
 #include <sstream>
 #include <string>
@@ -38,69 +41,145 @@ enum class SeriesTransport {
     websocket,
 };
 
+enum class SeriesWindowMode {
+    rolling,
+    buffered,
+};
+
 template<typename T>
 concept SupportedSample = std::same_as<T, float> || std::same_as<T, std::complex<float>>;
 
 template<SupportedSample T>
 class SeriesWindow {
 public:
-    explicit SeriesWindow(std::size_t channel_count = 1UZ, std::size_t window_size = 1024UZ) {
-        configure(channel_count, window_size);
+    explicit SeriesWindow(
+        std::size_t series_count = 1UZ,
+        std::size_t window_size = 1024UZ,
+        SeriesWindowMode mode = SeriesWindowMode::rolling) {
+        configure(series_count, window_size, mode);
     }
 
-    void configure(std::size_t channel_count, std::size_t window_size) {
+    void configure(std::size_t series_count, std::size_t window_size, SeriesWindowMode mode = SeriesWindowMode::rolling) {
         std::lock_guard lock(_mutex);
-        _channels   = std::max<std::size_t>(1UZ, channel_count);
+        _seriesCount = std::max<std::size_t>(1UZ, series_count);
         _windowSize = std::max<std::size_t>(1UZ, window_size);
-        _ring.assign(_channels * _windowSize, T{});
-        _pending.clear();
+        _mode       = mode;
+        _ring.assign(_seriesCount * _windowSize, T{});
+        _published.assign(_seriesCount * _windowSize, T{});
         _writeIndex = 0UZ;
         _filled     = 0UZ;
+        _totalFrames = 0UZ;
+        _hasPublishedBuffer = false;
+        _publishedFrames = 0UZ;
+        _publishedOldestAbsolute = 0UZ;
+        _lastPublishedTotalFrames = 0UZ;
+        _snapshotVersion = 0UZ;
+        _tags.clear();
+        _publishedTags.clear();
     }
 
-    void pushInterleaved(std::span<const T> input) {
-        if (input.empty()) {
+    template<typename TInputSpan>
+    void pushInputTags(TInputSpan& input, std::size_t sample_count) {
+        std::lock_guard lock(_mutex);
+        bool publishedTagsChanged = false;
+        for (const auto& [relIndex, tagMapRef] : input.tags()) {
+            if (relIndex >= static_cast<std::ptrdiff_t>(sample_count)) {
+                continue;
+            }
+
+            const auto absoluteIndex = absoluteIndexForRelativeTag(_totalFrames, relIndex);
+            if (!absoluteIndex) {
+                continue;
+            }
+
+            WindowTag tag{
+                .absoluteIndex = *absoluteIndex,
+                .map = tagMapRef.get(),
+            };
+            _tags.push_back(tag);
+
+            if (_mode == SeriesWindowMode::buffered && _hasPublishedBuffer &&
+                tag.absoluteIndex >= _publishedOldestAbsolute &&
+                tag.absoluteIndex < _publishedOldestAbsolute + _publishedFrames) {
+                _publishedTags.push_back(std::move(tag));
+                publishedTagsChanged = true;
+            }
+        }
+        trimTagsLocked();
+        if (publishedTagsChanged) {
+            trimPublishedTagsLocked();
+            ++_snapshotVersion;
+        }
+    }
+
+    template<typename TInputSpan, std::size_t Extent>
+    void pushInputs(std::span<TInputSpan, Extent> inputs, std::size_t sample_count) {
+        if (inputs.size() != _seriesCount || sample_count == 0UZ) {
             return;
         }
 
         std::lock_guard lock(_mutex);
-        _pending.insert(_pending.end(), input.begin(), input.end());
-
-        const std::size_t frames = _pending.size() / _channels;
-        for (std::size_t frame = 0UZ; frame < frames; ++frame) {
-            for (std::size_t channel = 0UZ; channel < _channels; ++channel) {
-                const std::size_t srcIndex = frame * _channels + channel;
-                _ring[channel * _windowSize + _writeIndex] = _pending[srcIndex];
+        for (std::size_t sample = 0UZ; sample < sample_count; ++sample) {
+            for (std::size_t series = 0UZ; series < _seriesCount; ++series) {
+                _ring[series * _windowSize + _writeIndex] = inputs[series][sample];
             }
 
             _writeIndex = (_writeIndex + 1UZ) % _windowSize;
             if (_filled < _windowSize) {
                 ++_filled;
             }
+            ++_totalFrames;
+            if (_mode == SeriesWindowMode::buffered) {
+                maybePublishBufferedSnapshotLocked();
+            }
         }
 
-        const std::size_t consumed = frames * _channels;
-        if (consumed > 0UZ) {
-            _pending.erase(_pending.begin(), _pending.begin() + static_cast<std::ptrdiff_t>(consumed));
+        trimTagsLocked();
+        if (_mode == SeriesWindowMode::rolling) {
+            ++_snapshotVersion;
         }
+    }
+
+    [[nodiscard]] std::size_t version() const {
+        std::lock_guard lock(_mutex);
+        return _snapshotVersion;
     }
 
     [[nodiscard]] std::string snapshotJson() const {
         std::vector<std::vector<T>> perChannel;
+        std::vector<WindowTag>       visibleTags;
         std::size_t                 channelCount = 0UZ;
         std::size_t                 samplesPerChannel = 0UZ;
+        std::size_t                 oldestAbsolute = 0UZ;
 
         {
             std::lock_guard lock(_mutex);
-            channelCount       = _channels;
-            samplesPerChannel  = _filled;
+            channelCount       = _seriesCount;
+            samplesPerChannel  = _mode == SeriesWindowMode::buffered ? _publishedFrames : _filled;
+            oldestAbsolute     = _mode == SeriesWindowMode::buffered ? _publishedOldestAbsolute : (_totalFrames >= _filled ? _totalFrames - _filled : 0UZ);
             perChannel.assign(channelCount, std::vector<T>(samplesPerChannel));
 
-            const std::size_t oldest = (_filled == _windowSize) ? _writeIndex : 0UZ;
-            for (std::size_t channel = 0UZ; channel < channelCount; ++channel) {
-                for (std::size_t index = 0UZ; index < samplesPerChannel; ++index) {
-                    const std::size_t ringIndex = (oldest + index) % _windowSize;
-                    perChannel[channel][index]  = _ring[channel * _windowSize + ringIndex];
+            if (_mode == SeriesWindowMode::buffered) {
+                for (std::size_t channel = 0UZ; channel < channelCount; ++channel) {
+                    for (std::size_t index = 0UZ; index < samplesPerChannel; ++index) {
+                        perChannel[channel][index] = _published[channel * _windowSize + index];
+                    }
+                }
+                visibleTags = _publishedTags;
+            } else {
+                const std::size_t oldest = (_filled == _windowSize) ? _writeIndex : 0UZ;
+                for (std::size_t channel = 0UZ; channel < channelCount; ++channel) {
+                    for (std::size_t index = 0UZ; index < samplesPerChannel; ++index) {
+                        const std::size_t ringIndex = (oldest + index) % _windowSize;
+                        perChannel[channel][index]  = _ring[channel * _windowSize + ringIndex];
+                    }
+                }
+
+                visibleTags.reserve(_tags.size());
+                for (const auto& tag : _tags) {
+                    if (tag.absoluteIndex >= oldestAbsolute && tag.absoluteIndex < oldestAbsolute + samplesPerChannel) {
+                        visibleTags.push_back(tag);
+                    }
                 }
             }
         }
@@ -108,7 +187,8 @@ public:
         std::ostringstream os;
         os.precision(9);
         if constexpr (std::same_as<T, float>) {
-            os << "{\"sample_type\":\"float32\",";
+            os << "{\"payload_format\":\"series-window-json-v1\",";
+            os << "\"sample_type\":\"float32\",";
             os << "\"channels\":" << channelCount << ",";
             os << "\"samples_per_channel\":" << samplesPerChannel << ",";
             os << "\"layout\":\"channels_first\",";
@@ -126,9 +206,12 @@ public:
                 }
                 os << ']';
             }
-            os << "]}";
+            os << ']';
+            writeTagsJson(os, visibleTags, oldestAbsolute);
+            os << '}';
         } else {
-            os << "{\"sample_type\":\"complex64\",";
+            os << "{\"payload_format\":\"series-window-json-v1\",";
+            os << "\"sample_type\":\"complex64\",";
             os << "\"channels\":" << channelCount << ",";
             os << "\"samples_per_channel\":" << samplesPerChannel << ",";
             os << "\"layout\":\"channels_first_interleaved_complex\",";
@@ -148,7 +231,9 @@ public:
                 }
                 os << ']';
             }
-            os << "]}";
+            os << ']';
+            writeTagsJson(os, visibleTags, oldestAbsolute);
+            os << '}';
         }
 
         return os.str();
@@ -156,12 +241,25 @@ public:
 
 private:
     mutable std::mutex _mutex;
-    std::size_t        _channels   = 1UZ;
+    std::size_t        _seriesCount = 1UZ;
     std::size_t        _windowSize = 1024UZ;
+    SeriesWindowMode   _mode       = SeriesWindowMode::rolling;
     std::vector<T>     _ring;
-    std::vector<T>     _pending;
+    std::vector<T>     _published;
+    struct WindowTag {
+        std::size_t absoluteIndex = 0UZ;
+        property_map map;
+    };
+    std::vector<WindowTag> _tags;
+    std::vector<WindowTag> _publishedTags;
     std::size_t        _writeIndex = 0UZ;
     std::size_t        _filled     = 0UZ;
+    std::size_t        _totalFrames = 0UZ;
+    bool               _hasPublishedBuffer = false;
+    std::size_t        _publishedFrames = 0UZ;
+    std::size_t        _publishedOldestAbsolute = 0UZ;
+    std::size_t        _lastPublishedTotalFrames = 0UZ;
+    std::size_t        _snapshotVersion = 0UZ;
 
     static void writeJsonNumber(std::ostream& os, float value) {
         if (std::isfinite(value)) {
@@ -169,6 +267,208 @@ private:
             return;
         }
         os << '0';
+    }
+
+    static void writeJsonString(std::ostream& os, std::string_view value) {
+        os << '"';
+        for (const char ch : value) {
+            switch (ch) {
+            case '"': os << "\\\""; break;
+            case '\\': os << "\\\\"; break;
+            case '\b': os << "\\b"; break;
+            case '\f': os << "\\f"; break;
+            case '\n': os << "\\n"; break;
+            case '\r': os << "\\r"; break;
+            case '\t': os << "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20U) {
+                    constexpr char hex[] = "0123456789abcdef";
+                    os << "\\u00";
+                    os << hex[(static_cast<unsigned char>(ch) >> 4U) & 0x0FU];
+                    os << hex[static_cast<unsigned char>(ch) & 0x0FU];
+                } else {
+                    os << ch;
+                }
+                break;
+            }
+        }
+        os << '"';
+    }
+
+    static std::optional<std::size_t> absoluteIndexForRelativeTag(std::size_t baseAbsolute, std::ptrdiff_t relativeIndex) {
+        if (relativeIndex >= 0) {
+            const auto forward = static_cast<std::size_t>(relativeIndex);
+            if (forward > std::numeric_limits<std::size_t>::max() - baseAbsolute) {
+                return std::nullopt;
+            }
+            return baseAbsolute + forward;
+        }
+
+        const auto behind = static_cast<std::size_t>(-(relativeIndex + 1)) + 1UZ;
+        if (behind > baseAbsolute) {
+            return std::nullopt;
+        }
+        return baseAbsolute - behind;
+    }
+
+    static std::optional<std::string> stringValue(const property_map& map, std::string_view key) {
+        const auto it = map.find(std::pmr::string(key));
+        if (it == map.end() || !it->second.is_string()) {
+            return std::nullopt;
+        }
+        return it->second.value_or(std::string{});
+    }
+
+    static std::string eventKeyForTag(const property_map& map) {
+        if (auto key = stringValue(map, "key"); key && !key->empty()) {
+            return *key;
+        }
+        for (const auto& [key, value] : map) {
+            if (key != "label" && key != "key" && value.get_if<bool>() != nullptr) {
+                return std::string(key);
+            }
+        }
+        return map.empty() ? std::string("tag") : std::string(map.begin()->first);
+    }
+
+    static bool writeJsonScalarValue(std::ostream& os, const pmt::Value& value) {
+        if (const auto* item = value.get_if<bool>()) {
+            os << (*item ? "true" : "false");
+            return true;
+        }
+        if (value.is_string()) {
+            writeJsonString(os, value.value_or(std::string{}));
+            return true;
+        }
+        if (const auto* item = value.get_if<std::int64_t>()) {
+            os << *item;
+            return true;
+        }
+        if (const auto* item = value.get_if<std::uint64_t>()) {
+            os << *item;
+            return true;
+        }
+        if (const auto* item = value.get_if<float>()) {
+            if (std::isfinite(*item)) {
+                os << *item;
+            } else {
+                os << "null";
+            }
+            return true;
+        }
+        if (const auto* item = value.get_if<double>()) {
+            if (std::isfinite(*item)) {
+                os << *item;
+            } else {
+                os << "null";
+            }
+            return true;
+        }
+        return false;
+    }
+
+    static void writeTagsJson(std::ostream& os, const std::vector<WindowTag>& tags, std::size_t oldestAbsolute) {
+        if (tags.empty()) {
+            return;
+        }
+
+        os << ",\"tags\":[";
+        for (std::size_t index = 0UZ; index < tags.size(); ++index) {
+            const auto& tag = tags[index];
+            if (index > 0UZ) {
+                os << ',';
+            }
+
+            const std::string key = eventKeyForTag(tag.map);
+            const std::string label = stringValue(tag.map, "label").value_or(key);
+            os << "{\"offset\":" << (tag.absoluteIndex - oldestAbsolute);
+            os << ",\"key\":";
+            writeJsonString(os, key);
+            os << ",\"label\":";
+            writeJsonString(os, label);
+
+            const auto eventValueIt = tag.map.find(std::pmr::string(key));
+            if (eventValueIt != tag.map.end()) {
+                os << ",\"value\":";
+                if (!writeJsonScalarValue(os, eventValueIt->second)) {
+                    os << "null";
+                }
+            }
+
+            bool wroteMetadata = false;
+            for (const auto& [metadataKey, value] : tag.map) {
+                if (metadataKey == "key" || metadataKey == "label" || metadataKey == std::pmr::string(key)) {
+                    continue;
+                }
+                if (!wroteMetadata) {
+                    os << ",\"metadata\":{";
+                    wroteMetadata = true;
+                } else {
+                    os << ',';
+                }
+                writeJsonString(os, metadataKey);
+                os << ':';
+                if (!writeJsonScalarValue(os, value)) {
+                    os << "null";
+                }
+            }
+            if (wroteMetadata) {
+                os << '}';
+            }
+            os << '}';
+        }
+        os << ']';
+    }
+
+    void trimTagsLocked() {
+        const std::size_t oldestAbsolute = _totalFrames >= _windowSize ? _totalFrames - _windowSize : 0UZ;
+        const auto firstKeep = std::ranges::find_if(_tags, [oldestAbsolute](const WindowTag& tag) {
+            return tag.absoluteIndex >= oldestAbsolute;
+        });
+        _tags.erase(_tags.begin(), firstKeep);
+
+        constexpr std::size_t maxTags = 256UZ;
+        if (_tags.size() > maxTags) {
+            _tags.erase(_tags.begin(), _tags.end() - static_cast<std::ptrdiff_t>(maxTags));
+        }
+    }
+
+    void trimPublishedTagsLocked() {
+        constexpr std::size_t maxTags = 256UZ;
+        if (_publishedTags.size() > maxTags) {
+            _publishedTags.erase(_publishedTags.begin(), _publishedTags.end() - static_cast<std::ptrdiff_t>(maxTags));
+        }
+    }
+
+    void maybePublishBufferedSnapshotLocked() {
+        if (_filled < _windowSize) {
+            return;
+        }
+        if (_hasPublishedBuffer && _totalFrames - _lastPublishedTotalFrames < _windowSize) {
+            return;
+        }
+
+        _publishedFrames = _windowSize;
+        _publishedOldestAbsolute = _totalFrames - _windowSize;
+        const std::size_t oldest = _writeIndex;
+        for (std::size_t channel = 0UZ; channel < _seriesCount; ++channel) {
+            for (std::size_t index = 0UZ; index < _publishedFrames; ++index) {
+                const std::size_t ringIndex = (oldest + index) % _windowSize;
+                _published[channel * _windowSize + index] = _ring[channel * _windowSize + ringIndex];
+            }
+        }
+
+        _publishedTags.clear();
+        _publishedTags.reserve(_tags.size());
+        for (const auto& tag : _tags) {
+            if (tag.absoluteIndex >= _publishedOldestAbsolute && tag.absoluteIndex < _publishedOldestAbsolute + _publishedFrames) {
+                _publishedTags.push_back(tag);
+            }
+        }
+
+        _hasPublishedBuffer = true;
+        _lastPublishedTotalFrames = _totalFrames;
+        ++_snapshotVersion;
     }
 };
 
@@ -302,17 +602,19 @@ template<detail::SupportedSample T>
 struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     using Description = Doc<"@brief Studio 1D series sink with explicit transport configuration.">;
 
-    PortIn<T> in;
+    std::vector<PortIn<T>> in{1UZ};
 
     Annotated<detail::SeriesTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = detail::SeriesTransport::http_poll;
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18080/snapshot";
     Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 250U;
     Annotated<gr::Size_t, "window_size", Doc<"Samples per channel kept in memory">, Visible> window_size = 1024UZ;
-    Annotated<gr::Size_t, "channels", Doc<"Interleaved input channel count">, Visible> channels = 1UZ;
+    Annotated<detail::SeriesWindowMode, "window_mode", Doc<"Window update mode">, Visible> window_mode = detail::SeriesWindowMode::rolling;
+    Annotated<gr::Size_t, "n_inputs", Doc<"Number of input series">, Visible, Limits<1U, 32U>> n_inputs = 1UZ;
     Annotated<std::string, "plot_title", Doc<"Optional semantic plot title for Studio Application">, Visible> plot_title = "";
     Annotated<std::string, "x_label", Doc<"Optional semantic x-axis label for Studio Application">, Visible> x_label = "";
     Annotated<std::string, "y_label", Doc<"Optional semantic y-axis label for Studio Application">, Visible> y_label = "";
     Annotated<std::string, "series_labels", Doc<"Optional comma-separated series labels for Studio Application">, Visible> series_labels = "";
+    Annotated<gr::Size_t, "max_labels", Doc<"Maximum visible tag labels in Studio Application">, Visible> max_labels = 100UZ;
     Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
     Annotated<float, "y_min", Doc<"Optional y-axis minimum when autoscale is disabled">, Visible> y_min = 0.0F;
     Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
@@ -325,11 +627,13 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
         endpoint,
         update_ms,
         window_size,
-        channels,
+        window_mode,
+        n_inputs,
         plot_title,
         x_label,
         y_label,
         series_labels,
+        max_labels,
         autoscale,
         y_min,
         y_max,
@@ -338,7 +642,10 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     using Block<StudioSeriesSink<T>>::Block;
 
     void start() {
-        _window.configure(static_cast<std::size_t>(channels), static_cast<std::size_t>(window_size));
+        _window.configure(
+            static_cast<std::size_t>(n_inputs),
+            static_cast<std::size_t>(window_size),
+            window_mode.value);
         startTransport();
     }
 
@@ -348,8 +655,15 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
     }
 
     void settingsChanged(const property_map&, const property_map& new_settings) {
-        if (new_settings.contains("channels") || new_settings.contains("window_size")) {
-            _window.configure(static_cast<std::size_t>(channels), static_cast<std::size_t>(window_size));
+        if (new_settings.contains("n_inputs")) {
+            in.resize(static_cast<std::size_t>(n_inputs));
+        }
+
+        if (new_settings.contains("n_inputs") || new_settings.contains("window_size") || new_settings.contains("window_mode")) {
+            _window.configure(
+                static_cast<std::size_t>(n_inputs),
+                static_cast<std::size_t>(window_size),
+                window_mode.value);
         }
 
         if (new_settings.contains("transport") || new_settings.contains("endpoint")) {
@@ -357,20 +671,36 @@ struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
         }
     }
 
-    [[nodiscard]] work::Status processBulk(InputSpanLike auto& input) noexcept {
-        if (!input.empty()) {
-            _window.pushInterleaved(std::span<const T>(input.data(), input.size()));
-            publishWebSocketFrame();
-            std::ignore = input.consume(input.size());
+    template<InputSpanLike TInputSpan>
+    [[nodiscard]] work::Status processBulk(std::span<TInputSpan>& inputs) noexcept {
+        if (inputs.empty()) {
+            return work::Status::INSUFFICIENT_INPUT_ITEMS;
+        }
+
+        const std::size_t sampleCount = std::ranges::min(inputs | std::views::transform([](const auto& input) { return input.size(); }));
+        if (sampleCount == 0UZ) {
+            return work::Status::INSUFFICIENT_INPUT_ITEMS;
+        }
+
+        for (auto& input : inputs) {
+            _window.pushInputTags(input, sampleCount);
+        }
+        _window.pushInputs(inputs, sampleCount);
+        publishWebSocketFrame();
+        for (auto& input : inputs) {
+            std::ignore = input.consume(sampleCount);
         }
         return work::Status::OK;
     }
+
+    [[nodiscard]] std::string snapshotJson() const { return _window.snapshotJson(); }
 
 private:
     void startTransport() {
         _http.stop();
         _websocket.stop();
         _lastWebSocketPublishAt = {};
+        _lastWebSocketWindowVersion = 0UZ;
 
         if (detail::isWebSocketTransport(transport.value)) {
             const auto parsed = detail::parseHttpEndpoint(endpoint.value);
@@ -392,7 +722,7 @@ private:
         }
 
         const auto parsed = detail::parseHttpEndpoint(endpoint.value);
-        if (!_http.start(parsed, [this]() { return _window.snapshotJson(); })) {
+        if (!_http.start(parsed, [this]() { return snapshotJson(); })) {
             throw gr::exception("StudioSeriesSink failed to start HTTP transport endpoint.");
         }
     }
@@ -401,9 +731,15 @@ private:
     detail::SnapshotHttpService _http{};
     websocket_transport::SnapshotWebSocketService _websocket{};
     std::chrono::steady_clock::time_point _lastWebSocketPublishAt{};
+    std::size_t _lastWebSocketWindowVersion = 0UZ;
 
     void publishWebSocketFrame() {
         if (!_websocket.isRunning()) {
+            return;
+        }
+
+        const std::size_t windowVersion = _window.version();
+        if (windowVersion == _lastWebSocketWindowVersion) {
             return;
         }
 
@@ -414,8 +750,9 @@ private:
             return;
         }
 
+        _lastWebSocketWindowVersion = windowVersion;
         _lastWebSocketPublishAt = now;
-        _websocket.publishText(_window.snapshotJson());
+        _websocket.publishText(snapshotJson());
     }
 };
 

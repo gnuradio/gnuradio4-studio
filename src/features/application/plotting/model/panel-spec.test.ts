@@ -13,6 +13,7 @@ function makeSeriesEntry(overrides: Partial<WorkspacePanelViewModel> = {}): Work
       previewOnCanvas: false,
     },
     nodeDisplayName: 'Node Display',
+    nodeBlockTypeId: 'gr::studio::StudioSeriesSink<float32>',
     ...overrides,
   };
 }
@@ -40,7 +41,7 @@ describe('derivePlotPanelSpec', () => {
     const spec = derivePlotPanelSpec(
       makeSeriesEntry({
         nodeParameters: {
-          channels: '2',
+          n_inputs: '2',
         },
       }),
     );
@@ -51,6 +52,31 @@ describe('derivePlotPanelSpec', () => {
     expect(spec?.view.seriesLabels).toEqual(['ch0', 'ch1']);
     expect(spec?.view.colorAssignmentMode).toBe('byIndex');
     expect(spec?.view.plotColors?.length).toBeGreaterThan(0);
+    expect(spec?.view.maxLabels).toBe(100);
+  });
+
+  it('honors max_labels as the tag label display cap', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        nodeParameters: {
+          max_labels: '12',
+        },
+      }),
+    );
+
+    expect(spec?.view.maxLabels).toBe(12);
+  });
+
+  it('allows max_labels to hide tag labels while keeping markers renderable', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        nodeParameters: {
+          max_labels: '0',
+        },
+      }),
+    );
+
+    expect(spec?.view.maxLabels).toBe(0);
   });
 
   it('uses panel plot style override when present', () => {
@@ -126,14 +152,14 @@ describe('derivePlotPanelSpec', () => {
     const first = derivePlotPanelSpec(
       makeSeriesEntry({
         nodeParameters: {
-          channels: '2',
+          n_inputs: '2',
         },
       }),
     );
     const second = derivePlotPanelSpec(
       makeSeriesEntry({
         nodeParameters: {
-          channels: '2',
+          n_inputs: '2',
         },
       }),
     );
@@ -168,6 +194,76 @@ describe('derivePlotPanelSpec', () => {
     expect(spec?.view.windowSize).toBe(512);
     expect(spec?.view.seriesLabels).toEqual(['spectrum']);
     expect(spec?.view.xLabel).toBe('bin');
+  });
+
+  it('uses generic XY defaults for series2d panels without explicit labels', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        panel: {
+          id: 'studio-panel:node-2d',
+          nodeId: 'node-2d',
+          kind: 'series2d',
+          title: '2D Sink',
+          visible: true,
+          previewOnCanvas: false,
+        },
+        nodeBlockTypeId: 'gr::studio::Studio2DSeriesSink<float32>',
+      }),
+    );
+
+    expect(spec?.source.payloadFormat).toBe('series2d-xy-json-v1');
+    expect(spec?.view.xLabel).toBe('x');
+    expect(spec?.view.yLabel).toBe('y');
+    expect(spec?.view.seriesLabels).toBeUndefined();
+  });
+
+  it('honors explicit XY labels, ranges, and plot colors for series2d panels', () => {
+    const spec = derivePlotPanelSpec(
+      makeSeriesEntry({
+        panel: {
+          id: 'studio-panel:node-xy',
+          nodeId: 'node-xy',
+          kind: 'series2d',
+          title: 'XY Sink',
+          visible: true,
+          previewOnCanvas: false,
+          plotStyle: {
+            palette: {
+              kind: 'custom',
+              colors: ['#22c55e', '#0ea5e9'],
+            },
+            assignmentMode: 'byIndex',
+          },
+        },
+        nodeBlockTypeId: 'gr::studio::Studio2DSeriesSink<float32>',
+        nodeParameters: {
+          autoscale: 'false',
+          x_label: 'Horizontal position',
+          y_label: 'Vertical position',
+          series_labels: 'Observed point',
+          x_min: '0',
+          x_max: '1000',
+          y_min: '-120',
+          y_max: '120',
+        },
+      }),
+    );
+
+    expect(spec?.source.payloadFormat).toBe('series2d-xy-json-v1');
+    expect(spec?.view.xLabel).toBe('Horizontal position');
+    expect(spec?.view.yLabel).toBe('Vertical position');
+    expect(spec?.view.seriesLabels).toEqual(['Observed point']);
+    expect(spec?.view.xRange).toEqual({
+      auto: false,
+      min: 0,
+      max: 1000,
+    });
+    expect(spec?.view.yRange).toEqual({
+      auto: false,
+      min: -120,
+      max: 120,
+    });
+    expect(spec?.view.plotColors).toEqual(['#22c55e', '#0ea5e9']);
   });
 
   it('derives dataset-xy payload format from StudioDataSetSink IDs', () => {

@@ -158,6 +158,45 @@ describe('descriptor-based authoring helpers', () => {
     ).toBeUndefined();
   });
 
+  it('keeps scalar/status sink transport-authored while ignoring authored endpoints', () => {
+    expect(isDescriptorBasedBindingFamily('gr::studio::StudioScalarSink<float32>')).toBe(true);
+    expect(isDescriptorBasedBindingFamily('gr::studio::StudioStatusSink<float32>')).toBe(true);
+    expect(isDescriptorBindingHiddenParameter('gr::studio::StudioScalarSink<float32>', 'endpoint')).toBe(true);
+    expect(isDescriptorBindingHiddenParameter('gr::studio::StudioStatusSink<float32>', 'endpoint')).toBe(true);
+
+    const scalar = buildStudioAuthoringBindingView('gr::studio::StudioScalarSink<float32>', {
+      transport: 'http_poll',
+      endpoint: 'http://legacy-host:18088/scalars',
+      update_ms: '200',
+      channels: '2',
+    });
+    expect(scalar).toMatchObject({
+      status: 'configured',
+      family: 'scalar',
+      payloadFormat: 'scalar-status-json-v1',
+      transport: 'http_poll',
+      updateMs: 200,
+      channels: 2,
+      reason:
+        'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
+    });
+    expect(scalar.endpoint).toBeUndefined();
+
+    const status = buildStudioAuthoringBindingView('gr::studio::StudioStatusSink<float32>', {
+      transport: 'websocket',
+      endpoint: 'ws://legacy-host:18089/status',
+      update_ms: '300',
+    });
+    expect(status).toMatchObject({
+      status: 'configured',
+      family: 'status',
+      payloadFormat: 'scalar-status-json-v1',
+      transport: 'websocket',
+      updateMs: 300,
+    });
+    expect(status.endpoint).toBeUndefined();
+  });
+
   it('extracts descriptor-based transport settings for known Studio blocks outside the hidden-endpoint list', () => {
     expect(
       buildStudioDescriptorAuthoringView('gr::studio::StudioDataSetSink<float32>', {

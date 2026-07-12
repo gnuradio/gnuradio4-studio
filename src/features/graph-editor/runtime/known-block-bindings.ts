@@ -1,4 +1,4 @@
-export type StudioBindingFamily = 'series' | 'series2d' | 'histogram' | 'waterfall' | 'audio' | 'image';
+export type StudioBindingFamily = 'series' | 'series2d' | 'histogram' | 'waterfall' | 'audio' | 'image' | 'scalar' | 'status';
 
 export type StudioTransportMode = 'http_snapshot' | 'http_poll' | 'zmq_sub' | 'websocket';
 export const STUDIO_PHASE1_SUPPORTED_TRANSPORTS = ['http_snapshot', 'http_poll'] as const;
@@ -77,6 +77,7 @@ const STUDIO_2D_SERIES_SUPPORTED_TRANSPORTS = ['http_snapshot', 'http_poll', 'we
 const STUDIO_POWER_SPECTRUM_SUPPORTED_TRANSPORTS = ['http_poll', 'websocket'] as const;
 const STUDIO_WATERFALL_SUPPORTED_TRANSPORTS = ['http_poll', 'websocket'] as const;
 const STUDIO_AUDIO_PLAYBACK_SUPPORTED_TRANSPORTS = ['websocket'] as const;
+const STUDIO_SCALAR_STATUS_SUPPORTED_TRANSPORTS = ['http_poll', 'websocket'] as const;
 export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
   {
     blockTypeId: 'gr::studio::StudioSeriesSink<float32>',
@@ -86,7 +87,6 @@ export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
       transport: 'transport',
       endpoint: 'endpoint',
       updateMs: 'update_ms',
-      channels: 'channels',
       topic: 'topic',
     },
     payloadFormat: 'series-window-json-v1',
@@ -102,7 +102,6 @@ export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
       transport: 'transport',
       endpoint: 'endpoint',
       updateMs: 'update_ms',
-      channels: 'channels',
       topic: 'topic',
     },
     payloadFormat: 'series-window-json-v1',
@@ -116,7 +115,6 @@ export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
       transport: 'transport',
       endpoint: 'endpoint',
       updateMs: 'update_ms',
-      channels: 'channels',
       topic: 'topic',
     },
     payloadFormat: 'series-window-json-v1',
@@ -130,7 +128,6 @@ export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
       transport: 'transport',
       endpoint: 'endpoint',
       updateMs: 'update_ms',
-      channels: 'channels',
       topic: 'topic',
     },
     payloadFormat: 'series-window-json-v1',
@@ -187,6 +184,62 @@ export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
     },
     payloadFormat: 'series2d-xy-json-v1',
     notes: '2D XY sink supports http_snapshot/http_poll/websocket. Live cadence uses update_ms.',
+  },
+  {
+    blockTypeId: 'gr::studio::StudioScalarSink<float32>',
+    family: 'scalar',
+    supportedTransports: STUDIO_SCALAR_STATUS_SUPPORTED_TRANSPORTS,
+    parameters: {
+      transport: 'transport',
+      endpoint: 'endpoint',
+      updateMs: 'update_ms',
+      channels: 'channels',
+      topic: 'topic',
+    },
+    payloadFormat: 'scalar-status-json-v1',
+    notes: 'Latest scalar dashboard sink supports http_snapshot/http_poll/websocket. Update cadence uses update_ms.',
+  },
+  {
+    blockTypeId: 'gr::studio::StudioScalarSink<float>',
+    family: 'scalar',
+    supportedTransports: STUDIO_SCALAR_STATUS_SUPPORTED_TRANSPORTS,
+    parameters: {
+      transport: 'transport',
+      endpoint: 'endpoint',
+      updateMs: 'update_ms',
+      channels: 'channels',
+      topic: 'topic',
+    },
+    payloadFormat: 'scalar-status-json-v1',
+    notes: 'Latest scalar dashboard sink supports http_snapshot/http_poll/websocket. Update cadence uses update_ms.',
+  },
+  {
+    blockTypeId: 'gr::studio::StudioStatusSink<float32>',
+    family: 'status',
+    supportedTransports: STUDIO_SCALAR_STATUS_SUPPORTED_TRANSPORTS,
+    parameters: {
+      transport: 'transport',
+      endpoint: 'endpoint',
+      updateMs: 'update_ms',
+      channels: 'channels',
+      topic: 'topic',
+    },
+    payloadFormat: 'scalar-status-json-v1',
+    notes: 'Latest status dashboard sink supports http_snapshot/http_poll/websocket. Update cadence uses update_ms.',
+  },
+  {
+    blockTypeId: 'gr::studio::StudioStatusSink<float>',
+    family: 'status',
+    supportedTransports: STUDIO_SCALAR_STATUS_SUPPORTED_TRANSPORTS,
+    parameters: {
+      transport: 'transport',
+      endpoint: 'endpoint',
+      updateMs: 'update_ms',
+      channels: 'channels',
+      topic: 'topic',
+    },
+    payloadFormat: 'scalar-status-json-v1',
+    notes: 'Latest status dashboard sink supports http_snapshot/http_poll/websocket. Update cadence uses update_ms.',
   },
   {
     blockTypeId: 'gr::studio::StudioDataSetSink<float32>',

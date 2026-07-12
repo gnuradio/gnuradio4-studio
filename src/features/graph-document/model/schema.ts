@@ -103,7 +103,7 @@ const studioControlWidgetSpecSchema: z.ZodType<StudioControlWidgetSpec> = z.obje
 const studioDataPanelSpecSchema: z.ZodType<StudioDataPanelSpec> = z.object({
   id: z.string().min(1),
   nodeId: z.string().min(1),
-  kind: z.enum(['series', 'series2d', 'histogram', 'waterfall', 'image', 'audio']),
+  kind: z.enum(['series', 'series2d', 'histogram', 'waterfall', 'image', 'audio', 'scalar', 'status']),
   title: z.string().optional(),
   visible: z.boolean(),
   previewOnCanvas: z.boolean(),

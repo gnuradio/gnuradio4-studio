@@ -1,7 +1,18 @@
 import type { StudioPlotPaletteSpec, StudioPlotStyleConfig } from '../../../graph-document/model/studio-workspace';
 
 export const STUDIO_BUILTIN_PLOT_PALETTES = {
-  'studio-default': ['#22d3ee', '#38bdf8', '#818cf8', '#a78bfa', '#f472b6', '#fb7185', '#f59e0b', '#84cc16'],
+  'studio-default': [
+    '#3b82f6',
+    '#ef4444',
+    '#22c55e',
+    '#f8fafc',
+    '#06b6d4',
+    '#d946ef',
+    '#facc15',
+    '#be123c',
+    '#15803d',
+    '#1d4ed8',
+  ],
   cool: ['#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#14b8a6', '#10b981'],
   warm: ['#f97316', '#fb7185', '#ef4444', '#eab308', '#f59e0b', '#f43f5e', '#fda4af', '#fb923c'],
 } as const;

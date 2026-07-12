@@ -106,6 +106,13 @@ describe('timeseries live runtime retention', () => {
         data: [[1, 2, 3]],
         channels: 1,
         samples_per_channel: 3,
+        tags: [
+          {
+            offset: 1,
+            key: 'generic_event',
+            value: true,
+          },
+        ],
       },
     });
 
@@ -116,6 +123,14 @@ describe('timeseries live runtime retention', () => {
     expect(parsed.series).toHaveLength(1);
     expect(parsed.series[0]?.label).toBe('A');
     expect(parsed.series[0]?.y).toEqual([1, 2, 3]);
+    expect(parsed.tags).toEqual([
+      {
+        offset: 1,
+        key: 'generic_event',
+        label: 'generic_event',
+        value: true,
+      },
+    ]);
   });
 
   it('parses dataset payloads through the power spectrum live route unchanged', () => {
@@ -160,6 +175,16 @@ describe('timeseries live runtime retention', () => {
           [0, 0],
           [1, -1],
         ],
+        tags: [
+          {
+            x: 1,
+            y: -1,
+            key: 'xy_event',
+            metadata: {
+              score: 0.5,
+            },
+          },
+        ],
       },
     });
 
@@ -172,6 +197,17 @@ describe('timeseries live runtime retention', () => {
     expect(parsed.series[0]?.label).toBe('Constellation');
     expect(parsed.series[0]?.x).toEqual([-1, 0, 1]);
     expect(parsed.series[0]?.y).toEqual([1, 0, -1]);
+    expect(parsed.tags).toEqual([
+      {
+        x: 1,
+        y: -1,
+        key: 'xy_event',
+        label: 'xy_event',
+        metadata: {
+          score: 0.5,
+        },
+      },
+    ]);
   });
 
   it('parses waterfall payloads through the existing waterfall live route unchanged', () => {

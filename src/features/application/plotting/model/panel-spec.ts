@@ -55,8 +55,8 @@ function parseSeriesLabels(parameters: PlotParameterMap | undefined): string[] |
   return labels.length > 0 ? labels : undefined;
 }
 
-function parseChannels(parameters: PlotParameterMap | undefined): number | undefined {
-  const raw = readParameterValue(parameters, ['channels']);
+function parseSeriesCount(parameters: PlotParameterMap | undefined, isSeriesSink: boolean): number | undefined {
+  const raw = readParameterValue(parameters, isSeriesSink ? ['n_inputs'] : ['channels']);
   if (raw === undefined) {
     return undefined;
   }
@@ -81,6 +81,18 @@ function parseWindowSize(parameters: PlotParameterMap | undefined): number | und
   }
   const parsed = Number.parseInt(String(raw), 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return parsed;
+}
+
+function parsePositiveInteger(parameters: PlotParameterMap | undefined, keys: readonly string[]): number | undefined {
+  const raw = readParameterValue(parameters, keys);
+  if (raw === undefined) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(String(raw), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
     return undefined;
   }
   return parsed;
@@ -226,17 +238,23 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
       payloadFormat === 'series2d-xy-json-v1' ||
       payloadFormat === 'dataset-xy-json-v1');
   const isWaterfall = entry.panel.kind === 'waterfall' || payloadFormat === 'waterfall-spectrum-json-v1';
-  const xLabel =
-    readTextParameterValue(entry.nodeParameters, ['x_label', 'xlabel']) ?? (isSeries2D || isWaterfall || isHistogram ? 'Frequency' : 'sample');
-  const yLabel = readTextParameterValue(entry.nodeParameters, ['y_label', 'ylabel']) ?? (isWaterfall || isHistogram ? 'Power' : 'value');
+  const defaultXLabel = isWaterfall || isHistogram ? 'Frequency' : isSeries2D ? 'x' : 'sample';
+  const defaultYLabel = isWaterfall || isHistogram ? 'Power' : isSeries2D ? 'y' : 'value';
+  const xLabel = readTextParameterValue(entry.nodeParameters, ['x_label', 'xlabel']) ?? defaultXLabel;
+  const yLabel = readTextParameterValue(entry.nodeParameters, ['y_label', 'ylabel']) ?? defaultYLabel;
   // Metadata precedence:
   // 1) explicit graph/block params (series_labels/channel_labels)
   // 2) payload-side metadata (handled at runtime for dataset/vector payloads)
   // 3) stable defaults
   const seriesLabels =
     parseSeriesLabels(entry.nodeParameters) ??
-    (isSeries2D || isWaterfall || isHistogram ? undefined : buildDefaultSeriesLabels(parseChannels(entry.nodeParameters)));
+    (isSeries2D || isWaterfall || isHistogram
+      ? undefined
+      : buildDefaultSeriesLabels(
+          parseSeriesCount(entry.nodeParameters, Boolean(binding?.blockTypeId.startsWith('gr::studio::StudioSeriesSink<'))),
+        ));
   const windowSize = parseWindowSize(entry.nodeParameters) ?? 1024;
+  const maxLabels = parsePositiveInteger(entry.nodeParameters, ['max_labels', 'maxLabels']) ?? 100;
   const autoscale =
     parseBooleanValue(readParameterValue(entry.nodeParameters, ['autoscale', 'auto_scale'])) ?? true;
   const xMin = parseOptionalNumber(entry.nodeParameters, ['x_min', 'xmin', 'xMin']);
@@ -323,6 +341,7 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
       ...rangeSpec,
       plotColors: resolvedPlotStyle.colors,
       colorAssignmentMode: resolvedPlotStyle.assignmentMode,
+      maxLabels,
     },
   };
 

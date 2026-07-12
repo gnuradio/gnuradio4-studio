@@ -1,4 +1,5 @@
-import type { PlotSeriesFrame, PlotXyRenderMode } from '../model/types';
+import type { PlotSeriesFrame, PlotTagAnnotation, PlotXyRenderMode } from '../model/types';
+import { parsePlotTags } from '../../../graph-editor/runtime/plot-tags';
 
 export type HttpVectorSnapshot = {
   sampleType?: string;
@@ -12,6 +13,7 @@ export type HttpVectorSnapshot = {
   signalUnit?: string;
   axisName?: string;
   axisUnit?: string;
+  tags?: PlotTagAnnotation[];
 };
 
 function isFiniteNumber(value: unknown): value is number {
@@ -81,6 +83,7 @@ export function parseHttpVectorSnapshot(payload: unknown): HttpVectorSnapshot {
     throw new Error('Vector snapshot payload points must match data length.');
   }
 
+  const tags = parsePlotTags(record);
   return {
     sampleType: typeof record.sample_type === 'string' ? record.sample_type : undefined,
     points,
@@ -93,6 +96,7 @@ export function parseHttpVectorSnapshot(payload: unknown): HttpVectorSnapshot {
     signalUnit: typeof record.signal_unit === 'string' ? record.signal_unit : undefined,
     axisName: typeof record.axis_name === 'string' ? record.axis_name : undefined,
     axisUnit: typeof record.axis_unit === 'string' ? record.axis_unit : undefined,
+    ...(tags ? { tags } : {}),
   };
 }
 

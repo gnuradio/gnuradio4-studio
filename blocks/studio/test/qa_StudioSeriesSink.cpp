@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include <array>
 #include <algorithm>
 #include <atomic>
 #include <cassert>
@@ -11,7 +12,11 @@
 #include <thread>
 
 #include <gnuradio-4.0/BlockRegistry.hpp>
+#include <gnuradio-4.0/Graph.hpp>
+#include <gnuradio-4.0/Scheduler.hpp>
 #include <gnuradio-4.0/studio/StudioSeriesSink.hpp>
+#include <gnuradio-4.0/testing/NullSources.hpp>
+#include <gnuradio-4.0/testing/TagMonitors.hpp>
 
 #if !defined(_WIN32)
 #include <arpa/inet.h>
@@ -20,6 +25,24 @@
 #endif
 
 namespace {
+
+struct TaggedInputStub {
+    std::ptrdiff_t relativeIndex;
+    gr::property_map map;
+
+    auto tags() {
+        return std::array{gr::PairRelIndexMapRef{relativeIndex, std::cref(map)}};
+    }
+};
+
+template<typename T, std::size_t N>
+void pushSeriesInputs(
+    gr::studio::detail::SeriesWindow<T>& window,
+    const std::array<std::span<const T>, N>& inputs) {
+    auto spans = inputs;
+    const std::size_t sampleCount = std::ranges::min(spans | std::views::transform([](const auto input) { return input.size(); }));
+    window.pushInputs(std::span(spans), sampleCount);
+}
 
 void testSeriesRegistered() {
     const auto keys = gr::globalBlockRegistry().keys();
@@ -32,7 +55,10 @@ void testSeriesRegistered() {
 void testDefaultTransportAndCadence() {
     gr::studio::StudioSeriesSink<float> block{};
     assert(block.transport.value == gr::studio::detail::SeriesTransport::http_poll);
+    assert(block.window_mode.value == gr::studio::detail::SeriesWindowMode::rolling);
     assert(block.update_ms == 250U);
+    assert(block.n_inputs == 1UZ);
+    assert(block.in.size() == 1UZ);
 }
 
 void testWebSocketTransportLifecycle() {
@@ -58,7 +84,7 @@ void testSnapshotJsonSanitizesNonFiniteFloatSamples() {
         negativeNan,
     };
 
-    window.pushInterleaved(samples);
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
 
     const std::string json = window.snapshotJson();
     assert(json.find("nan") == std::string::npos);
@@ -75,13 +101,207 @@ void testSnapshotJsonSanitizesNonFiniteComplexSamples() {
         {-std::numeric_limits<float>::infinity(), 2.0F},
     };
 
-    window.pushInterleaved(samples);
+    pushSeriesInputs(window, std::array{std::span<const std::complex<float>>(samples)});
 
     const std::string json = window.snapshotJson();
     assert(json.find("nan") == std::string::npos);
     assert(json.find("inf") == std::string::npos);
     assert(json.find("-inf") == std::string::npos);
     assert(json.find("\"data\":[[1,0,0,2]]") != std::string::npos);
+}
+
+void testSeriesSinkSerializesInputTags() {
+    gr::Graph graph;
+    auto& source = graph.emplaceBlock<gr::testing::TagSource<float, gr::testing::ProcessFunction::USE_PROCESS_BULK>>({
+        {"n_samples_max", gr::Size_t{40UZ}},
+        {"mark_tag", false},
+    });
+    source._tags.push_back(gr::Tag{
+        25UZ,
+        gr::property_map{
+            {std::pmr::string("demo_tag"), true},
+            {std::pmr::string("key"), std::string("demo_tag")},
+            {std::pmr::string("label"), std::string("Demo tag")},
+            {std::pmr::string("sample_index"), 25.0},
+            {std::pmr::string("time_s"), 0.025},
+            {std::pmr::string("value"), 0.707},
+        },
+    });
+
+    auto& sink = graph.emplaceBlock<gr::studio::StudioSeriesSink<float>>();
+    sink.transport = gr::studio::detail::SeriesTransport::http_poll;
+    sink.endpoint = "http://127.0.0.1:0/snapshot";
+    sink.window_size = 64UZ;
+
+    assert(graph.connect(source, "out", sink, "in#0").has_value());
+    gr::scheduler::Simple sched;
+    assert(sched.exchange(std::move(graph)).has_value());
+    assert(sched.runAndWait().has_value());
+
+    const std::string json = sink.snapshotJson();
+    assert(json.find("\"payload_format\":\"series-window-json-v1\"") != std::string::npos);
+    assert(json.find("\"tags\":[") != std::string::npos);
+    assert(json.find("\"offset\":25") != std::string::npos);
+    assert(json.find("\"key\":\"demo_tag\"") != std::string::npos);
+    assert(json.find("\"label\":\"Demo tag\"") != std::string::npos);
+    assert(json.find("\"value\":true") != std::string::npos);
+    assert(json.find("\"sample_index\":25") != std::string::npos);
+    assert(json.find("\"time_s\":0.025") != std::string::npos);
+}
+
+void testSeriesSinkTagOffsetsFollowSlidingWindow() {
+    gr::Graph graph;
+    auto& source = graph.emplaceBlock<gr::testing::TagSource<float, gr::testing::ProcessFunction::USE_PROCESS_BULK>>({
+        {"n_samples_max", gr::Size_t{300UZ}},
+        {"mark_tag", false},
+    });
+    for (const std::size_t offset : {25UZ, 148UZ, 271UZ}) {
+        source._tags.push_back(gr::Tag{
+            offset,
+            gr::property_map{
+                {std::pmr::string("demo_tag"), true},
+                {std::pmr::string("key"), std::string("demo_tag")},
+                {std::pmr::string("label"), std::string("Demo tag")},
+                {std::pmr::string("sample_index"), static_cast<double>(offset)},
+            },
+        });
+    }
+
+    auto& sink = graph.emplaceBlock<gr::studio::StudioSeriesSink<float>>();
+    sink.transport = gr::studio::detail::SeriesTransport::http_poll;
+    sink.endpoint = "http://127.0.0.1:0/snapshot";
+    sink.window_size = 123UZ;
+
+    assert(graph.connect(source, "out", sink, "in#0").has_value());
+    gr::scheduler::Simple sched;
+    assert(sched.exchange(std::move(graph)).has_value());
+    assert(sched.runAndWait().has_value());
+
+    const std::string json = sink.snapshotJson();
+    assert(json.find("\"samples_per_channel\":123") != std::string::npos);
+    assert(json.find("\"offset\":94") != std::string::npos);
+    assert(json.find("\"sample_index\":271") != std::string::npos);
+    assert(json.find("\"sample_index\":25") == std::string::npos);
+    assert(json.find("\"sample_index\":148") == std::string::npos);
+}
+
+void testSeriesSinkPublishesOneSeriesPerInputPort() {
+    gr::Graph graph;
+    auto& first = graph.emplaceBlock<gr::testing::CountingSource<float>>({
+        {"default_value", 0.0F},
+        {"n_samples_max", gr::Size_t{4UZ}},
+    });
+    auto& second = graph.emplaceBlock<gr::testing::CountingSource<float>>({
+        {"default_value", 100.0F},
+        {"n_samples_max", gr::Size_t{4UZ}},
+    });
+    auto& sink = graph.emplaceBlock<gr::studio::StudioSeriesSink<float>>({
+        {"n_inputs", gr::Size_t{2UZ}},
+        {"transport", std::string("http_poll")},
+        {"endpoint", std::string("http://127.0.0.1:0/snapshot")},
+        {"window_size", gr::Size_t{4UZ}},
+    });
+
+    assert(sink.in.size() == 2UZ);
+    assert(graph.connect(first, "out", sink, "in#0").has_value());
+    assert(graph.connect(second, "out", sink, "in#1").has_value());
+
+    gr::scheduler::Simple sched;
+    assert(sched.exchange(std::move(graph)).has_value());
+    assert(sched.runAndWait().has_value());
+
+    const std::string json = sink.snapshotJson();
+    assert(json.find("\"channels\":2") != std::string::npos);
+    assert(json.find("\"samples_per_channel\":4") != std::string::npos);
+    assert(json.find("\"data\":[[1,2,3,4],[101,102,103,104]]") != std::string::npos);
+}
+
+void testSeriesWindowRollingModePublishesLatestSamples() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ};
+    const float samples[] = {1.0F, 2.0F, 3.0F, 4.0F, 5.0F};
+
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
+
+    const std::string json = window.snapshotJson();
+    assert(json.find("\"samples_per_channel\":4") != std::string::npos);
+    assert(json.find("\"data\":[[2,3,4,5]]") != std::string::npos);
+}
+
+void testSeriesWindowBufferedModePublishesOnlyFullBuffers() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ, gr::studio::detail::SeriesWindowMode::buffered};
+    const float firstPartial[] = {1.0F, 2.0F, 3.0F};
+    const float completesFirst[] = {4.0F};
+    const float secondPartial[] = {5.0F, 6.0F, 7.0F};
+    const float completesSecond[] = {8.0F};
+    const float oversizedThird[] = {9.0F, 10.0F, 11.0F, 12.0F, 13.0F};
+
+    pushSeriesInputs(window, std::array{std::span<const float>(firstPartial)});
+    std::string json = window.snapshotJson();
+    assert(json.find("\"samples_per_channel\":0") != std::string::npos);
+    assert(json.find("\"data\":[[]]") != std::string::npos);
+
+    pushSeriesInputs(window, std::array{std::span<const float>(completesFirst)});
+    json = window.snapshotJson();
+    assert(json.find("\"samples_per_channel\":4") != std::string::npos);
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+
+    pushSeriesInputs(window, std::array{std::span<const float>(secondPartial)});
+    json = window.snapshotJson();
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+    assert(json.find("\"data\":[[4,5,6,7]]") == std::string::npos);
+
+    pushSeriesInputs(window, std::array{std::span<const float>(completesSecond)});
+    json = window.snapshotJson();
+    assert(json.find("\"data\":[[5,6,7,8]]") != std::string::npos);
+
+    pushSeriesInputs(window, std::array{std::span<const float>(oversizedThird)});
+    json = window.snapshotJson();
+    assert(json.find("\"data\":[[9,10,11,12]]") != std::string::npos);
+    assert(json.find("\"data\":[[10,11,12,13]]") == std::string::npos);
+}
+
+void testSeriesWindowPublishesFirstBufferTags() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ, gr::studio::detail::SeriesWindowMode::buffered};
+    TaggedInputStub tag{
+        .relativeIndex = 2,
+        .map = {
+            {std::pmr::string("demo_tag"), true},
+            {std::pmr::string("label"), std::string("Demo tag")},
+        },
+    };
+    const float samples[] = {1.0F, 2.0F, 3.0F, 4.0F};
+
+    window.pushInputTags(tag, 4UZ);
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
+
+    const std::string json = window.snapshotJson();
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+    assert(json.find("\"tags\":[") != std::string::npos);
+    assert(json.find("\"offset\":2") != std::string::npos);
+    assert(json.find("\"label\":\"Demo tag\"") != std::string::npos);
+}
+
+void testSeriesWindowAddsLateTagToPublishedBuffer() {
+    gr::studio::detail::SeriesWindow<float> window{1UZ, 4UZ, gr::studio::detail::SeriesWindowMode::buffered};
+    const float samples[] = {1.0F, 2.0F, 3.0F, 4.0F};
+    pushSeriesInputs(window, std::array{std::span<const float>(samples)});
+
+    const std::size_t publishedVersion = window.version();
+    TaggedInputStub lateTag{
+        .relativeIndex = -2,
+        .map = {
+            {std::pmr::string("demo_tag"), true},
+            {std::pmr::string("label"), std::string("Demo tag")},
+        },
+    };
+    window.pushInputTags(lateTag, 1UZ);
+
+    const std::string json = window.snapshotJson();
+    assert(window.version() == publishedVersion + 1UZ);
+    assert(json.find("\"data\":[[1,2,3,4]]") != std::string::npos);
+    assert(json.find("\"tags\":[") != std::string::npos);
+    assert(json.find("\"offset\":2") != std::string::npos);
+    assert(json.find("\"label\":\"Demo tag\"") != std::string::npos);
 }
 
 void testHttpTransportHelpers() {
@@ -136,6 +356,13 @@ void testWebSocketStopUnblocksIncompleteHandshake() {
 } // namespace
 
 int main() {
+    testSeriesSinkSerializesInputTags();
+    testSeriesSinkTagOffsetsFollowSlidingWindow();
+    testSeriesSinkPublishesOneSeriesPerInputPort();
+    testSeriesWindowRollingModePublishesLatestSamples();
+    testSeriesWindowBufferedModePublishesOnlyFullBuffers();
+    testSeriesWindowPublishesFirstBufferTags();
+    testSeriesWindowAddsLateTagToPublishedBuffer();
     testSeriesRegistered();
     testDefaultTransportAndCadence();
     testWebSocketTransportLifecycle();

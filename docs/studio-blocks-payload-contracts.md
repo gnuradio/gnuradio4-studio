@@ -9,6 +9,7 @@ Related architecture doc:
 ## Scope
 
 - scalar series payload
+- latest scalar/status payload
 - `series2d-xy-json-v1`
 - `dataset-xy-json-v1`
 - phosphor spectrum rendering on top of `dataset-xy-json-v1` via `StudioPowerSpectrumSink` with `persistence=true` and phosphor tuning via `phosphor_intensity` / `phosphor_decay_ms`
@@ -39,14 +40,21 @@ Expected payload fields:
 - `data` required, array of per-channel arrays
 - `channels` optional, number
 - `samples_per_channel` optional, number
+- `tags` optional, array of generic plot tag annotations; see Optional Plot Tags below
+- `max_labels` block parameter optional, maximum number of visible tag labels, defaults to `100`; marker lines/points still render when labels are capped
+- `window_mode` block parameter optional, `rolling | buffered`, defaults to `rolling`
+- `n_inputs` block parameter controls the number of independent input ports and plotted series
 
 Semantics:
 
 - `data` is channel-major series payload.
+- Each `StudioSeriesSink` input port maps directly to one channel array in `data`; input samples are not interleaved.
 - Real scalar payloads normalize to one plotted series per logical channel.
 - Complex scalar payloads normalize to two plotted series per logical channel:
   - `<base> (real)`
   - `<base> (imag)`
+- `window_mode=rolling` publishes the latest up-to-`window_size` samples.
+- `window_mode=buffered` holds the previous complete window and only advances after another full `window_size` frames have arrived.
 - Magnitude-only collapse is not the default normalization.
 
 Frontend routing:
@@ -66,15 +74,112 @@ Expected payload fields:
 - `render_mode` optional, `line | scatter`, defaults to `line`
 - `point_size` optional, positive number
 - `point_alpha` optional, number in `[0,1]`
+- `tags` optional, array of generic plot tag annotations; see Optional Plot Tags below
+- `max_labels` block parameter optional, maximum number of visible tag labels, defaults to `100`; marker lines/points still render when labels are capped
 
 Semantics:
 
 - One XY trace represented by explicit x/y pairs.
 - `render_mode=scatter` enables constellation-style XY rendering without a new plot kind.
+- Authored `x_label`, `y_label`, and `series_labels` metadata take precedence over payload metadata and defaults.
+- When labels are not authored, `Studio2DSeriesSink` panels use generic `x` / `y` axis labels. Spectrum-like dataset, histogram, and waterfall panels retain `Frequency` / `Power` defaults.
+- `autoscale=false` with `x_min`/`x_max` and `y_min`/`y_max` sets manual XY ranges for `Studio2DSeriesSink` panels.
 
 Frontend routing:
 
 - `payloadFormat=series2d-xy-json-v1` routes to the vector XY parser, regardless of whether the sink is served over `http_snapshot`, `http_poll`, or websocket transport.
+- `Studio2DSeriesSink` is descriptor-managed when session stream descriptors are present. Browser-facing endpoints come from `session.streams[]`; authored legacy `endpoint` values are hidden from current authoring and omitted from runtime export.
+
+## Optional Plot Tags
+
+`series-window-json-v1`, `series2d-xy-json-v1`, and `dataset-xy-json-v1` payloads may include generic sparse annotations:
+
+```json
+{
+  "tags": [
+    {
+      "offset": 123,
+      "key": "threshold_crossing",
+      "value": true,
+      "label": "threshold_crossing",
+      "metadata": {
+        "confidence": 0.93
+      }
+    }
+  ]
+}
+```
+
+Tag fields:
+
+- `key` required, non-empty string
+- `offset` optional, finite numeric sample offset or frame-local point index
+- `x` optional, finite plot x coordinate
+- `y` optional, finite plot y coordinate for point annotations
+- `value` optional, string, number, boolean, or null
+- `label` optional, display string; defaults to `key`
+- `metadata` optional, object with string, number, boolean, or null values
+
+Rules:
+
+- `tags` is optional; plots without tags render unchanged.
+- A tag must include either `offset` or `x`.
+- The frontend currently renders offset/x-only tags as vertical plot markers.
+- Tags with both `x` and `y` render as point annotations on XY/scatter plots.
+- The frontend bounds each payload to the first 64 tags and labels up to `max_labels` visible markers to limit clutter.
+- Start/end span pairing is intentionally deferred; producers may still emit start/end tags as separate generic markers.
+- `StudioSeriesSink` extracts recent GNU Radio stream tags from all input spans and emits visible-window tags from block-owned data-plane state.
+- Other producers that support stream tags should use the same optional field without adding control-plane APIs.
+
+## Latest Scalar/Status Contract
+
+`scalar-status-json-v1`
+
+Expected payload fields:
+
+- `payload_format` required, must be `scalar-status-json-v1`
+- `layout` required, must be `latest_scalars`
+- `sample_type` optional, normally `float32`
+- `presentation` optional, `scalar | status`
+- `channels` required, positive integer
+- `sequence` optional, monotonically increasing integer
+- `has_value` required, boolean
+- `labels` required, array of display labels, one per channel when available
+- `units` required, array of unit labels, one per channel when available
+- `values` required, numeric latest-value array
+
+Example:
+
+```json
+{
+  "payload_format": "scalar-status-json-v1",
+  "sample_type": "float32",
+  "layout": "latest_scalars",
+  "presentation": "scalar",
+  "channels": 2,
+  "sequence": 42,
+  "has_value": true,
+  "labels": ["Quality", "Locked"],
+  "units": ["", ""],
+  "values": [0.91, 1]
+}
+```
+
+Semantics:
+
+- `StudioScalarSink<float32>` and `StudioStatusSink<float32>` both publish this contract.
+- Input samples are interleaved by channel; each complete frame replaces the latest value for all channels.
+- Non-finite values are emitted as `0`.
+- `StudioScalarSink` is intended for compact latest-value metric cards.
+- `StudioStatusSink` is intended for latest-value status rows.
+- `has_value=false` means no complete scalar frame has arrived yet; the frontend should not render placeholder zeroes as live data.
+
+Frontend routing:
+
+- `payloadFormat=scalar-status-json-v1` routes to the scalar/status renderer, not to a scrolling plot.
+- `StudioScalarSink` and `StudioStatusSink` are descriptor-managed sinks. Browser-facing endpoints come from `session.streams[]`.
+- Authored legacy `endpoint` values are ignored/omitted by current runtime export for these sinks.
+- Supported transports are `http_poll` and `websocket`; `http_snapshot` is intentionally not supported.
 
 ## Dataset XY contract
 
@@ -92,6 +197,7 @@ Expected payload fields:
 - `axis_unit` optional, string
 - `sample_rate` optional, positive number in Hz when emitted by spectrum-producing sinks
 - `center_freq` optional, number in Hz added to relative FFT bin frequencies when emitted by `StudioPowerSpectrumSink`
+- `tags` optional, array of generic plot tag annotations; see Optional Plot Tags above
 
 Semantics:
 
@@ -213,6 +319,7 @@ Layout metadata never owns these semantics.
 - Contract routing: `src/features/application/plotting/runtime/timeseries-live-runtime.ts`
 - Scalar parser: `src/features/graph-editor/runtime/http-time-series.ts`
 - Vector/dataset parser: `src/features/application/plotting/runtime/vector-frame.ts`
+- Scalar/status renderer: `src/features/workspace/renderers/scalar-status-live-renderer.tsx`
 - Plot metadata precedence: `src/features/application/plotting/model/panel-spec.ts`
 - Visible-state derivation: `src/features/application/plotting/components/plot-visible-state.ts`
 

@@ -95,7 +95,7 @@ describe('buildCurrentGraphSubmissionFromEditorSnapshot', () => {
     const submission = buildCurrentSessionGraphSubmission(document);
 
     expect(submission.content).toContain('transport: http_poll');
-    expect(submission.content).toContain('endpoint: "http://127.0.0.1:18080/snapshot"');
+    expect(submission.content).not.toContain('endpoint:');
     expect(submission.content).toContain('- id: "gr::testing::NullSource<float32>"');
     expect(document.graph.nodes[0]?.parameters.transport).toEqual({ kind: 'literal', value: 'http_poll' });
     expect(submission.content).toContain('- id: "gr::studio::StudioSeriesSink<complex<float32>>"');

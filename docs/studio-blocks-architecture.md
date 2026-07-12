@@ -61,6 +61,8 @@ Rules:
 - `StudioDataSetSink`
 - `StudioPowerSpectrumSink`
 - `StudioWaterfallSink`
+- `StudioScalarSink`
+- `StudioStatusSink`
 - `StudioAudioSink`
 - `StudioImageSink`
 
@@ -71,6 +73,8 @@ The code currently registers concrete type variants for each family, for example
 - `gr::studio::StudioDataSetSink<...>`
 - `gr::studio::StudioPowerSpectrumSink<...>`
 - `gr::studio::StudioWaterfallSink<...>`
+- `gr::studio::StudioScalarSink<...>`
+- `gr::studio::StudioStatusSink<...>`
 - `gr::studio::StudioAudioSink<...>`
 - `gr::studio::StudioImageSink<...>`
 
@@ -96,7 +100,7 @@ Rules:
 - do not assume all combinations are valid
 - validate parameters locally, not authoritatively
 
-Websocket transport currently exists for selected sinks only. Descriptor-adapted current-session bindings currently include `StudioSeriesSink`, `Studio2DSeriesSink`, `StudioPowerSpectrumSink`, `StudioWaterfallSink`, and `StudioAudioSink`. When adding websocket support to a new sink, follow the implementation checklist in `docs/studio-websocket-integration.md`.
+Websocket transport currently exists for selected sinks only. Descriptor-adapted current-session bindings currently include `StudioSeriesSink`, `Studio2DSeriesSink`, `StudioPowerSpectrumSink`, `StudioWaterfallSink`, `StudioScalarSink`, `StudioStatusSink`, and `StudioAudioSink`. When adding websocket support to a new sink, follow the implementation checklist in `docs/studio-websocket-integration.md`.
 For websocket-capable sinks, `update_ms` is the live cadence control used by the native send path.
 
 ## Standard parameters
@@ -123,6 +127,7 @@ Implications:
 - legacy `endpoint` values may still persist in saved documents, but Studio does not use them for descriptor-driven runtime resolution
 - Studio binds directly to the runtime-advertised interface when present
 - control plane stays separate from payload semantics
+- optional plot tag annotations are payload metadata owned by the producing sink/block, not a separate control-plane event API
 
 ## HTTP behavior
 
@@ -136,6 +141,7 @@ Rendering is handled separately:
 - `StudioSeriesSink` uses the live `series` renderer path for JSON snapshots and websocket frames
 - `Studio2DSeriesSink` uses the `series2d-xy-json-v1` path for XY/vector rendering over HTTP snapshots and websocket frames
 - `series2d-xy-json-v1` and `dataset-xy-json-v1` -> XY/vector plot path
+- `series-window-json-v1`, `series2d-xy-json-v1`, and `dataset-xy-json-v1` may carry optional generic `tags[]` metadata. The renderer shows these as plot annotations without interpreting domain-specific tag keys.
 - `StudioPowerSpectrumSink` uses the `dataset-xy-json-v1` path for FFT-based spectrum rendering
 - `StudioPowerSpectrumSink` uses `sample_rate` for FFT-bin spacing and optional `center_freq` to offset the x axis from relative baseband Hz to absolute RF Hz
 - `StudioPowerSpectrumSink` owns its x axis through FFT metadata and emitted frequency bins. It does not expose `x_min` / `x_max`; with `autoscale=false`, Studio applies only `y_min` / `y_max` to the rendered spectrum range.
@@ -145,6 +151,8 @@ Rendering is handled separately:
 - `StudioWaterfallSink` emits the effective quantized `time_span` together with `sample_rate`
 - `StudioWaterfallSink` also carries `autoscale`, `z_min`, and `z_max` parameters that control the rendered waterfall colormap range
 - Waterfall plots ignore the generic `x_min` / `x_max` / `y_min` / `y_max` axis-range parameters
+- `StudioScalarSink` and `StudioStatusSink` use the `scalar-status-json-v1` path for latest-value metric cards and status rows
+- `StudioScalarSink` and `StudioStatusSink` are descriptor-managed and support `http_poll` and `websocket`; `http_snapshot` is not a valid transport for these sinks
 - `StudioAudioSink` is a playback-oriented sink and uses `audio-float32-binary-v1` over websocket
 - image and audio panel kinds -> separate renderers
 

@@ -37,11 +37,16 @@ void testWebSocketTransportLifecycle() {
     block.transport = gr::studio::detail::Series2DTransport::websocket;
     block.endpoint = "http://127.0.0.1:0/xy";
     block.update_ms = 10U;
+    block.render_mode = "scatter";
+    block.point_size = 6.0F;
+    block.point_alpha = 0.5F;
 
     block.start();
     const std::string json = block.snapshotJson();
     assert(json.find("\"layout\":\"pairs_xy\"") != std::string::npos);
-    assert(json.find("\"render_mode\":\"line\"") != std::string::npos);
+    assert(json.find("\"render_mode\":\"scatter\"") != std::string::npos);
+    assert(json.find("\"point_size\":6") != std::string::npos);
+    assert(json.find("\"point_alpha\":0.5") != std::string::npos);
     block.stop();
 }
 

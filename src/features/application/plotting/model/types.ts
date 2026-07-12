@@ -28,6 +28,7 @@ export type PlotViewSpec = {
   };
   plotColors?: string[];
   colorAssignmentMode?: 'byIndex';
+  maxLabels?: number;
   phosphor?: PhosphorSpectrumTuning;
 };
 
@@ -36,6 +37,18 @@ export type PlotSeriesFrame = {
   label: string;
   x?: number[] | Float64Array;
   y: number[] | Float32Array | Float64Array;
+};
+
+export type PlotTagValue = string | number | boolean | null;
+
+export type PlotTagAnnotation = {
+  key: string;
+  label: string;
+  offset?: number;
+  x?: number;
+  y?: number;
+  value?: PlotTagValue;
+  metadata?: Record<string, PlotTagValue>;
 };
 
 export type PlotImageFrame = {
@@ -55,6 +68,7 @@ export type PlotImageFrame = {
 };
 
 export type PlotXyRenderMode = 'line' | 'scatter';
+export type PlotAxisMode = 'x' | 'y' | 'xy';
 
 export type PlotDataFrame = {
   kind: PlotKind;
@@ -69,6 +83,7 @@ export type PlotDataFrame = {
     xyRenderMode?: PlotXyRenderMode;
     xyPointSize?: number;
     xyPointAlpha?: number;
+    tags?: PlotTagAnnotation[];
     state?: 'loading' | 'no-data' | 'error' | 'ready';
     errorKind?: 'invalid-binding' | 'runtime';
     errorMessage?: string;
@@ -102,4 +117,6 @@ export type PlotAdapterProps = {
   frame: PlotDataFrame;
   width: number;
   height: number;
+  axisMode?: PlotAxisMode;
+  viewResetKey?: number;
 };

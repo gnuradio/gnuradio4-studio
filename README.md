@@ -25,6 +25,7 @@ This repository includes first-party Studio-compatible GR4 blocks under `blocks/
 
 - series and 2D series sinks
 - dataset, power-spectrum, and waterfall sinks
+- scalar/status latest-value sinks
 - audio playback sink
 - image sink
 

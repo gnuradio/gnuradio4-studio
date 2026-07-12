@@ -5,6 +5,7 @@ import { resolveGraphVariables } from '../../variables/model/resolveGraphVariabl
 import type { JsonPrimitive } from '../../variables/model/types';
 import { createEdgeId } from '../../graph-editor/model/nodeFactory';
 import { lookupStudioKnownBlockBinding } from '../../graph-editor/runtime/known-block-bindings';
+import { isDescriptorBindingHiddenParameter } from '../../graph-editor/runtime/studio-managed-runtime-authoring';
 import {
   isVirtualRoutingBlockType,
   isVirtualSinkBlockType,
@@ -392,6 +393,10 @@ function shouldOmitParameter(name: string, rawValue: JsonPrimitive | undefined):
 }
 
 function shouldOmitParameterForBlock(blockTypeId: string, name: string, rawValue: JsonPrimitive | undefined): boolean {
+  if (isDescriptorBindingHiddenParameter(blockTypeId, name)) {
+    return true;
+  }
+
   if (
     (blockTypeId.startsWith('gr::studio::StudioSeriesSink<') ||
       blockTypeId.startsWith('gr::studio::StudioPowerSpectrumSink<')) &&

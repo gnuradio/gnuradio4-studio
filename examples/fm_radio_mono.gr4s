@@ -988,7 +988,7 @@
             "kind": "literal",
             "value": true
           },
-          "channels": {
+          "n_inputs": {
             "kind": "literal",
             "value": "1"
           },
@@ -1218,7 +1218,7 @@
             "kind": "literal",
             "value": true
           },
-          "channels": {
+          "n_inputs": {
             "kind": "literal",
             "value": "1"
           },
@@ -1472,14 +1472,14 @@
         }
       },
       {
-        "id": "gr__incubator__filter__FirDecimator_complex_float32___16:out->gr__studio__StudioSeriesSink_complex_float32___18:in",
+        "id": "gr__incubator__filter__FirDecimator_complex_float32___16:out->gr__studio__StudioSeriesSink_complex_float32___18:in#0",
         "source": {
           "nodeId": "gr__incubator__filter__FirDecimator_complex_float32___16",
           "portId": "out"
         },
         "target": {
           "nodeId": "gr__studio__StudioSeriesSink_complex_float32___18",
-          "portId": "in"
+          "portId": "in#0"
         }
       },
       {
@@ -1494,14 +1494,14 @@
         }
       },
       {
-        "id": "gr__incubator__pfb__PfbArbResampler_float32__8:out->gr__studio__StudioSeriesSink_float32__20:in",
+        "id": "gr__incubator__pfb__PfbArbResampler_float32__8:out->gr__studio__StudioSeriesSink_float32__20:in#0",
         "source": {
           "nodeId": "gr__incubator__pfb__PfbArbResampler_float32__8",
           "portId": "out"
         },
         "target": {
           "nodeId": "gr__studio__StudioSeriesSink_float32__20",
-          "portId": "in"
+          "portId": "in#0"
         }
       },
       {

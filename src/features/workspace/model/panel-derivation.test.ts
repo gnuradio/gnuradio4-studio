@@ -86,13 +86,25 @@ describe('deriveDefaultStudioPanelsFromNodes', () => {
         blockTypeId: 'gr::studio::StudioAudioSink<float32>',
         displayName: 'Audio',
       },
+      {
+        instanceId: 'node-scalar',
+        blockTypeId: 'gr::studio::StudioScalarSink<float32>',
+        displayName: 'Scalar',
+      },
+      {
+        instanceId: 'node-status',
+        blockTypeId: 'gr::studio::StudioStatusSink<float32>',
+        displayName: 'Status',
+      },
     ]);
 
     expect(panels.map((panel) => ({ nodeId: panel.nodeId, kind: panel.kind }))).toEqual([
       { nodeId: 'node-audio', kind: 'audio' },
       { nodeId: 'node-dataset', kind: 'series2d' },
       { nodeId: 'node-image', kind: 'image' },
+      { nodeId: 'node-scalar', kind: 'scalar' },
       { nodeId: 'node-series2d', kind: 'series2d' },
+      { nodeId: 'node-status', kind: 'status' },
       { nodeId: 'node-waterfall', kind: 'waterfall' },
     ]);
   });
