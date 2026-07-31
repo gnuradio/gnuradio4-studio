@@ -535,7 +535,9 @@ async function beginBackendStartup(runtimeConfig) {
   );
 
   try {
-    const readiness = await probeBackendReady(runtimeConfig.controlPlaneBaseUrl);
+    const readiness = await probeBackendReady(runtimeConfig.controlPlaneBaseUrl, {
+      attempts: runtimeConfig.backendMode === 'local' ? 120 : 60,
+    });
     logDesktop(`Backend reachable via ${readiness.probePath} (status ${readiness.status})`);
     updateDesktopBootStatus({
       phase: 'ready',
@@ -543,7 +545,22 @@ async function beginBackendStartup(runtimeConfig) {
       probePath: readiness.probePath,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    let message = error instanceof Error ? error.message : String(error);
+    const backendLogFile = process.env.GR4_STUDIO_BACKEND_LOG_FILE;
+    if (runtimeConfig.backendMode === 'local' && backendLogFile) {
+      try {
+        const logLines = (await fs.readFile(backendLogFile, 'utf8'))
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(-10);
+        if (logLines.length > 0) {
+          message = `${message} Backend log: ${logLines.join(' | ')}`;
+        }
+      } catch {
+        // The launcher may not have created a log yet.
+      }
+    }
     console.error('[gr4-studio] Backend startup failed:', message);
     updateDesktopBootStatus({
       phase: 'error',
