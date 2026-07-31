@@ -302,38 +302,37 @@ export async function probeBackendReady(
   backendBaseUrl,
   { attempts = 60, intervalMs = 500, requestTimeoutMs = 1_500, fetchImpl = fetch } = {},
 ) {
-  const probeOrder = ['/healthz', '/blocks'];
   let lastError = 'No successful response received.';
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    for (const probePath of probeOrder) {
-      const targetUrl = new URL(probePath, backendBaseUrl);
-      const timeout = withTimeout(undefined, requestTimeoutMs);
+    const probePath = '/blocks';
+    const targetUrl = new URL(probePath, backendBaseUrl);
+    const timeout = withTimeout(undefined, requestTimeoutMs);
 
-      try {
-        const response = await fetchImpl(targetUrl, {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-          },
-          signal: timeout.signal,
-        });
+    try {
+      const response = await fetchImpl(targetUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+        signal: timeout.signal,
+      });
 
-        if (response.ok || response.status === 304) {
+      if (!response.ok) {
+        lastError = `${targetUrl} returned ${response.status} ${response.statusText}`;
+      } else {
+        const payload = await response.json();
+        const blocks = Array.isArray(payload) ? payload : payload?.blocks;
+        if (!Array.isArray(blocks)) {
+          lastError = `${targetUrl} returned an invalid block catalog payload`;
+        } else {
           return { probePath, status: response.status };
         }
-
-        if (probePath === '/healthz' && response.status === 404) {
-          lastError = `healthz returned 404 at ${targetUrl}`;
-          continue;
-        }
-
-        lastError = `${targetUrl} returned ${response.status} ${response.statusText}`;
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-      } finally {
-        timeout.dispose();
       }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    } finally {
+      timeout.dispose();
     }
 
     if (attempt < attempts) {

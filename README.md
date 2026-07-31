@@ -70,6 +70,27 @@ Launch modes:
 - `gr4-studio --remote` prompts for a remote endpoint
 - `GR4_STUDIO_CONTROL_PLANE_BASE_URL=http://host:8080 gr4-studio` selects remote mode
 
+In local mode the launcher stops immediately and prints the backend log if
+`gr4cp_server` exits during startup. Studio keeps the startup screen visible
+until `GET /blocks` returns a valid catalog; a health-only response does not
+unlock the canvas. The launcher reserves an available loopback port for each
+run and passes its exact URL to Studio, so an unrelated service on port 8080
+does not interfere with local mode.
+
+The desktop install contains its pinned Electron runtime; it does not download
+Electron with `npx` when launched. On Ubuntu systems that restrict unprivileged
+user namespaces through AppArmor, install the generated profile once for each
+install prefix:
+
+```bash
+/path/to/prefix/bin/gr4-studio-sandbox-setup
+```
+
+The command uses `sudo` to install and load a narrowly scoped profile for the
+installed Electron executable. Remove it with
+`gr4-studio-sandbox-setup --remove`. Do not make `--no-sandbox` part of a normal
+launcher configuration; Electron documents that option as testing-only.
+
 For local desktop development, use:
 
 ```bash

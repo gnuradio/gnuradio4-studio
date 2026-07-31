@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isSessionStreamWebSocketPath,
+  probeBackendReady,
   resolveProxyTarget,
   rewriteIndexAssetUrls,
   stripAppApiPrefix,
@@ -37,5 +38,39 @@ describe('desktop app server routing', () => {
     ).toBe(
       '<script src="/assets/index.js"></script><link href="/assets/index.css"><link href="/favicon.ico">',
     );
+  });
+
+  it('waits for a valid block catalog instead of accepting health-only readiness', async () => {
+    const requestedPaths = [];
+    const fetchImpl = async (url) => {
+      requestedPaths.push(new URL(url).pathname);
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    await expect(
+      probeBackendReady('http://127.0.0.1:8080', {
+        attempts: 1,
+        intervalMs: 0,
+        fetchImpl,
+      }),
+    ).resolves.toEqual({ probePath: '/blocks', status: 200 });
+    expect(requestedPaths).toEqual(['/blocks']);
+  });
+
+  it('rejects a successful response that is not a block catalog', async () => {
+    await expect(
+      probeBackendReady('http://127.0.0.1:8080', {
+        attempts: 1,
+        intervalMs: 0,
+        fetchImpl: async () =>
+          new Response(JSON.stringify({ status: 'healthy' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+      }),
+    ).rejects.toThrow('invalid block catalog payload');
   });
 });
