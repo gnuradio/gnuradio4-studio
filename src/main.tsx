@@ -5,7 +5,15 @@ import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AppRoutes } from './app/routes';
 import { config } from './lib/config';
+import { installWasmApiTransport } from './lib/wasm/wasm-api-transport';
+import { installWasmSinkTransport } from './lib/wasm/wasm-sink-transport';
 import './styles/index.css';
+
+if (import.meta.env.VITE_CONTROL_PLANE_TRANSPORT === 'wasm') {
+  installWasmApiTransport(import.meta.env.VITE_CONTROL_PLANE_WASM_URL);
+  installWasmSinkTransport();
+  console.info('[config] Control plane transport: in-process WASM module');
+}
 
 const queryClient = new QueryClient();
 const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;

@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_CONTROL_PLANE_BASE_URL?: string;
+  readonly VITE_CONTROL_PLANE_TRANSPORT?: 'http' | 'wasm';
+  readonly VITE_CONTROL_PLANE_WASM_URL?: string;
 }
 
 interface ImportMeta {
