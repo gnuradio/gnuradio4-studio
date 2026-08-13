@@ -5,7 +5,11 @@
 #include <gnuradio-4.0/Block.hpp>
 #include <gnuradio-4.0/BlockRegistry.hpp>
 
+#if defined(__EMSCRIPTEN__)
+#include <gnuradio-4.0/studio/StudioWasmTransport.hpp>
+#else
 #include <httplib.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -33,6 +37,7 @@
 #include <utility>
 #include <vector>
 
+#if !defined(__EMSCRIPTEN__)
 #include <boost/beast/core/detail/base64.hpp>
 #include <openssl/sha.h>
 
@@ -42,6 +47,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#endif
 #endif
 
 #include <gnuradio-4.0/algorithm/fourier/fft.hpp>
@@ -78,6 +84,8 @@ inline std::string escapeJson(std::string_view text) {
     return out;
 }
 
+#if !defined(__EMSCRIPTEN__)
+
 inline std::string toLowerAscii(std::string_view text) {
     std::string out{text};
     std::ranges::transform(out, out.begin(), [](unsigned char c) {
@@ -101,6 +109,7 @@ inline std::string encodeBase64(std::string_view bytes) {
     encoded.resize(written);
     return encoded;
 }
+#endif // !defined(__EMSCRIPTEN__)
 
 template<typename T>
 void appendLittleEndian(std::string& out, T value) {
@@ -121,6 +130,8 @@ void appendLittleEndian(std::string& out, T value) {
         }
     }
 }
+
+#if !defined(__EMSCRIPTEN__)
 
 inline std::string computeWebSocketAcceptKey(std::string_view clientKey) {
     constexpr std::string_view wsGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -163,6 +174,7 @@ inline std::string buildWebSocketBinaryFrame(std::span<const std::byte> payload)
     frame.append(data, data + payload.size());
     return frame;
 }
+#endif // !defined(__EMSCRIPTEN__)
 
 template<SupportedPowerSpectrumSample T>
 class PowerSpectrumWindow {
@@ -575,6 +587,26 @@ inline ParsedHttpEndpoint parseHttpEndpoint(const std::string& endpoint) {
     };
 }
 
+#if defined(__EMSCRIPTEN__)
+using SnapshotHttpService = wasm_bridge::InProcessSnapshotHttpService;
+
+class SnapshotWebSocketService {
+public:
+    [[nodiscard]] bool start(const ParsedHttpEndpoint& endpoint) { return _service.start(endpoint.host, endpoint.port, endpoint.path); }
+
+    void stop() { _service.stop(); }
+
+    [[nodiscard]] bool          isRunning() const noexcept { return _service.isRunning(); }
+    [[nodiscard]] std::uint16_t boundPort() const noexcept { return _service.boundPort(); }
+
+    void publish(std::string payload) { _service.publishBinary(std::move(payload)); }
+
+private:
+    wasm_bridge::InProcessSnapshotWebSocketService _service;
+};
+
+#else
+
 class SnapshotHttpService {
 public:
     using JsonProvider = std::function<std::string()>;
@@ -969,6 +1001,7 @@ private:
     std::string _path{"/snapshot"};
 #endif
 };
+#endif // defined(__EMSCRIPTEN__)
 
 inline bool isHttpPollTransport(const PowerSpectrumTransport transport) {
     return transport == PowerSpectrumTransport::http_poll;

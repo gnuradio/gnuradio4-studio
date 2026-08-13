@@ -13,7 +13,7 @@ endfunction()
 function(gr4_studio_add_block_plugin plugin_target_base)
   set(options SPLIT_BLOCK_INSTANTIATIONS)
   set(oneValueArgs MODULE_NAME_BASE PARSER_EXE)
-  set(multiValueArgs HEADERS LINK_LIBRARIES INCLUDE_DIRECTORIES)
+  set(multiValueArgs HEADERS SOURCES LINK_LIBRARIES INCLUDE_DIRECTORIES)
   cmake_parse_arguments(GR4S_PLUGIN "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   if(NOT GR4S_PLUGIN_HEADERS)
@@ -38,17 +38,24 @@ function(gr4_studio_add_block_plugin plugin_target_base)
   file(REMOVE_RECURSE "${_gen_dir}")
   file(MAKE_DIRECTORY "${_gen_dir}")
 
-  set(_generated_cpp "${_gen_dir}/integrator.cpp")
-  set(_plugin_instance_header "${_gen_dir}/plugin_instance.hpp")
-  set(_plugin_entry_cpp "${_gen_dir}/plugin_entry.cpp")
-  file(WRITE "${_plugin_instance_header}"
-    "#pragma once\n"
-    "#include <gnuradio-4.0/Plugin.hpp>\n"
-    "gr::plugin<>& grPluginInstance();\n")
-  file(WRITE "${_plugin_entry_cpp}"
-    "#include <gnuradio-4.0/Plugin.hpp>\n"
-    "GR_PLUGIN(\"${plugin_target_base}\", \"gr4-studio\", \"MIT\", \"${PROJECT_VERSION}\")\n")
-  list(APPEND _generated_cpp "${_plugin_entry_cpp}")
+  set(_generated_cpp "${_gen_dir}/integrator.cpp" ${GR4S_PLUGIN_SOURCES})
+
+  if(EMSCRIPTEN)
+    set(_parser_registry_flags "")
+  else()
+    set(_parser_registry_flags --registry-header plugin_instance.hpp --registry-instance grPluginInstance)
+
+    set(_plugin_instance_header "${_gen_dir}/plugin_instance.hpp")
+    set(_plugin_entry_cpp "${_gen_dir}/plugin_entry.cpp")
+    file(WRITE "${_plugin_instance_header}"
+      "#pragma once\n"
+      "#include <gnuradio-4.0/Plugin.hpp>\n"
+      "gr::plugin<>& grPluginInstance();\n")
+    file(WRITE "${_plugin_entry_cpp}"
+      "#include <gnuradio-4.0/Plugin.hpp>\n"
+      "GR_PLUGIN(\"${plugin_target_base}\", \"gr4-studio\", \"MIT\", \"${PROJECT_VERSION}\")\n")
+    list(APPEND _generated_cpp "${_plugin_entry_cpp}")
+  endif()
 
   foreach(_hdr IN LISTS GR4S_PLUGIN_HEADERS)
     get_filename_component(_abs_hdr "${_hdr}" ABSOLUTE)
@@ -66,8 +73,7 @@ function(gr4_studio_add_block_plugin plugin_target_base)
 
     execute_process(
       COMMAND "${GR4S_PLUGIN_PARSER_EXE}" "${_abs_hdr}" "${_gen_dir}" ${_parser_split_flag}
-              --registry-header plugin_instance.hpp
-              --registry-instance grPluginInstance
+              ${_parser_registry_flags}
       RESULT_VARIABLE _gen_res
       OUTPUT_VARIABLE _gen_out
       ERROR_VARIABLE _gen_err
@@ -107,8 +113,18 @@ function(gr4_studio_add_block_plugin plugin_target_base)
       ${GR4S_PLUGIN_LINK_LIBRARIES}
   )
 
-  set(_plugin_lib_name "${plugin_target_base}Plugin")
-  add_library(${_plugin_lib_name} SHARED)
-  target_link_libraries(${_plugin_lib_name} PRIVATE ${plugin_target_base})
-  install(TARGETS ${_plugin_lib_name} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  if(EMSCRIPTEN)
+    set(_static_lib_name "${plugin_target_base}Static")
+    add_library(${_static_lib_name} STATIC)
+    target_sources(${_static_lib_name} PRIVATE $<TARGET_OBJECTS:${plugin_target_base}>)
+    target_link_libraries(${_static_lib_name} PUBLIC ${GR4S_PLUGIN_LINK_LIBRARIES})
+    install(TARGETS ${_static_lib_name} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnuradio-4/plugins)
+    install(FILES "${_gen_dir}/${GR4S_PLUGIN_MODULE_NAME_BASE}.hpp"
+      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gnuradio-4.0)
+  else()
+    set(_plugin_lib_name "${plugin_target_base}Plugin")
+    add_library(${_plugin_lib_name} SHARED)
+    target_link_libraries(${_plugin_lib_name} PRIVATE ${plugin_target_base})
+    install(TARGETS ${_plugin_lib_name} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  endif()
 endfunction()
