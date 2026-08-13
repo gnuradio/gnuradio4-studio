@@ -2,6 +2,18 @@
 
 #pragma once
 
+#if defined(__EMSCRIPTEN__)
+#include <gnuradio-4.0/studio/StudioWasmTransport.hpp>
+
+namespace gr::studio::websocket_transport {
+
+using WebSocketFrameKind       = wasm_bridge::PayloadKind;
+using SnapshotWebSocketService = wasm_bridge::InProcessSnapshotWebSocketService;
+
+} // namespace gr::studio::websocket_transport
+
+#else
+
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -519,3 +531,4 @@ private:
 };
 
 } // namespace gr::studio::websocket_transport
+#endif // defined(__EMSCRIPTEN__)

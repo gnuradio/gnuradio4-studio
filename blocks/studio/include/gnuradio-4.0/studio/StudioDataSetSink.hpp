@@ -6,7 +6,11 @@
 #include <gnuradio-4.0/BlockRegistry.hpp>
 #include <gnuradio-4.0/DataSet.hpp>
 
+#if defined(__EMSCRIPTEN__)
+#include <gnuradio-4.0/studio/StudioWasmTransport.hpp>
+#else
 #include <httplib.h>
+#endif
 
 #include <algorithm>
 #include <cstddef>
@@ -102,6 +106,10 @@ inline ParsedHttpEndpoint parseHttpEndpoint(const std::string& endpoint) {
     };
 }
 
+#if defined(__EMSCRIPTEN__)
+using SnapshotHttpService = wasm_bridge::InProcessSnapshotHttpService;
+#else
+
 class SnapshotHttpService {
 public:
     using JsonProvider = std::function<std::string()>;
@@ -157,6 +165,7 @@ private:
     std::unique_ptr<httplib::Server> _server;
     std::thread                       _server_thread;
 };
+#endif // defined(__EMSCRIPTEN__)
 
 inline bool isHttpTransport(const std::string& transport) {
     return transport == "http_snapshot" || transport == "http_poll";
