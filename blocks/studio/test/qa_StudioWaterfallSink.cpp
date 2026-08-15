@@ -103,6 +103,7 @@ void testEmptyAndClampedWaterfall() {
 
     assert(block.in.min_samples == 1UZ);
     assert(block.in.max_samples == 1UZ);
+    assert(static_cast<std::size_t>(block.fft_size) == 1UZ);
 
     const std::string json = block.snapshotJson();
     assert(json.find("\"rows\":1") != std::string::npos);

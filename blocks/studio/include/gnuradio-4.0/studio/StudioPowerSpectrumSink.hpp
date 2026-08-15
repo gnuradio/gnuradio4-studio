@@ -893,6 +893,7 @@ private:
             socklen_t clientAddrLen = sizeof(clientAddr);
             int clientFd = ::accept(_listenFd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
             if (clientFd < 0) {
+                std::lock_guard lock(_mutex);
                 if (_stopping) {
                     break;
                 }

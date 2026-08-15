@@ -768,7 +768,8 @@ struct StudioWaterfallSink : Block<StudioWaterfallSink<T>> {
     std::chrono::steady_clock::time_point _lastWebSocketPublishAt{};
 
     void syncInputPortConstraints() {
-        const auto chunkSize = static_cast<std::size_t>(fft_size);
+        const auto chunkSize = std::max<std::size_t>(1UZ, static_cast<std::size_t>(fft_size));
+        fft_size = chunkSize;
         in.min_samples = chunkSize;
         in.max_samples = chunkSize;
     }
