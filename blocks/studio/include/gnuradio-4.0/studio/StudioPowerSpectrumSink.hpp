@@ -557,7 +557,7 @@ inline ParsedHttpEndpoint parseHttpEndpoint(const std::string& endpoint) {
             const std::string portText = hostPort.substr(colon + 1UZ);
             if (!portText.empty()) {
                 const int parsed = std::stoi(portText);
-                if (parsed > 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
+                if (parsed >= 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
                     port = static_cast<std::uint16_t>(parsed);
                 }
             }
@@ -773,6 +773,9 @@ private:
 
     void closeCurrentClient() {
         std::lock_guard lock(_mutex);
+        if (_handshakeFd >= 0) {
+            closeSocket(_handshakeFd);
+        }
         if (_clientFd >= 0) {
             closeSocket(_clientFd);
         }
@@ -893,6 +896,7 @@ private:
             socklen_t clientAddrLen = sizeof(clientAddr);
             int clientFd = ::accept(_listenFd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
             if (clientFd < 0) {
+                std::lock_guard lock(_mutex);
                 if (_stopping) {
                     break;
                 }
@@ -900,15 +904,36 @@ private:
             }
 
             configureSocket(clientFd);
-            if (!performHandshake(clientFd)) {
-                closeSocket(clientFd);
-                continue;
-            }
-
             {
                 std::lock_guard lock(_mutex);
                 if (_stopping) {
                     closeSocket(clientFd);
+                    break;
+                }
+                _handshakeFd = clientFd;
+            }
+
+            const bool handshakeComplete = performHandshake(clientFd);
+
+            {
+                std::lock_guard lock(_mutex);
+                const bool ownsHandshakeFd = _handshakeFd == clientFd;
+                if (ownsHandshakeFd) {
+                    _handshakeFd = -1;
+                }
+                if (!handshakeComplete) {
+                    if (ownsHandshakeFd) {
+                        closeSocket(clientFd);
+                    }
+                    if (_stopping) {
+                        break;
+                    }
+                    continue;
+                }
+                if (_stopping) {
+                    if (ownsHandshakeFd) {
+                        closeSocket(clientFd);
+                    }
                     break;
                 }
                 if (_clientFd >= 0) {
@@ -959,6 +984,7 @@ private:
     bool _hasPendingFrame{false};
     std::string _pendingFrame;
     int _listenFd{-1};
+    int _handshakeFd{-1};
     int _clientFd{-1};
     std::thread _acceptThread;
     std::thread _senderThread;

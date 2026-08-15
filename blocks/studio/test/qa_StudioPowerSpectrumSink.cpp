@@ -12,6 +12,7 @@
 #include <thread>
 
 #include <gnuradio-4.0/BlockRegistry.hpp>
+#include <gnuradio-4.0/PluginLoader.hpp>
 #include <gnuradio-4.0/Tag.hpp>
 #include <gnuradio-4.0/studio/StudioPowerSpectrumSink.hpp>
 
@@ -57,7 +58,7 @@ void configureBlock(TBlock& block) {
 }
 
 void testPowerSpectrumRegistered() {
-    const auto keys = gr::globalBlockRegistry().keys();
+    const auto keys = gr::globalPluginLoader().availableBlocks();
     const bool foundPowerSpectrum = std::ranges::any_of(keys, [](const std::string& key) {
         return key.find("StudioPowerSpectrumSink") != std::string::npos;
     });

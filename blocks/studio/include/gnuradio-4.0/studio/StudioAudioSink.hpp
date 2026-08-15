@@ -72,7 +72,7 @@ inline ParsedEndpoint parseEndpoint(const std::string& endpoint) {
             const std::string portText = hostPort.substr(colon + 1UZ);
             if (!portText.empty()) {
                 const int parsed = std::stoi(portText);
-                if (parsed > 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
+                if (parsed >= 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
                     port = static_cast<std::uint16_t>(parsed);
                 }
             }

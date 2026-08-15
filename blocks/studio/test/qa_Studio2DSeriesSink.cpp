@@ -8,6 +8,7 @@
 #include <thread>
 
 #include <gnuradio-4.0/BlockRegistry.hpp>
+#include <gnuradio-4.0/PluginLoader.hpp>
 #include <gnuradio-4.0/studio/Studio2DSeriesSink.hpp>
 
 #if !defined(_WIN32)
@@ -19,7 +20,7 @@
 namespace {
 
 void testSeries2DRegistered() {
-    const auto keys = gr::globalBlockRegistry().keys();
+    const auto keys = gr::globalPluginLoader().availableBlocks();
     const bool found = std::ranges::any_of(keys, [](const std::string& key) {
         return key.find("Studio2DSeriesSink") != std::string::npos;
     });

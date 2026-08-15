@@ -263,6 +263,9 @@ private:
 
     void closeCurrentClient() {
         std::lock_guard lock(_mutex);
+        if (_handshakeFd >= 0) {
+            closeSocket(_handshakeFd);
+        }
         if (_clientFd >= 0) {
             closeSocket(_clientFd);
         }
@@ -393,6 +396,7 @@ private:
             socklen_t clientAddrLen = sizeof(clientAddr);
             int clientFd = ::accept(_listenFd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
             if (clientFd < 0) {
+                std::lock_guard lock(_mutex);
                 if (_stopping) {
                     break;
                 }
@@ -400,15 +404,36 @@ private:
             }
 
             configureSocket(clientFd);
-            if (!performHandshake(clientFd)) {
-                closeSocket(clientFd);
-                continue;
-            }
-
             {
                 std::lock_guard lock(_mutex);
                 if (_stopping) {
                     closeSocket(clientFd);
+                    break;
+                }
+                _handshakeFd = clientFd;
+            }
+
+            const bool handshakeComplete = performHandshake(clientFd);
+
+            {
+                std::lock_guard lock(_mutex);
+                const bool ownsHandshakeFd = _handshakeFd == clientFd;
+                if (ownsHandshakeFd) {
+                    _handshakeFd = -1;
+                }
+                if (!handshakeComplete) {
+                    if (ownsHandshakeFd) {
+                        closeSocket(clientFd);
+                    }
+                    if (_stopping) {
+                        break;
+                    }
+                    continue;
+                }
+                if (_stopping) {
+                    if (ownsHandshakeFd) {
+                        closeSocket(clientFd);
+                    }
                     break;
                 }
                 if (_clientFd >= 0) {
@@ -479,6 +504,7 @@ private:
     std::string _pendingFrame;
     WebSocketFrameKind _pendingFrameKind{WebSocketFrameKind::Text};
     int _listenFd{-1};
+    int _handshakeFd{-1};
     int _clientFd{-1};
     mutable std::string _lastError;
     std::thread _acceptThread;
