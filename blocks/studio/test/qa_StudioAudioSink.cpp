@@ -10,6 +10,7 @@
 #include <string>
 
 #include <gnuradio-4.0/BlockRegistry.hpp>
+#include <gnuradio-4.0/PluginLoader.hpp>
 #include <gnuradio-4.0/studio/StudioAudioSink.hpp>
 
 namespace {
@@ -22,7 +23,7 @@ T readLittleEndian(const std::string& payload, std::size_t offset) {
 }
 
 void testAudioSinkRegistered() {
-    const auto keys = gr::globalBlockRegistry().keys();
+    const auto keys = gr::globalPluginLoader().availableBlocks();
     const bool found = std::ranges::any_of(keys, [](const std::string& key) {
         return key.find("StudioAudioSink") != std::string::npos;
     });

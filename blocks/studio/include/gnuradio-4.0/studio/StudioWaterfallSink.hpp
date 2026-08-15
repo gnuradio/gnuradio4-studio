@@ -315,7 +315,7 @@ public:
 
 private:
     [[nodiscard]] std::size_t _spectrumSize() const noexcept {
-        return gr::meta::complex_like<T> ? _fftSize : (_fftSize / 2UZ);
+        return gr::meta::complex_like<T> ? _fftSize : std::max<std::size_t>(1UZ, _fftSize / 2UZ);
     }
 
     void rebuildFrequencyAxisLocked() {
@@ -475,7 +475,7 @@ inline ParsedHttpEndpoint parseHttpEndpoint(const std::string& endpoint) {
             const std::string portText = hostPort.substr(colon + 1UZ);
             if (!portText.empty()) {
                 const int parsed = std::stoi(portText);
-                if (parsed > 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
+                if (parsed >= 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
                     port = static_cast<std::uint16_t>(parsed);
                 }
             }
@@ -768,7 +768,8 @@ struct StudioWaterfallSink : Block<StudioWaterfallSink<T>> {
     std::chrono::steady_clock::time_point _lastWebSocketPublishAt{};
 
     void syncInputPortConstraints() {
-        const auto chunkSize = static_cast<std::size_t>(fft_size);
+        const auto chunkSize = std::max<std::size_t>(1UZ, static_cast<std::size_t>(fft_size));
+        fft_size = chunkSize;
         in.min_samples = chunkSize;
         in.max_samples = chunkSize;
     }

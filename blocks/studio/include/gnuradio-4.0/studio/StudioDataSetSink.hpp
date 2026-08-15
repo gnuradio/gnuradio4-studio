@@ -84,7 +84,7 @@ inline ParsedHttpEndpoint parseHttpEndpoint(const std::string& endpoint) {
             const std::string port_text = host_port.substr(colon + 1UZ);
             if (!port_text.empty()) {
                 const int parsed = std::stoi(port_text);
-                if (parsed > 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
+                if (parsed >= 0 && parsed <= static_cast<int>(std::numeric_limits<std::uint16_t>::max())) {
                     port = static_cast<std::uint16_t>(parsed);
                 }
             }

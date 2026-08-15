@@ -103,6 +103,7 @@ void testEmptyAndClampedWaterfall() {
 
     assert(block.in.min_samples == 1UZ);
     assert(block.in.max_samples == 1UZ);
+    assert(static_cast<std::size_t>(block.fft_size) == 1UZ);
 
     const std::string json = block.snapshotJson();
     assert(json.find("\"rows\":1") != std::string::npos);
@@ -139,6 +140,7 @@ void testBlankRowsUseFloorValue() {
     block.fft_size = 4UZ;
     block.num_averages = 1UZ;
     block.time_span = 1.0F;
+    block.sample_rate = 8.0F;
     block.autoscale = false;
     block.z_min = -20.0F;
     block.z_max = 10.0F;
@@ -146,6 +148,7 @@ void testBlankRowsUseFloorValue() {
                                  {"fft_size", 4UZ},
                                  {"num_averages", 1UZ},
                                  {"time_span", 1.0F},
+                                 {"sample_rate", 8.0F},
                                  {"autoscale", false},
                                  {"z_min", -20.0F},
                                  {"z_max", 10.0F},
@@ -180,8 +183,7 @@ void testComplexWaterfall() {
     assert(json.find("\"rows\":2") != std::string::npos);
     assert(json.find("\"columns\":4") != std::string::npos);
     assert(json.find("\"time_span\":1") != std::string::npos);
-    assert(json.find("[-4,") != std::string::npos);
-    assert(json.find("[2,") != std::string::npos);
+    assert(json.find("\"frequencies\":[-4,-2,0,2]") != std::string::npos);
     assert(json.find("\"sample_type\":\"complex64\"") != std::string::npos);
 }
 

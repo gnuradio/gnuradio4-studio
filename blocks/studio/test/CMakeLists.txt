@@ -1,25 +1,25 @@
 #[[ SPDX-License-Identifier: MIT ]]
 
-add_executable(qa_StudioPowerSpectrumSink qa_StudioPowerSpectrumSink.cpp)
-target_link_libraries(qa_StudioPowerSpectrumSink PRIVATE gr4_studio::blocks_studio_headers)
-add_test(NAME qa_StudioPowerSpectrumSink COMMAND qa_StudioPowerSpectrumSink)
+function(gr4_studio_add_block_test test_name)
+  add_executable(${test_name} ${test_name}.cpp)
+  target_link_libraries(${test_name} PRIVATE gr4_studio::blocks_studio_headers ${ARGN})
 
-add_executable(qa_StudioAudioSink qa_StudioAudioSink.cpp)
-target_link_libraries(qa_StudioAudioSink PRIVATE gr4_studio::blocks_studio_headers)
-add_test(NAME qa_StudioAudioSink COMMAND qa_StudioAudioSink)
+  # These tests exercise blocks through both their C++ interfaces and the
+  # generated plugin. Ensure a targeted test build produces the plugin and
+  # make the build-tree plugin discoverable without requiring an install.
+  add_dependencies(${test_name} Gr4StudioBlocksPlugin)
+  add_test(
+    NAME ${test_name}
+    COMMAND
+      ${CMAKE_COMMAND} -E env
+      "GNURADIO4_PLUGIN_DIRECTORIES=$<TARGET_FILE_DIR:Gr4StudioBlocksPlugin>"
+      ${CMAKE_CROSSCOMPILING_EMULATOR}
+      $<TARGET_FILE:${test_name}>)
+endfunction()
 
-add_executable(qa_Studio2DSeriesSink qa_Studio2DSeriesSink.cpp)
-target_link_libraries(qa_Studio2DSeriesSink PRIVATE gr4_studio::blocks_studio_headers)
-add_test(NAME qa_Studio2DSeriesSink COMMAND qa_Studio2DSeriesSink)
-
-add_executable(qa_StudioSeriesSink qa_StudioSeriesSink.cpp)
-target_link_libraries(qa_StudioSeriesSink PRIVATE gr4_studio::blocks_studio_headers)
-add_test(NAME qa_StudioSeriesSink COMMAND qa_StudioSeriesSink)
-
-add_executable(qa_StudioScalarSink qa_StudioScalarSink.cpp)
-target_link_libraries(qa_StudioScalarSink PRIVATE gr4_studio::blocks_studio_headers ${GR4_STUDIO_HTTPLIB_TARGET})
-add_test(NAME qa_StudioScalarSink COMMAND qa_StudioScalarSink)
-
-add_executable(qa_StudioWaterfallSink qa_StudioWaterfallSink.cpp)
-target_link_libraries(qa_StudioWaterfallSink PRIVATE gr4_studio::blocks_studio_headers)
-add_test(NAME qa_StudioWaterfallSink COMMAND qa_StudioWaterfallSink)
+gr4_studio_add_block_test(qa_StudioPowerSpectrumSink)
+gr4_studio_add_block_test(qa_StudioAudioSink)
+gr4_studio_add_block_test(qa_Studio2DSeriesSink)
+gr4_studio_add_block_test(qa_StudioSeriesSink)
+gr4_studio_add_block_test(qa_StudioScalarSink ${GR4_STUDIO_HTTPLIB_TARGET})
+gr4_studio_add_block_test(qa_StudioWaterfallSink)

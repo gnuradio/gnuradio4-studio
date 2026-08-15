@@ -13,6 +13,7 @@
 
 #include <gnuradio-4.0/BlockRegistry.hpp>
 #include <gnuradio-4.0/Graph.hpp>
+#include <gnuradio-4.0/PluginLoader.hpp>
 #include <gnuradio-4.0/Scheduler.hpp>
 #include <gnuradio-4.0/studio/StudioSeriesSink.hpp>
 #include <gnuradio-4.0/testing/NullSources.hpp>
@@ -45,7 +46,7 @@ void pushSeriesInputs(
 }
 
 void testSeriesRegistered() {
-    const auto keys = gr::globalBlockRegistry().keys();
+    const auto keys = gr::globalPluginLoader().availableBlocks();
     const bool foundSeries = std::ranges::any_of(keys, [](const std::string& key) {
         return key.find("StudioSeriesSink") != std::string::npos;
     });
