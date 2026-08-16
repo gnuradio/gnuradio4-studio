@@ -1,7 +1,12 @@
 // Routes the studio's sink data plane into the in-process WASM module
 // by patching the WebSocket contstructor
 
-import { loadControlPlaneWasm, type Gr4cpModule, type Gr4cpSinkSnapshot } from './control-plane-wasm';
+import {
+  loadControlPlaneWasm,
+  markControlPlaneWasmEnabled,
+  type Gr4cpModule,
+  type Gr4cpSinkSnapshot,
+} from './control-plane-wasm';
 
 const DEFAULT_SINK_HOST = '127.0.0.1';
 const DEFAULT_SINK_PORT = '8080';
@@ -240,6 +245,7 @@ export class WasmSinkSocket implements Partial<WebSocket> {
 // Replaces `globalThis.WebSocket` so sink connections are served from the in-process registry.
 export function installWasmSinkTransport(options: WasmSinkSocketOptions = {}): () => void {
   const OriginalWebSocket = globalThis.WebSocket;
+  markControlPlaneWasmEnabled();
 
   const patched = function (this: unknown, url: string | URL, protocols?: string | string[]) {
     const href = typeof url === 'string' ? url : url.toString();

@@ -1,6 +1,6 @@
 // Routes the studio's /api/* traffic into the in-process control plane instead of over HTTP.
 
-import { loadControlPlaneWasm, type Gr4cpResponse } from './control-plane-wasm';
+import { loadControlPlaneWasm, markControlPlaneWasmEnabled, type Gr4cpResponse } from './control-plane-wasm';
 
 const APP_API_BASE_PATH = '/api';
 
@@ -62,6 +62,7 @@ function resolveMethod(input: RequestInfo | URL, init?: RequestInit): string {
 // Wrap `globalThis.fetch` so /api/* requests are served by the WASM control plane
 export function installWasmApiTransport(moduleUrl?: string): () => void {
   const originalFetch = globalThis.fetch.bind(globalThis);
+  markControlPlaneWasmEnabled(moduleUrl);
 
   const patchedFetch: typeof fetch = async (input, init) => {
     const url = resolveUrl(input);
