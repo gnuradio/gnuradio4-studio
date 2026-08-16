@@ -3,6 +3,8 @@ import { useQueries } from '@tanstack/react-query';
 import { StatusPill } from '../components/status-pill';
 import { StudioMark } from '../components/studio-mark';
 import { StatusBadge } from '../components/status-badge';
+import { WasmBackendPill } from '../components/wasm-backend-pill';
+import { isControlPlaneWasmEnabled } from '../lib/wasm/control-plane-wasm';
 import { ApplicationView } from '../features/application/application-view';
 import { useAudioSessionStore } from '../features/application/audio/audio-session-store';
 import { VariablesView } from '../features/variables/variables-view';
@@ -1495,12 +1497,16 @@ export function StudioPage() {
           >
             Save As...
           </button>
-          <span
-            className="rounded-full border border-slate-600 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-200"
-            title={transportDiagnosticsTitle}
-          >
-            {backendEndpointLabel}
-          </span>
+          {isControlPlaneWasmEnabled() ? (
+            <WasmBackendPill />
+          ) : (
+            <span
+              className="rounded-full border border-slate-600 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-200"
+              title={transportDiagnosticsTitle}
+            >
+              {backendEndpointLabel}
+            </span>
+          )}
           <StatusBadge status={connectionStatus} />
         </div>
       </header>
