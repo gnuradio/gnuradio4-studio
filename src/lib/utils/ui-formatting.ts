@@ -48,3 +48,10 @@ export function formatStatus(status?: string | null): StatusTone {
 
   return 'idle';
 }
+
+export function formatMegabytes(bytes?: number | null): string {
+  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) {
+    return 'n/a';
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

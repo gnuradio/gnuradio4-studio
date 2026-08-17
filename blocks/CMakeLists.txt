@@ -10,6 +10,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(USE_CCACHE "Use ccache if available" ON)
 
+if(EMSCRIPTEN)
+  add_compile_options(-pthread -fexceptions)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(PluginHelpers)
 
