@@ -1,6 +1,24 @@
 #[[ SPDX-License-Identifier: MIT ]]
 
 find_package(PkgConfig REQUIRED)
+
+# FindPkgConfig caches absolute include and library paths. In a superbuild that
+# has been moved, those results can continue pointing at the previous install
+# prefix even though CMAKE_PREFIX_PATH now names the new one. Drop only this
+# package's cached result when its recorded prefix is no longer searchable.
+if(DEFINED GR4_STUDIO_GNURADIO4_PREFIX
+   AND NOT GR4_STUDIO_GNURADIO4_PREFIX IN_LIST CMAKE_PREFIX_PATH)
+  get_cmake_property(_gr4_studio_cache_variables CACHE_VARIABLES)
+  foreach(_gr4_studio_cache_variable IN LISTS _gr4_studio_cache_variables)
+    if(_gr4_studio_cache_variable MATCHES
+       "^(GR4_STUDIO_GNURADIO4_|pkgcfg_lib_GR4_STUDIO_GNURADIO4_|__pkg_config_(arguments|checked)_GR4_STUDIO_GNURADIO4)")
+      unset(${_gr4_studio_cache_variable} CACHE)
+    endif()
+  endforeach()
+  unset(_gr4_studio_cache_variables)
+  unset(_gr4_studio_cache_variable)
+endif()
+
 pkg_check_modules(GR4_STUDIO_GNURADIO4 REQUIRED IMPORTED_TARGET gnuradio4)
 find_package(OpenSSL REQUIRED COMPONENTS Crypto)
 find_package(httplib CONFIG QUIET)
