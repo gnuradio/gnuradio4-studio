@@ -45,6 +45,7 @@ describe('managed local backend', () => {
 
   it('captures output and stops the process it owns', async () => {
     const paths = await createBackendPaths();
+    const capturedOutput = [];
     const script = [
       "const fs = require('node:fs');",
       "fs.writeFileSync(process.env.GR4CP_PORT_FILE, '43123\\n');",
@@ -60,6 +61,7 @@ describe('managed local backend', () => {
       portFilePath: paths.portFilePath,
       pollIntervalMs: 10,
       startupTimeoutMs: 2_000,
+      onOutput: (entry) => capturedOutput.push(entry),
     });
     runningBackends.push(backend);
 
@@ -69,6 +71,12 @@ describe('managed local backend', () => {
     const log = await fs.readFile(paths.logPath, 'utf8');
     expect(log).toContain('stdout marker');
     expect(log).toContain('stderr marker');
+    expect(capturedOutput).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ stream: 'stdout', text: expect.stringContaining('stdout marker') }),
+        expect.objectContaining({ stream: 'stderr', text: expect.stringContaining('stderr marker') }),
+      ]),
+    );
   });
 
   it('turns an immediate executable failure into a startup error', async () => {

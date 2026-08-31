@@ -4,7 +4,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { probeBackendReady, startDesktopAppServer } from './app-server.mjs';
-import { readBackendLogTail } from './backend-diagnostics.mjs';
+import { createBackendConsoleBuffer, BACKEND_CONSOLE_MAX_CHARACTERS } from './backend-console.mjs';
+import { readBackendLogTail, sanitizeBackendLogText } from './backend-diagnostics.mjs';
 import { normalizeBackendUrl, parseLaunchArgs } from './launch-args.mjs';
 import { buildLocalBackendEnvironment, startLocalBackend } from './local-backend.mjs';
 
@@ -12,6 +13,8 @@ const APP_NAME = 'gr4-studio';
 const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8080';
 const RECENT_REMOTE_ENDPOINTS_FILE = 'recent-remote-endpoints.json';
 const APP_ICON_CANDIDATES = ['apple-touch-icon.png', 'favicon-32x32.png', 'favicon-16x16.png', 'favicon.ico'];
+const BACKEND_CONSOLE_FLUSH_INTERVAL_MS = 50;
+const backendConsoleBuffer = createBackendConsoleBuffer();
 let remotePickerResolve = null;
 let mainWindow = null;
 let remotePickerWindow = null;
@@ -23,6 +26,9 @@ let localBackendExitMessage = null;
 let mainStartUrl = null;
 let shutdownPromise = null;
 let shutdownComplete = false;
+let pendingBackendConsoleText = '';
+let pendingBackendConsoleReplace = false;
+let backendConsoleFlushTimer = null;
 let desktopBootStatus = {
   phase: 'starting',
   message: 'Preparing gr4-studio…',
@@ -292,6 +298,50 @@ function logDesktop(message) {
   console.info(`[gr4-studio] ${message}`);
 }
 
+function flushBackendConsoleOutput() {
+  if (backendConsoleFlushTimer) {
+    clearTimeout(backendConsoleFlushTimer);
+    backendConsoleFlushTimer = null;
+  }
+  if (!pendingBackendConsoleText && !pendingBackendConsoleReplace) {
+    return;
+  }
+
+  const snapshot = backendConsoleBuffer.snapshot();
+  const payload = {
+    cursor: snapshot.cursor,
+    text: pendingBackendConsoleReplace ? snapshot.content : pendingBackendConsoleText,
+    replace: pendingBackendConsoleReplace,
+    truncated: snapshot.truncated,
+    updatedAt: snapshot.updatedAt,
+    running: Boolean(localBackend && !localBackend.getExitDetails()),
+  };
+  pendingBackendConsoleText = '';
+  pendingBackendConsoleReplace = false;
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('gr4-studio:control-plane-console:output', payload);
+  }
+}
+
+function recordBackendConsoleOutput(entry) {
+  const text = sanitizeBackendLogText(entry.text);
+  if (!text) {
+    return;
+  }
+
+  const result = backendConsoleBuffer.append(text, entry.receivedAt);
+  pendingBackendConsoleText += text;
+  if (result.didTruncate || pendingBackendConsoleText.length > BACKEND_CONSOLE_MAX_CHARACTERS) {
+    pendingBackendConsoleText = '';
+    pendingBackendConsoleReplace = true;
+  }
+
+  if (!backendConsoleFlushTimer) {
+    backendConsoleFlushTimer = setTimeout(flushBackendConsoleOutput, BACKEND_CONSOLE_FLUSH_INTERVAL_MS);
+  }
+}
+
 function localBackendExecutableName() {
   return process.platform === 'win32' ? 'gr4cp_server.exe' : 'gr4cp_server';
 }
@@ -378,6 +428,7 @@ async function startManagedLocalBackend() {
     environment: buildLocalBackendEnvironment(prefix, process.env),
     logPath,
     portFilePath,
+    onOutput: recordBackendConsoleOutput,
     onUnexpectedExit(details) {
       const message = `Managed local backend ${formatManagedBackendExit(details)}.`;
       localBackendExitMessage = message;
@@ -465,6 +516,24 @@ function resolveBackendRuntimeConfig() {
 }
 
 ipcMain.handle('gr4-studio:boot-status:get', async () => desktopBootStatus);
+
+ipcMain.handle('gr4-studio:control-plane-console:get', async () => {
+  if (desktopBootStatus.backendMode !== 'local') {
+    return {
+      available: false,
+      reason: 'remote-backend',
+      message: 'Live console output is available only for an Electron-managed local backend.',
+    };
+  }
+
+  const snapshot = backendConsoleBuffer.snapshot();
+  return {
+    available: true,
+    ...snapshot,
+    logPath: resolveLocalBackendLogPath(),
+    running: Boolean(localBackend && !localBackend.getExitDetails()),
+  };
+});
 
 function resolveLocalBackendLogPath() {
   if (desktopBootStatus.backendMode !== 'local') {

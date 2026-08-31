@@ -56,6 +56,32 @@ interface Window {
           message: string;
         }
     >;
+    readonly getControlPlaneConsole?: () => Promise<
+      | {
+          available: true;
+          content: string;
+          cursor: number;
+          truncated: boolean;
+          updatedAt: string | null;
+          logPath: string | null;
+          running: boolean;
+        }
+      | {
+          available: false;
+          reason: 'remote-backend';
+          message: string;
+        }
+    >;
+    readonly onControlPlaneConsoleOutput?: (
+      callback: (output: {
+        cursor: number;
+        text: string;
+        replace: boolean;
+        truncated: boolean;
+        updatedAt: string | null;
+        running: boolean;
+      }) => void,
+    ) => () => void;
     readonly revealControlPlaneLog?: () => Promise<{ ok: true } | { ok: false; error: string }>;
     readonly openDisplayApplication?: (input: {
       launchId: string;

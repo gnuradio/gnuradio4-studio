@@ -4,6 +4,7 @@ import { StatusPill } from '../components/status-pill';
 import { StudioMark } from '../components/studio-mark';
 import { StatusBadge } from '../components/status-badge';
 import { WasmBackendPill } from '../components/wasm-backend-pill';
+import { BackendConsoleDrawer } from '../components/backend-console-drawer';
 import { isControlPlaneWasmEnabled } from '../lib/wasm/control-plane-wasm';
 import { ApplicationView } from '../features/application/application-view';
 import { useAudioSessionStore } from '../features/application/audio/audio-session-store';
@@ -1723,6 +1724,8 @@ export function StudioPage() {
           <InspectorPanel />
         </aside>
       </main>
+
+      <BackendConsoleDrawer />
 
       <GlobalSessionsDrawer
         open={isSessionsDrawerOpen}
