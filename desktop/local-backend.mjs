@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { finished } from 'node:stream/promises';
 
 const DEFAULT_STARTUP_TIMEOUT_MS = 10_000;
 const DEFAULT_POLL_INTERVAL_MS = 100;
@@ -22,12 +24,26 @@ function describeExit({ code, signal, error }) {
   return `exited with status ${code ?? 'unknown'}`;
 }
 
-async function appendLifecycleLog(logPath, message) {
+function emitOutput(onOutput, stream, text) {
   try {
-    await fs.appendFile(logPath, `[gr4-studio ${new Date().toISOString()}] ${message}\n`, 'utf8');
+    onOutput?.({
+      stream,
+      text: String(text),
+      receivedAt: new Date().toISOString(),
+    });
+  } catch {
+    // Console consumers must not interfere with the managed process.
+  }
+}
+
+async function appendLifecycleLog(logPath, message, onOutput) {
+  const text = `[gr4-studio ${new Date().toISOString()}] ${message}\n`;
+  try {
+    await fs.appendFile(logPath, text, 'utf8');
   } catch {
     // Lifecycle logging must not mask the underlying backend failure.
   }
+  emitOutput(onOutput, 'lifecycle', text);
 }
 
 function prependEnvironmentPath(environment, name, entries) {
@@ -92,6 +108,7 @@ export async function startLocalBackend({
   startupTimeoutMs = DEFAULT_STARTUP_TIMEOUT_MS,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   shutdownTimeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS,
+  onOutput,
   onUnexpectedExit,
   spawnImpl = spawn,
 }) {
@@ -102,11 +119,9 @@ export async function startLocalBackend({
   await fs.mkdir(path.dirname(logPath), { recursive: true });
   await fs.mkdir(path.dirname(portFilePath), { recursive: true });
   await fs.rm(portFilePath, { force: true });
-  await fs.writeFile(
-    logPath,
-    `[gr4-studio ${new Date().toISOString()}] Starting managed control plane: ${executable}\n`,
-    'utf8',
-  );
+  const startupLine = `[gr4-studio ${new Date().toISOString()}] Starting managed control plane: ${executable}\n`;
+  await fs.writeFile(logPath, startupLine, 'utf8');
+  emitOutput(onOutput, 'lifecycle', startupLine);
 
   let ready = false;
   let stopping = false;
@@ -116,8 +131,15 @@ export async function startLocalBackend({
   const exited = new Promise((resolve) => {
     resolveExited = resolve;
   });
+  let resolveFinalized;
+  const finalized = new Promise((resolve) => {
+    resolveFinalized = resolve;
+  });
 
-  const logHandle = await fs.open(logPath, 'a');
+  const logStream = createWriteStream(logPath, { flags: 'a' });
+  logStream.on('error', () => {
+    // The diagnostics UI can report a log read failure; keep the backend alive.
+  });
   let child;
   let synchronousSpawnError = null;
   try {
@@ -126,10 +148,20 @@ export async function startLocalBackend({
         ...environment,
         GR4CP_PORT: '0',
         GR4CP_PORT_FILE: portFilePath,
+        GR4CP_STREAM_STDIO: '1',
       },
-      stdio: ['ignore', logHandle.fd, logHandle.fd],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
+
+    child.stdout.on('data', (chunk) => {
+      emitOutput(onOutput, 'stdout', chunk.toString('utf8'));
+    });
+    child.stderr.on('data', (chunk) => {
+      emitOutput(onOutput, 'stderr', chunk.toString('utf8'));
+    });
+    child.stdout.pipe(logStream, { end: false });
+    child.stderr.pipe(logStream, { end: false });
 
     // Attach these before the first post-spawn await so an immediate exec
     // failure cannot become an unhandled ChildProcess error.
@@ -140,27 +172,33 @@ export async function startLocalBackend({
       exitDetails = { code, signal, error: spawnError };
       resolveExited(exitDetails);
       void fs.rm(portFilePath, { force: true });
-      void appendLifecycleLog(logPath, `Managed control plane ${describeExit(exitDetails)}.`).then(() => {
-        if (ready && !stopping) {
-          onUnexpectedExit?.(exitDetails);
-        }
-      });
+      logStream.end();
+      void finished(logStream)
+        .catch(() => undefined)
+        .then(() => appendLifecycleLog(logPath, `Managed control plane ${describeExit(exitDetails)}.`, onOutput))
+        .then(() => {
+          if (ready && !stopping) {
+            onUnexpectedExit?.(exitDetails);
+          }
+        })
+        .finally(resolveFinalized);
     });
   } catch (error) {
     synchronousSpawnError = error;
-  } finally {
-    await logHandle.close();
   }
 
   if (synchronousSpawnError) {
+    logStream.end();
+    await finished(logStream).catch(() => undefined);
     const message = `Managed control plane failed during startup: ${synchronousSpawnError instanceof Error ? synchronousSpawnError.message : String(synchronousSpawnError)}`;
-    await appendLifecycleLog(logPath, message);
+    await appendLifecycleLog(logPath, message, onOutput);
     throw new Error(message, { cause: synchronousSpawnError });
   }
 
   const stop = async () => {
     stopping = true;
     if (exitDetails) {
+      await finalized;
       await fs.rm(portFilePath, { force: true });
       return exitDetails;
     }
@@ -174,6 +212,7 @@ export async function startLocalBackend({
       child.kill('SIGKILL');
     }
     const details = exitDetails ?? (await exited);
+    await finalized;
     await fs.rm(portFilePath, { force: true });
     return details;
   };
@@ -219,7 +258,7 @@ export async function startLocalBackend({
     throw new Error(`Managed control plane did not publish a port within ${startupTimeoutMs} ms.`);
   } catch (error) {
     await stop();
-    await appendLifecycleLog(logPath, error instanceof Error ? error.message : String(error));
+    await appendLifecycleLog(logPath, error instanceof Error ? error.message : String(error), onOutput);
     throw error;
   }
 }
