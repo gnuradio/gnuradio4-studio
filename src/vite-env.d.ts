@@ -39,6 +39,24 @@ interface Window {
       }) => void,
     ) => () => void;
     readonly onMenuCommand?: (callback: (command: 'new' | 'open' | 'save' | 'saveAs' | 'rename') => void) => () => void;
+    readonly getControlPlaneDiagnostics?: () => Promise<
+      | {
+          available: true;
+          logPath: string;
+          content: string;
+          lineCount: number;
+          truncated: boolean;
+          sizeBytes: number;
+          modifiedAt: string;
+          capturedAt: string;
+        }
+      | {
+          available: false;
+          reason: 'remote-backend' | 'not-configured' | 'not-found' | 'read-failed';
+          message: string;
+        }
+    >;
+    readonly revealControlPlaneLog?: () => Promise<{ ok: true } | { ok: false; error: string }>;
     readonly openDisplayApplication?: (input: {
       launchId: string;
       mode: 'new_tab' | 'popout';

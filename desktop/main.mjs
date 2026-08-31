@@ -1,8 +1,9 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { probeBackendReady, startDesktopAppServer } from './app-server.mjs';
+import { readBackendLogTail } from './backend-diagnostics.mjs';
 
 const APP_NAME = 'gr4-studio';
 const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8080';
@@ -407,6 +408,67 @@ function resolveBackendRuntimeConfig() {
 
 ipcMain.handle('gr4-studio:boot-status:get', async () => desktopBootStatus);
 
+function resolveLocalBackendLogPath() {
+  if (desktopBootStatus.backendMode !== 'local') {
+    return null;
+  }
+
+  const configuredPath = process.env.GR4_STUDIO_BACKEND_LOG_FILE;
+  return configuredPath && path.isAbsolute(configuredPath) ? configuredPath : null;
+}
+
+ipcMain.handle('gr4-studio:control-plane-diagnostics:get', async () => {
+  if (desktopBootStatus.backendMode !== 'local') {
+    return {
+      available: false,
+      reason: 'remote-backend',
+      message: 'Control-plane logs are available only when Studio manages a local backend.',
+    };
+  }
+
+  const logPath = resolveLocalBackendLogPath();
+  if (!logPath) {
+    return {
+      available: false,
+      reason: 'not-configured',
+      message: 'This Studio process was not launched with a managed control-plane log.',
+    };
+  }
+
+  try {
+    return {
+      available: true,
+      logPath,
+      capturedAt: new Date().toISOString(),
+      ...(await readBackendLogTail(logPath)),
+    };
+  } catch (error) {
+    return {
+      available: false,
+      reason: error?.code === 'ENOENT' ? 'not-found' : 'read-failed',
+      message:
+        error?.code === 'ENOENT'
+          ? 'The control-plane log has not been created yet.'
+          : `Could not read the control-plane log: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+});
+
+ipcMain.handle('gr4-studio:control-plane-diagnostics:reveal', async () => {
+  const logPath = resolveLocalBackendLogPath();
+  if (!logPath) {
+    return { ok: false, error: 'No managed local control-plane log is configured.' };
+  }
+
+  try {
+    await fs.access(logPath);
+    shell.showItemInFolder(logPath);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+});
+
 ipcMain.handle('gr4-studio:display-application:snapshot:get', async (_event, launchId) => {
   const key = typeof launchId === 'string' ? launchId.trim() : '';
   return key ? displayApplicationLaunchSnapshots.get(key) ?? null : null;
@@ -545,22 +607,7 @@ async function beginBackendStartup(runtimeConfig) {
       probePath: readiness.probePath,
     });
   } catch (error) {
-    let message = error instanceof Error ? error.message : String(error);
-    const backendLogFile = process.env.GR4_STUDIO_BACKEND_LOG_FILE;
-    if (runtimeConfig.backendMode === 'local' && backendLogFile) {
-      try {
-        const logLines = (await fs.readFile(backendLogFile, 'utf8'))
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .slice(-10);
-        if (logLines.length > 0) {
-          message = `${message} Backend log: ${logLines.join(' | ')}`;
-        }
-      } catch {
-        // The launcher may not have created a log yet.
-      }
-    }
+    const message = error instanceof Error ? error.message : String(error);
     console.error('[gr4-studio] Backend startup failed:', message);
     updateDesktopBootStatus({
       phase: 'error',
