@@ -1,9 +1,12 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { probeBackendReady, startDesktopAppServer } from './app-server.mjs';
 import { readBackendLogTail } from './backend-diagnostics.mjs';
+import { normalizeBackendUrl, parseLaunchArgs } from './launch-args.mjs';
+import { buildLocalBackendEnvironment, startLocalBackend } from './local-backend.mjs';
 
 const APP_NAME = 'gr4-studio';
 const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8080';
@@ -15,7 +18,11 @@ let remotePickerWindow = null;
 const displayApplicationWindows = new Set();
 const displayApplicationLaunchSnapshots = new Map();
 let desktopAppServer = null;
+let localBackend = null;
+let localBackendExitMessage = null;
 let mainStartUrl = null;
+let shutdownPromise = null;
+let shutdownComplete = false;
 let desktopBootStatus = {
   phase: 'starting',
   message: 'Preparing gr4-studio…',
@@ -24,58 +31,6 @@ let desktopBootStatus = {
   source: 'default',
   currentSessionRouting: 'app-api',
 };
-
-function normalizeBackendUrl(input) {
-  if (!input) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(input);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return null;
-    }
-    return parsed.toString().replace(/\/$/, '');
-  } catch {
-    return null;
-  }
-}
-
-function parseLaunchArgs(argv) {
-  const args = argv.slice(2);
-  const remoteIndex = args.findIndex((arg) => arg === '--remote' || arg.startsWith('--remote='));
-  const localIndex = args.findIndex((arg) => arg === '--local');
-  const envUrl = normalizeBackendUrl(process.env.GR4_STUDIO_CONTROL_PLANE_BASE_URL);
-  const backendMode = process.env.GR4_STUDIO_BACKEND_MODE;
-
-  if (backendMode === 'local') {
-    return { mode: 'local', remoteUrl: null, promptForRemote: false };
-  }
-
-  if (envUrl) {
-    return { mode: 'remote', remoteUrl: envUrl, promptForRemote: false };
-  }
-
-  if (localIndex !== -1 && remoteIndex === -1) {
-    return { mode: 'local', remoteUrl: null, promptForRemote: false };
-  }
-
-  if (remoteIndex === -1) {
-    return { mode: 'local', remoteUrl: null, promptForRemote: false };
-  }
-
-  const token = args[remoteIndex];
-  if (token.includes('=')) {
-    return { mode: 'remote', remoteUrl: normalizeBackendUrl(token.split('=', 2)[1]), promptForRemote: false };
-  }
-
-  const next = args[remoteIndex + 1];
-  if (next && !next.startsWith('-')) {
-    return { mode: 'remote', remoteUrl: normalizeBackendUrl(next), promptForRemote: false };
-  }
-
-  return { mode: 'remote', remoteUrl: null, promptForRemote: true };
-}
 
 function escapeHtml(value) {
   return String(value)
@@ -337,6 +292,109 @@ function logDesktop(message) {
   console.info(`[gr4-studio] ${message}`);
 }
 
+function localBackendExecutableName() {
+  return process.platform === 'win32' ? 'gr4cp_server.exe' : 'gr4cp_server';
+}
+
+async function isInstallPrefix(candidate) {
+  if (!candidate) {
+    return false;
+  }
+
+  try {
+    await fs.access(path.join(candidate, 'bin', localBackendExecutableName()));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function discoverInstallPrefix() {
+  const configuredPrefix = process.env.GR4_STUDIO_PREFIX;
+  if (configuredPrefix) {
+    const resolved = path.resolve(configuredPrefix);
+    if (await isInstallPrefix(resolved)) {
+      return resolved;
+    }
+  }
+
+  const startingPaths = [app.getAppPath(), process.resourcesPath, path.dirname(process.execPath)];
+  const visited = new Set();
+  for (const startingPath of startingPaths) {
+    let candidate = path.resolve(startingPath);
+    for (let depth = 0; depth < 10; depth += 1) {
+      if (!visited.has(candidate)) {
+        visited.add(candidate);
+        if (await isInstallPrefix(candidate)) {
+          return candidate;
+        }
+      }
+
+      const parent = path.dirname(candidate);
+      if (parent === candidate) {
+        break;
+      }
+      candidate = parent;
+    }
+  }
+
+  return null;
+}
+
+function formatManagedBackendExit(details) {
+  if (details.error) {
+    return details.error.message;
+  }
+  if (details.signal) {
+    return `terminated by signal ${details.signal}`;
+  }
+  return `exited with status ${details.code ?? 'unknown'}`;
+}
+
+async function startManagedLocalBackend() {
+  const prefix = await discoverInstallPrefix();
+  const executable =
+    process.env.GR4_STUDIO_CONTROL_PLANE_EXECUTABLE ||
+    (prefix ? path.join(prefix, 'bin', localBackendExecutableName()) : localBackendExecutableName());
+  const logPath = path.resolve(
+    process.env.GR4_STUDIO_BACKEND_LOG_FILE ||
+      (prefix
+        ? path.join(prefix, 'var', 'logs', 'gr4cp_server.log')
+        : path.join(app.getPath('logs'), 'gr4cp_server.log')),
+  );
+  const portFilePath = path.join(
+    app.getPath('temp'),
+    `gr4-studio-control-plane-${process.pid}-${randomUUID()}.port`,
+  );
+
+  if (prefix) {
+    process.env.GR4_STUDIO_PREFIX = prefix;
+  }
+  process.env.GR4_STUDIO_BACKEND_LOG_FILE = logPath;
+  logDesktop(`Starting managed local backend executable=${executable} log=${logPath}`);
+
+  const backend = await startLocalBackend({
+    executable,
+    environment: buildLocalBackendEnvironment(prefix, process.env),
+    logPath,
+    portFilePath,
+    onUnexpectedExit(details) {
+      const message = `Managed local backend ${formatManagedBackendExit(details)}.`;
+      localBackendExitMessage = message;
+      console.error(`[gr4-studio] ${message}`);
+      updateDesktopBootStatus({
+        phase: 'error',
+        message,
+      });
+    },
+  });
+
+  localBackend = backend;
+  process.env.GR4_STUDIO_CONTROL_PLANE_BASE_URL = backend.baseUrl;
+  logDesktop(`Using managed local backend ${backend.baseUrl} pid=${backend.processId ?? 'unknown'}`);
+  return backend;
+}
+
 function updateDesktopBootStatus(patch) {
   desktopBootStatus = {
     ...desktopBootStatus,
@@ -395,7 +453,7 @@ function resolveBackendRuntimeConfig() {
     return {
       backendMode,
       controlPlaneBaseUrl: explicitUrl,
-      source: 'explicit',
+      source: backendMode === 'local' && localBackend ? 'managed' : 'explicit',
     };
   }
 
@@ -585,7 +643,7 @@ async function beginBackendStartup(runtimeConfig) {
     phase: 'waiting-backend',
     message:
       runtimeConfig.backendMode === 'local'
-        ? 'Starting local backend…'
+        ? 'Checking local backend…'
         : 'Checking backend reachability…',
     controlPlaneBaseUrl: runtimeConfig.controlPlaneBaseUrl,
     backendMode: runtimeConfig.backendMode,
@@ -607,6 +665,9 @@ async function beginBackendStartup(runtimeConfig) {
       probePath: readiness.probePath,
     });
   } catch (error) {
+    if (runtimeConfig.backendMode === 'local' && localBackendExitMessage) {
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     console.error('[gr4-studio] Backend startup failed:', message);
     updateDesktopBootStatus({
@@ -616,17 +677,59 @@ async function beginBackendStartup(runtimeConfig) {
   }
 }
 
+async function closeOwnedResources() {
+  const appServer = desktopAppServer;
+  desktopAppServer = null;
+  if (appServer) {
+    try {
+      await appServer.close();
+    } catch (error) {
+      console.error('[gr4-studio] Failed to stop desktop app server:', error);
+    }
+  }
+
+  const backend = localBackend;
+  localBackend = null;
+  if (backend) {
+    try {
+      await backend.stop();
+    } catch (error) {
+      console.error('[gr4-studio] Failed to stop managed local backend:', error);
+    }
+  }
+}
+
+function shutdownAndQuit(exitCode = null) {
+  if (shutdownPromise) {
+    return shutdownPromise;
+  }
+
+  shutdownPromise = closeOwnedResources().finally(() => {
+    shutdownComplete = true;
+    if (exitCode === null) {
+      app.quit();
+    } else {
+      app.exit(exitCode);
+    }
+  });
+  return shutdownPromise;
+}
+
 async function bootstrap() {
   app.on('window-all-closed', () => {
     app.quit();
   });
-  app.on('before-quit', () => {
-    if (desktopAppServer) {
-      void desktopAppServer.close().catch((error) => {
-        console.error('[gr4-studio] Failed to stop desktop app server:', error);
-      });
-      desktopAppServer = null;
+  app.on('before-quit', (event) => {
+    if (!shutdownComplete) {
+      event.preventDefault();
+      void shutdownAndQuit();
     }
+  });
+  process.once('SIGINT', () => {
+    void shutdownAndQuit(130);
+  });
+  process.once('SIGTERM', () => {
+    void shutdownAndQuit(143);
   });
 
   app.setName(APP_NAME);
@@ -641,7 +744,10 @@ async function bootstrap() {
     app.dock.setIcon(appIconPath);
   }
 
-  const launch = parseLaunchArgs(process.argv);
+  const launch = parseLaunchArgs(process.argv, {
+    defaultApp: Boolean(process.defaultApp),
+    environment: process.env,
+  });
   if (launch.remoteUrl) {
     process.env.GR4_STUDIO_BACKEND_MODE = 'remote';
     process.env.GR4_STUDIO_CONTROL_PLANE_BASE_URL = launch.remoteUrl;
@@ -655,8 +761,20 @@ async function bootstrap() {
     }
     process.env.GR4_STUDIO_BACKEND_MODE = 'remote';
     process.env.GR4_STUDIO_CONTROL_PLANE_BASE_URL = chosen;
-  } else if (!process.env.GR4_STUDIO_BACKEND_MODE) {
+  } else {
     process.env.GR4_STUDIO_BACKEND_MODE = 'local';
+    delete process.env.GR4_STUDIO_CONTROL_PLANE_BASE_URL;
+  }
+
+  let localBackendStartupError = null;
+  if (process.env.GR4_STUDIO_BACKEND_MODE === 'local') {
+    delete process.env.GR4_STUDIO_CONTROL_PLANE_BASE_URL;
+    try {
+      await startManagedLocalBackend();
+    } catch (error) {
+      localBackendStartupError = error instanceof Error ? error.message : String(error);
+      console.error('[gr4-studio] Managed local backend startup failed:', localBackendStartupError);
+    }
   }
 
   const runtimeConfig = resolveBackendRuntimeConfig();
@@ -669,7 +787,14 @@ async function bootstrap() {
   });
   const startUrl = await resolveWindowStartUrl(runtimeConfig);
   await createWindow(startUrl, runtimeConfig);
-  void beginBackendStartup(runtimeConfig);
+  if (localBackendStartupError || localBackendExitMessage) {
+    updateDesktopBootStatus({
+      phase: 'error',
+      message: localBackendStartupError ?? localBackendExitMessage,
+    });
+  } else {
+    void beginBackendStartup(runtimeConfig);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
