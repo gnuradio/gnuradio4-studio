@@ -24,7 +24,7 @@ type DesktopBootStatus = {
   message: string;
   controlPlaneBaseUrl: string;
   backendMode: 'local' | 'remote' | 'unknown';
-  source: 'default' | 'explicit';
+  source: 'default' | 'explicit' | 'managed';
   appServerOrigin?: string;
   probePath?: string;
   currentSessionRouting: 'app-api';
