@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AppRoutes } from './app/routes';
+import { ControlPlaneDiagnostics } from './components/control-plane-diagnostics';
 import { config } from './lib/config';
 import { installWasmApiTransport } from './lib/wasm/wasm-api-transport';
 import { installWasmSinkTransport } from './lib/wasm/wasm-sink-transport';
@@ -124,10 +125,12 @@ function BootScreen({ status }: { status: DesktopBootStatus }) {
           </div>
 
           {status.phase === 'error' ? (
-            <p className="mt-4 text-sm text-rose-300">
-              The Studio window is open, but the backend did not become ready. Check the terminal and backend log for
-              details.
-            </p>
+            <>
+              <p className="mt-4 text-sm text-rose-300">
+                The Studio window is open, but the backend did not become ready.
+              </p>
+              <ControlPlaneDiagnostics defaultOpen refreshKey={status.message} showUnavailable />
+            </>
           ) : (
             <p className="mt-4 text-sm text-slate-400">The app will continue automatically once the backend is ready.</p>
           )}

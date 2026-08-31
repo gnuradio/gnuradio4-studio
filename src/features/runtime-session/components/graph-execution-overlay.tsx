@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { StatusPill } from '../../../components/status-pill';
+import { ControlPlaneDiagnostics } from '../../../components/control-plane-diagnostics';
 import { formatTimestamp } from '../../../lib/utils/ui-formatting';
 import { useRuntimeSessionStore, type ExecutionState, type OperationState, type RunIntent } from '../store/runtimeSessionStore';
 
@@ -204,6 +205,10 @@ export function GraphExecutionOverlay({ tabId, onRun, currentSubmissionContent }
             <p className="text-[11px] text-slate-500">submitted: {formatTimestamp(new Date(runtimeView.graphSubmissionUpdatedAt ?? '').getTime())}</p>
             {safeContext.session?.lastError && <p className="text-[11px] text-rose-300 break-words">backend: {safeContext.session.lastError}</p>}
           </div>
+
+          {safeContext.lastError || safeContext.session?.lastError ? (
+            <ControlPlaneDiagnostics refreshKey={safeContext.lastError ?? safeContext.session?.lastError} />
+          ) : null}
 
           <div className="grid grid-cols-2 gap-2 border-t border-slate-700 pt-2">
             <button

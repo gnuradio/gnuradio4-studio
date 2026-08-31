@@ -34,6 +34,12 @@ contextBridge.exposeInMainWorld('gr4StudioShell', {
       ipcRenderer.removeListener('gr4-studio:menu-command', listener);
     };
   },
+  getControlPlaneDiagnostics() {
+    return ipcRenderer.invoke('gr4-studio:control-plane-diagnostics:get');
+  },
+  revealControlPlaneLog() {
+    return ipcRenderer.invoke('gr4-studio:control-plane-diagnostics:reveal');
+  },
   openDisplayApplication(input) {
     return ipcRenderer.invoke('gr4-studio:display-application:open', input);
   },
