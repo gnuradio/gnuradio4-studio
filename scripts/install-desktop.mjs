@@ -41,7 +41,14 @@ async function main() {
 
   await fs.cp(distDir, appDir, { recursive: true, force: true });
   await fs.cp(path.join(projectRoot, 'desktop'), path.join(appDir, 'desktop'), { recursive: true, force: true });
-  await fs.cp(electronDistDir, electronRuntimeDir, { recursive: true, force: true });
+  await fs.cp(electronDistDir, electronRuntimeDir, {
+    recursive: true,
+    force: true,
+    // Electron's macOS frameworks use relative symlinks within each bundle.
+    // Resolving them while copying produces absolute links into node_modules,
+    // which prevents Chromium from locating resources such as icudtl.dat.
+    verbatimSymlinks: true,
+  });
 
   await fs.writeFile(
     path.join(appDir, 'package.json'),
