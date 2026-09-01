@@ -73,11 +73,37 @@ void testAudioFrameLayoutAndSanitization() {
     assert(readLittleEndian<float>(frame, 48UZ) == 0.0F);
 }
 
+void testAudioTransportQueueCapacity() {
+    assert(gr::studio::audio_sink_detail::transportQueueCapacity(120U, 20U) == 6UZ);
+    assert(gr::studio::audio_sink_detail::transportQueueCapacity(1U, 20U) == 2UZ);
+    assert(gr::studio::audio_sink_detail::transportQueueCapacity(10000U, 1U) == 64UZ);
+}
+
+void testBoundedTransportQueueRetainsBursts() {
+    gr::studio::websocket_transport::SnapshotWebSocketService service{3UZ};
+    service.publishBinary("one");
+    service.publishBinary("two");
+    service.publishBinary("three");
+    assert(service.pendingFrameCount() == 3UZ);
+    assert(service.droppedFrameCount() == 0UZ);
+
+    service.publishBinary("four");
+    assert(service.pendingFrameCount() == 3UZ);
+    assert(service.droppedFrameCount() == 1UZ);
+
+    service.clearPendingFrames();
+    assert(service.pendingFrameCount() == 0UZ);
+    assert(service.droppedFrameCount() == 1UZ);
+    service.stop();
+}
+
 } // namespace
 
 int main() {
     testAudioSinkRegistered();
     testEndpointParsing();
     testAudioFrameLayoutAndSanitization();
+    testAudioTransportQueueCapacity();
+    testBoundedTransportQueueRetainsBursts();
     return 0;
 }

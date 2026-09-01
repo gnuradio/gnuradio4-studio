@@ -118,6 +118,13 @@ inline std::uint64_t timestampNowNs() {
     return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
 }
 
+inline std::size_t transportQueueCapacity(std::uint32_t bufferMs, std::uint32_t frameMs) noexcept {
+    const auto boundedBufferMs = std::max<std::uint32_t>(1U, bufferMs);
+    const auto boundedFrameMs = std::max<std::uint32_t>(1U, frameMs);
+    const auto frames = (static_cast<std::size_t>(boundedBufferMs) + boundedFrameMs - 1UZ) / boundedFrameMs;
+    return std::clamp<std::size_t>(frames, 2UZ, 64UZ);
+}
+
 inline std::string makeAudioFrame(
     std::span<const float> samples,
     std::uint16_t channels,
@@ -178,6 +185,10 @@ struct StudioAudioSink : Block<StudioAudioSink<T>> {
     void settingsChanged(const property_map&, const property_map& newSettings) {
         if (newSettings.contains("sample_rate") || newSettings.contains("channels") || newSettings.contains("frame_ms")) {
             _pending.clear();
+            _websocket.clearPendingFrames();
+        }
+        if (newSettings.contains("buffer_ms") || newSettings.contains("frame_ms")) {
+            configureTransportQueue();
         }
         if (newSettings.contains("transport") || newSettings.contains("endpoint")) {
             startTransport();
@@ -249,11 +260,16 @@ private:
             throw gr::exception("StudioAudioSink currently supports only websocket transport.");
         }
 
+        configureTransportQueue();
         const auto parsed = audio_sink_detail::parseEndpoint(endpoint.value);
         if (!_websocket.start(parsed.host, parsed.port, parsed.path)) {
             const auto reason = _websocket.lastErrorMessage();
             throw gr::exception(reason.empty() ? "StudioAudioSink failed to start websocket transport endpoint." : reason);
         }
+    }
+
+    void configureTransportQueue() {
+        _websocket.setMaxPendingFrames(audio_sink_detail::transportQueueCapacity(buffer_ms.value, frame_ms.value));
     }
 };
 

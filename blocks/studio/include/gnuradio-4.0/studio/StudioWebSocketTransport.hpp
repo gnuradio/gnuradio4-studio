@@ -24,6 +24,7 @@ using SnapshotWebSocketService = wasm_bridge::InProcessSnapshotWebSocketService;
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -110,7 +111,8 @@ enum class WebSocketFrameKind {
 
 class SnapshotWebSocketService {
 public:
-    SnapshotWebSocketService() = default;
+    explicit SnapshotWebSocketService(std::size_t maxPendingFrames = 1UZ)
+        : _maxPendingFrames(std::max<std::size_t>(1UZ, maxPendingFrames)) {}
     SnapshotWebSocketService(const SnapshotWebSocketService&) = delete;
     SnapshotWebSocketService& operator=(const SnapshotWebSocketService&) = delete;
     SnapshotWebSocketService(SnapshotWebSocketService&&) = delete;
@@ -129,9 +131,8 @@ public:
         _boundPort = 0U;
         _lastError.clear();
         _stopping = false;
-        _hasPendingFrame = false;
-        _pendingFrame.clear();
-        _pendingFrameKind = WebSocketFrameKind::Text;
+        _pendingFrames.clear();
+        _droppedFrames = 0UZ;
 
 #if defined(_WIN32)
         _lastError = "websocket transport is not implemented on this platform";
@@ -228,7 +229,7 @@ public:
         {
             std::lock_guard lock(_mutex);
             _stopping = true;
-            _hasPendingFrame = false;
+            _pendingFrames.clear();
         }
         _cv.notify_all();
 
@@ -250,11 +251,40 @@ public:
 
     [[nodiscard]] const std::string& lastErrorMessage() const noexcept { return _lastError; }
 
+    void setMaxPendingFrames(std::size_t maxPendingFrames) {
+        std::lock_guard lock(_mutex);
+        _maxPendingFrames = std::max<std::size_t>(1UZ, maxPendingFrames);
+        while (_pendingFrames.size() > _maxPendingFrames) {
+            _pendingFrames.pop_front();
+            ++_droppedFrames;
+        }
+    }
+
+    void clearPendingFrames() {
+        std::lock_guard lock(_mutex);
+        _pendingFrames.clear();
+    }
+
+    [[nodiscard]] std::size_t pendingFrameCount() const {
+        std::lock_guard lock(_mutex);
+        return _pendingFrames.size();
+    }
+
+    [[nodiscard]] std::uint64_t droppedFrameCount() const {
+        std::lock_guard lock(_mutex);
+        return _droppedFrames;
+    }
+
     void publishText(std::string frame) { publish(std::move(frame), WebSocketFrameKind::Text); }
 
     void publishBinary(std::string frame) { publish(std::move(frame), WebSocketFrameKind::Binary); }
 
 private:
+    struct PendingFrame {
+        std::string payload;
+        WebSocketFrameKind kind{WebSocketFrameKind::Text};
+    };
+
 #if !defined(_WIN32)
     static void configureSocket(int fd) {
 #if defined(SO_NOSIGPIPE)
@@ -458,26 +488,24 @@ private:
     }
 
     void sendLoop() {
-        std::string frame;
         while (true) {
             int clientFd = -1;
-            WebSocketFrameKind frameKind = WebSocketFrameKind::Text;
+            PendingFrame pending;
             {
                 std::unique_lock lock(_mutex);
-                _cv.wait(lock, [this]() { return _stopping || (_clientFd >= 0 && _hasPendingFrame); });
+                _cv.wait(lock, [this]() { return _stopping || (_clientFd >= 0 && !_pendingFrames.empty()); });
                 if (_stopping) {
                     break;
                 }
-                if (_clientFd < 0 || !_hasPendingFrame) {
+                if (_clientFd < 0 || _pendingFrames.empty()) {
                     continue;
                 }
                 clientFd = _clientFd;
-                frame = std::move(_pendingFrame);
-                frameKind = _pendingFrameKind;
-                _hasPendingFrame = false;
+                pending = std::move(_pendingFrames.front());
+                _pendingFrames.pop_front();
             }
 
-            if (!writeFrame(clientFd, frame, frameKind)) {
+            if (!writeFrame(clientFd, pending.payload, pending.kind)) {
                 std::lock_guard lock(_mutex);
                 if (_clientFd == clientFd) {
                     closeSocket(_clientFd);
@@ -498,9 +526,11 @@ private:
             if (_stopping) {
                 return;
             }
-            _pendingFrame = std::move(frame);
-            _pendingFrameKind = kind;
-            _hasPendingFrame = true;
+            if (_pendingFrames.size() >= _maxPendingFrames) {
+                _pendingFrames.pop_front();
+                ++_droppedFrames;
+            }
+            _pendingFrames.push_back(PendingFrame{.payload = std::move(frame), .kind = kind});
         }
         _cv.notify_all();
     }
@@ -512,9 +542,9 @@ private:
     mutable std::mutex _mutex;
     std::condition_variable _cv;
     bool _stopping{false};
-    bool _hasPendingFrame{false};
-    std::string _pendingFrame;
-    WebSocketFrameKind _pendingFrameKind{WebSocketFrameKind::Text};
+    std::deque<PendingFrame> _pendingFrames;
+    std::size_t _maxPendingFrames{1UZ};
+    std::uint64_t _droppedFrames{0UZ};
     int _listenFd{-1};
     int _handshakeFd{-1};
     int _clientFd{-1};

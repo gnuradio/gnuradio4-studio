@@ -317,7 +317,7 @@
           },
           "update_ms": {
             "kind": "literal",
-            "value": "10"
+            "value": "100"
           },
           "window": {
             "kind": "literal",
@@ -1143,7 +1143,7 @@
           },
           "sample_rate": {
             "kind": "expression",
-            "expr": "audio_sample_rate"
+            "expr": "audio_rate"
           },
           "series_labels": {
             "kind": "literal",
@@ -1171,7 +1171,7 @@
           },
           "update_ms": {
             "kind": "literal",
-            "value": "10"
+            "value": "100"
           },
           "window": {
             "kind": "literal",

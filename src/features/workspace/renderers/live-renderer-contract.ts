@@ -15,6 +15,7 @@ export type WorkspaceLiveBindingInfo = {
   updateMs?: number;
   sampleRate?: number;
   channels?: number;
+  bufferMs?: number;
   reason?: string;
 };
 

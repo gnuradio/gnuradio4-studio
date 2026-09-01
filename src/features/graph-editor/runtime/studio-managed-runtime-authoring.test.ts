@@ -139,6 +139,7 @@ describe('descriptor-based authoring helpers', () => {
         endpoint: 'ws://legacy-host:18084/legacy-audio',
         sample_rate: '48000',
         channels: '1',
+        buffer_ms: '140',
       }),
     ).toMatchObject({
       status: 'configured',
@@ -147,6 +148,7 @@ describe('descriptor-based authoring helpers', () => {
       transport: 'websocket',
       sampleRate: 48000,
       channels: 1,
+      bufferMs: 140,
       reason:
         'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
     });

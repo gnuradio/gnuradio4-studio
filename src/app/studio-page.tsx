@@ -645,6 +645,7 @@ export function StudioPage() {
           bindingUpdateMs: bindingView.updateMs,
           bindingSampleRate: bindingView.sampleRate,
           bindingChannels: bindingView.channels,
+          bindingBufferMs: bindingView.bufferMs,
           bindingSessionId: runtime?.sessionId ?? undefined,
           bindingReason: bindingView.reason,
         };

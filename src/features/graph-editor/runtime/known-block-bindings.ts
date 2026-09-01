@@ -10,6 +10,7 @@ export type StudioBindingParameterMap = {
   updateMs?: 'update_ms';
   sampleRate?: 'sample_rate';
   channels?: 'channels';
+  bufferMs?: 'buffer_ms';
   topic?: 'topic';
 };
 
@@ -31,6 +32,7 @@ export type StudioBindingResolution =
       updateMs?: number;
       sampleRate?: number;
       channels?: number;
+      bufferMs?: number;
     }
   | {
       ok: false;
@@ -49,6 +51,7 @@ export type StudioBindingView = {
   updateMs?: number;
   sampleRate?: number;
   channels?: number;
+  bufferMs?: number;
   topic?: string;
   reason?: string;
 };
@@ -414,6 +417,7 @@ export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
       endpoint: 'endpoint',
       sampleRate: 'sample_rate',
       channels: 'channels',
+      bufferMs: 'buffer_ms',
       topic: 'topic',
     },
     payloadFormat: 'audio-float32-binary-v1',
@@ -428,6 +432,7 @@ export const STUDIO_KNOWN_BLOCK_BINDINGS: readonly StudioKnownBlockBinding[] = [
       endpoint: 'endpoint',
       sampleRate: 'sample_rate',
       channels: 'channels',
+      bufferMs: 'buffer_ms',
       topic: 'topic',
     },
     payloadFormat: 'audio-float32-binary-v1',
@@ -529,6 +534,9 @@ export function resolveStudioBindingFromParameters(
   const channels = binding.parameters.channels
     ? parseInteger(parameterValues[binding.parameters.channels])
     : undefined;
+  const bufferMs = binding.parameters.bufferMs
+    ? parseInteger(parameterValues[binding.parameters.bufferMs])
+    : undefined;
   const topic = binding.parameters.topic
     ? normalizeString(parameterValues[binding.parameters.topic]) || undefined
     : undefined;
@@ -541,6 +549,7 @@ export function resolveStudioBindingFromParameters(
     updateMs,
     sampleRate,
     channels,
+    bufferMs,
   };
 }
 
@@ -594,6 +603,7 @@ export function buildStudioBindingView(
     updateMs: resolved.updateMs,
     sampleRate: resolved.sampleRate,
     channels: resolved.channels,
+    bufferMs: resolved.bufferMs,
     topic: resolved.topic,
   };
 }

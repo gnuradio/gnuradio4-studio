@@ -36,6 +36,8 @@ export type AudioSessionState = {
   volume: number;
   muted: boolean;
   stats: AudioPlaybackStats | null;
+  transportGapEvents: number;
+  missingAudioFrames: number;
   devices: AudioDeviceInfo[];
   selectedDeviceId: string;
   deviceSelectionSupported: boolean;
@@ -83,13 +85,15 @@ function defaultSessionState(config: AudioSessionConfig): AudioSessionState {
     channels: normalizeChannels(config.channels),
     sampleRate: normalizeSampleRate(config.sampleRate),
     runtimeActive: config.runtimeActive,
-    bufferMs: config.bufferMs ?? 180,
+    bufferMs: config.bufferMs ?? 120,
     playing: false,
     connectionState: 'closed',
     message: null,
     volume: 0.8,
     muted: false,
     stats: null,
+    transportGapEvents: 0,
+    missingAudioFrames: 0,
     devices: [...DEFAULT_DEVICES],
     selectedDeviceId: 'default',
     deviceSelectionSupported: true,
@@ -274,7 +278,9 @@ export const useAudioSessionStore = create<AudioSessionStore>((set, get) => ({
           timestampNs: frame.timestampNs,
         };
         let message: string | null | undefined;
+        let missingPackets = 0;
         if (runtime.expectedSequence !== null && frame.sequence !== runtime.expectedSequence) {
+          missingPackets = Number(frame.sequence > runtime.expectedSequence ? frame.sequence - runtime.expectedSequence : 0n);
           message = `Audio sequence gap: expected ${runtime.expectedSequence}, got ${frame.sequence}.`;
         }
         runtime.expectedSequence = frame.sequence + 1n;
@@ -291,6 +297,8 @@ export const useAudioSessionStore = create<AudioSessionStore>((set, get) => ({
               [key]: {
                 ...current,
                 lastFrame: frameMetadata,
+                transportGapEvents: current.transportGapEvents + (missingPackets > 0 ? 1 : 0),
+                missingAudioFrames: current.missingAudioFrames + missingPackets * frame.frames,
                 message: message ?? current.message,
               },
             },
@@ -298,6 +306,10 @@ export const useAudioSessionStore = create<AudioSessionStore>((set, get) => ({
         });
       },
       onConnectionState: (connectionState, stateMessage) => {
+        if (connectionState === 'connecting') {
+          runtime.controller.clear();
+          runtime.expectedSequence = null;
+        }
         set((state) => {
           const current = state.sessions[key];
           if (!current) {
@@ -309,7 +321,7 @@ export const useAudioSessionStore = create<AudioSessionStore>((set, get) => ({
               [key]: {
                 ...current,
                 connectionState,
-                message: stateMessage ?? current.message,
+                message: stateMessage ?? (connectionState === 'open' ? null : current.message),
               },
             },
           };
@@ -349,6 +361,8 @@ export const useAudioSessionStore = create<AudioSessionStore>((set, get) => ({
                 message: null,
                 stats: null,
                 lastFrame: null,
+                transportGapEvents: 0,
+                missingAudioFrames: 0,
               },
             },
           }

@@ -90,6 +90,7 @@ function ApplicationPanelShell({
       updateMs: entry.bindingUpdateMs,
       sampleRate: entry.bindingSampleRate,
       channels: entry.bindingChannels,
+      bufferMs: entry.bindingBufferMs,
       reason: entry.bindingReason,
     },
     dataState:
