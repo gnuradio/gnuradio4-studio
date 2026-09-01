@@ -112,6 +112,7 @@ export function buildStudioAuthoringBindingView(
     updateMs: cadenceParameter ? parseInteger(parameterValues[cadenceParameter]) : undefined,
     sampleRate: binding.parameters.sampleRate ? parseInteger(parameterValues[binding.parameters.sampleRate]) : undefined,
     channels: binding.parameters.channels ? parseInteger(parameterValues[binding.parameters.channels]) : undefined,
+    bufferMs: binding.parameters.bufferMs ? parseInteger(parameterValues[binding.parameters.bufferMs]) : undefined,
     topic: binding.parameters.topic ? normalizeString(parameterValues[binding.parameters.topic]) || undefined : undefined,
     reason: authoringMessage,
   };
@@ -180,6 +181,7 @@ function buildDescriptorAuthoringView(
     updateMs: cadenceParameter ? parseInteger(parameterValues[cadenceParameter]) : undefined,
     sampleRate: binding.parameters.sampleRate ? parseInteger(parameterValues[binding.parameters.sampleRate]) : undefined,
     channels: binding.parameters.channels ? parseInteger(parameterValues[binding.parameters.channels]) : undefined,
+    bufferMs: binding.parameters.bufferMs ? parseInteger(parameterValues[binding.parameters.bufferMs]) : undefined,
     topic: binding.parameters.topic ? normalizeString(parameterValues[binding.parameters.topic]) || undefined : undefined,
     reason: authoringMessage,
   };

@@ -23,6 +23,7 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
     Boolean(sessionKey);
   const channels = liveContext.binding.channels ?? 1;
   const sampleRate = liveContext.binding.sampleRate ?? 48000;
+  const bufferMs = liveContext.binding.bufferMs ?? 120;
 
   const session = useAudioSessionStore((state) => (sessionKey ? state.sessions[sessionKey] : undefined));
   const ensureSession = useAudioSessionStore((state) => state.ensureSession);
@@ -39,9 +40,10 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
       endpoint,
       channels,
       sampleRate,
+      bufferMs,
       runtimeActive: supportsLivePath,
     });
-  }, [channels, endpoint, ensureSession, sampleRate, sessionKey, supportsLivePath]);
+  }, [bufferMs, channels, endpoint, ensureSession, sampleRate, sessionKey, supportsLivePath]);
 
   const playing = session?.playing ?? false;
   const connectionState = session?.connectionState ?? 'closed';
@@ -53,6 +55,8 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
   const deviceSelectionSupported = session?.deviceSelectionSupported ?? true;
   const lastFrame = session?.lastFrame ?? null;
   const message = session?.message ?? null;
+  const transportGapEvents = session?.transportGapEvents ?? 0;
+  const missingAudioFrames = session?.missingAudioFrames ?? 0;
 
   const handleDeviceChange = async (deviceId: string) => {
     if (!sessionKey) {
@@ -128,11 +132,17 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
 
       <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
         <span>Rate {lastFrame?.sampleRate ?? sampleRate} Hz</span>
+        <span>Context {stats?.contextSampleRate ?? 'n/a'} Hz</span>
         <span>Channels {lastFrame?.channels ?? channels}</span>
         <span>
           Buffer {stats ? `${stats.availableFrames}/${stats.capacityFrames}` : 'n/a'}
         </span>
-        <span>{playing ? `Underruns ${stats?.underruns ?? 0}` : 'Starting'}</span>
+        <span>{stats?.buffering ? `Buffering to ${stats.prefillFrames}` : playing ? 'Buffered' : 'Starting'}</span>
+        <span>Underruns {stats?.underrunEpisodes ?? 0}</span>
+        <span>Underflow frames {stats?.underrunFrames ?? 0}</span>
+        <span>Overrun frames {stats?.overrunFrames ?? 0}</span>
+        <span>Transport gaps {transportGapEvents}</span>
+        <span>Missing frames {missingAudioFrames}</span>
       </div>
 
       {message && <p className="text-[11px] text-amber-200 break-words">{message}</p>}

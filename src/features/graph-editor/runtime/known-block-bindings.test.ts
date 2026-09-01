@@ -282,6 +282,7 @@ describe('known Studio block bindings', () => {
       endpoint: 'ws://127.0.0.1:18084/audio',
       sample_rate: '48000',
       channels: '1',
+      buffer_ms: '140',
     });
     expect(audioSinkConfigured).toMatchObject({
       status: 'configured',
@@ -291,6 +292,7 @@ describe('known Studio block bindings', () => {
       endpoint: 'ws://127.0.0.1:18084/audio',
       sampleRate: 48000,
       channels: 1,
+      bufferMs: 140,
     });
 
     const scalarSinkConfigured = buildStudioBindingView('gr::studio::StudioScalarSink<float32>', {

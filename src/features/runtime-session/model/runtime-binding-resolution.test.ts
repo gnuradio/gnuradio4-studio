@@ -321,6 +321,7 @@ describe('descriptor-based runtime binding resolution', () => {
           endpoint: 'ws://legacy-host:18084/legacy-audio',
           channels: '1',
           sample_rate: '48000',
+          buffer_ms: '140',
         },
         session: runningSession([
           {
@@ -340,6 +341,7 @@ describe('descriptor-based runtime binding resolution', () => {
       endpoint: '/api/sessions/sess-1/streams/audio-playback/ws',
       sampleRate: 48000,
       channels: 1,
+      bufferMs: 140,
       payloadFormat: 'audio-float32-binary-v1',
     });
   });

@@ -209,6 +209,7 @@ export function resolveCurrentSessionStudioBindingView(
     updateMs: authoredBinding.updateMs,
     sampleRate: authoredBinding.sampleRate,
     channels: authoredBinding.channels,
+    bufferMs: authoredBinding.bufferMs,
     topic: authoredBinding.topic,
   };
 }

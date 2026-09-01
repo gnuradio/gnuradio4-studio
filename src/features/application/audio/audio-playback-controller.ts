@@ -3,7 +3,12 @@ import type { AudioFrame } from './runtime/audio-frame';
 export type AudioPlaybackStats = {
   availableFrames: number;
   capacityFrames: number;
-  underruns: number;
+  prefillFrames: number;
+  buffering: boolean;
+  underrunEpisodes: number;
+  underrunFrames: number;
+  overrunFrames: number;
+  contextSampleRate: number;
 };
 
 type AudioContextWithSink = AudioContext & {
@@ -15,7 +20,7 @@ export class StudioAudioPlaybackController {
   private workletNode: AudioWorkletNode | null = null;
   private channels = 1;
   private sampleRate = 48000;
-  private bufferMs = 180;
+  private bufferMs = 120;
   private volume = 0.8;
   private onStats?: (stats: AudioPlaybackStats) => void;
 
@@ -27,7 +32,7 @@ export class StudioAudioPlaybackController {
     return this.context?.state === 'running';
   }
 
-  async start({ channels, sampleRate, bufferMs = 180 }: { channels: number; sampleRate: number; bufferMs?: number }) {
+  async start({ channels, sampleRate, bufferMs = 120 }: { channels: number; sampleRate: number; bufferMs?: number }) {
     this.channels = Math.max(1, Math.min(2, channels));
     this.sampleRate = sampleRate;
     this.bufferMs = bufferMs;
@@ -42,7 +47,10 @@ export class StudioAudioPlaybackController {
       });
       this.workletNode.port.onmessage = (event) => {
         if (event.data?.type === 'stats') {
-          this.onStats?.(event.data as AudioPlaybackStats);
+          this.onStats?.({
+            ...(event.data as Omit<AudioPlaybackStats, 'contextSampleRate'>),
+            contextSampleRate: this.context?.sampleRate ?? this.sampleRate,
+          });
         }
       };
       this.workletNode.connect(this.context.destination);
@@ -93,11 +101,14 @@ export class StudioAudioPlaybackController {
   }
 
   private configureWorklet() {
-    const bufferFrames = Math.max(1024, Math.round((this.sampleRate * this.bufferMs) / 1000));
+    const playbackSampleRate = this.context?.sampleRate ?? this.sampleRate;
+    const prefillFrames = Math.max(128, Math.round((playbackSampleRate * this.bufferMs) / 1000));
+    const capacityFrames = Math.max(1024, prefillFrames * 2);
     this.workletNode?.port.postMessage({
       type: 'configure',
       channels: this.channels,
-      bufferFrames,
+      capacityFrames,
+      prefillFrames,
     });
   }
 }

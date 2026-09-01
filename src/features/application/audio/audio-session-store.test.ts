@@ -27,6 +27,9 @@ describe('audio session store', () => {
       runtimeActive: false,
       playing: false,
       connectionState: 'closed',
+      bufferMs: 120,
+      transportGapEvents: 0,
+      missingAudioFrames: 0,
       selectedDeviceId: 'default',
       muted: false,
     });
