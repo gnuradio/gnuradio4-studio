@@ -86,6 +86,8 @@ import {
   subscribeToDisplayApplicationCommands,
   writeDisplayApplicationLaunchSnapshot,
 } from '../features/application/runtime/display-application-launch';
+import { SidePanelToggleButton } from '../components/side-panel-toggle-button';
+import { getStudioShellGridTemplate } from './side-panel-layout';
 
 type ConnectionStatus = 'idle' | 'loading' | 'connected' | 'error';
 type CenterViewMode = 'graph' | 'variables' | 'workspace' | 'application';
@@ -195,6 +197,8 @@ export function StudioPage() {
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [centerViewByTabId, setCenterViewByTabId] = useState<Record<string, CenterViewMode>>({});
   const [isSessionsDrawerOpen, setIsSessionsDrawerOpen] = useState(false);
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [plotStyleEditorPanelId, setPlotStyleEditorPanelId] = useState<string | null>(null);
   const [pendingDestructiveAction, setPendingDestructiveAction] = useState<PendingDestructiveAction>(null);
   const [runtimeVariableOverridesByTabId, setRuntimeVariableOverridesByTabId] = useState<
@@ -1545,9 +1549,23 @@ export function StudioPage() {
         </div>
       )}
 
-      <main className="min-h-0 flex-1 overflow-hidden grid grid-cols-[18rem_1fr_20rem]">
+      <main
+        className="min-h-0 flex-1 overflow-hidden grid transition-[grid-template-columns] duration-150"
+        style={{ gridTemplateColumns: getStudioShellGridTemplate(isLeftPanelCollapsed, isRightPanelCollapsed) }}
+      >
         <aside className="min-h-0 overflow-hidden border-r border-border bg-panel">
-          <BlockCatalogPanel />
+          <div className={isLeftPanelCollapsed ? 'hidden' : 'h-full'}>
+            <BlockCatalogPanel onCollapse={() => setIsLeftPanelCollapsed(true)} />
+          </div>
+          {isLeftPanelCollapsed ? (
+            <div className="flex h-full justify-center pt-2">
+              <SidePanelToggleButton
+                direction="right"
+                label="Expand block catalog"
+                onClick={() => setIsLeftPanelCollapsed(false)}
+              />
+            </div>
+          ) : null}
         </aside>
 
         <section className="relative min-h-0 overflow-hidden bg-slate-950 flex flex-col">
@@ -1714,7 +1732,18 @@ export function StudioPage() {
         </section>
 
         <aside className="min-h-0 overflow-hidden border-l border-border bg-panel">
-          <InspectorPanel />
+          <div className={isRightPanelCollapsed ? 'hidden' : 'h-full'}>
+            <InspectorPanel onCollapse={() => setIsRightPanelCollapsed(true)} />
+          </div>
+          {isRightPanelCollapsed ? (
+            <div className="flex h-full justify-center pt-2">
+              <SidePanelToggleButton
+                direction="left"
+                label="Expand inspector"
+                onClick={() => setIsRightPanelCollapsed(false)}
+              />
+            </div>
+          ) : null}
         </aside>
       </main>
 

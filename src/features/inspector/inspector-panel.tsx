@@ -33,6 +33,7 @@ import {
   isNoteBlockType,
   isVirtualRoutingBlockType,
 } from '../graph-editor/model/virtual-routing';
+import { SidePanelToggleButton } from '../../components/side-panel-toggle-button';
 
 type InspectorTabId = 'selection' | 'graph' | 'session';
 
@@ -705,7 +706,7 @@ function SelectionTab({
   );
 }
 
-export function InspectorPanel() {
+export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
   const [activeTab, setActiveTab] = useState<InspectorTabId>('selection');
   const activeGraphTabId = useGraphTabsStore((state) => state.activeTabId);
   const activeGraphTab = useGraphTabsStore((state) =>
@@ -854,7 +855,11 @@ export function InspectorPanel() {
 
   return (
     <div className="h-full min-h-0 flex flex-col">
-      <PanelHeader title="Inspector" />
+      <PanelHeader title="Inspector">
+        {onCollapse ? (
+          <SidePanelToggleButton direction="right" label="Collapse inspector" onClick={onCollapse} />
+        ) : null}
+      </PanelHeader>
 
       <div className="shrink-0 border-b border-slate-700 px-2 py-2">
         <div className="grid grid-cols-3 gap-1">
