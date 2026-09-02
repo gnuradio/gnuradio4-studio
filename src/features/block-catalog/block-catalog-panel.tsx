@@ -17,6 +17,7 @@ import {
 } from './catalog-tree';
 import { useBlockCatalogQuery } from './hooks/use-block-catalog-query';
 import { config } from '../../lib/config';
+import { SidePanelToggleButton } from '../../components/side-panel-toggle-button';
 
 function BlockVariantButton({ block }: { block: BlockCatalogItem }) {
   const addNodeFromCatalogItem = useEditorStore((state) => state.addNodeFromCatalogItem);
@@ -130,7 +131,7 @@ function CategoryTreeView({
   );
 }
 
-export function BlockCatalogPanel() {
+export function BlockCatalogPanel({ onCollapse }: { onCollapse?: () => void }) {
   const { data, isPending, isError, error } = useBlockCatalogQuery();
   const [searchQuery, setSearchQuery] = useState('');
   const catalogBlocks = useMemo(
@@ -215,16 +216,21 @@ export function BlockCatalogPanel() {
   return (
     <div className="h-full min-h-0 flex flex-col">
       <PanelHeader title="Block Catalog">
-        <button
-          type="button"
-          onClick={handleToggleAllCategories}
-          disabled={allCategoryPaths.length === 0}
-          aria-label={allExpanded ? 'Collapse all categories' : 'Expand all categories'}
-          title={allExpanded ? 'Collapse all categories' : 'Expand all categories'}
-          className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-sm font-medium text-slate-300 hover:border-accent hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
-        >
-          {allExpanded ? '−' : '+'}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handleToggleAllCategories}
+            disabled={allCategoryPaths.length === 0}
+            aria-label={allExpanded ? 'Collapse all categories' : 'Expand all categories'}
+            title={allExpanded ? 'Collapse all categories' : 'Expand all categories'}
+            className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-sm font-medium text-slate-300 hover:border-accent hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-50 transition"
+          >
+            {allExpanded ? '−' : '+'}
+          </button>
+          {onCollapse ? (
+            <SidePanelToggleButton direction="left" label="Collapse block catalog" onClick={onCollapse} />
+          ) : null}
+        </div>
       </PanelHeader>
 
       <div className="min-h-0 flex-1 p-3 overflow-y-auto space-y-2">
