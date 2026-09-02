@@ -218,8 +218,8 @@
     "nodes": [
       {
         "id": "gr__studio__StudioPowerSpectrumSink_complex_float32___2",
-        "blockType": "gr::studio::StudioPowerSpectrumSink<complex<float32>>",
-        "title": "Studiopowerspectrumsink<complex<float32>>",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<std::complex<float32>>",
+        "title": "Studiopowerspectrumsink<std::complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -257,7 +257,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::studio::StudioPowerSpectrumSink<complex<float32>>"
+            "value": "gr::studio::StudioPowerSpectrumSink<std::complex<float32>>"
           },
           "num_averages": {
             "kind": "literal",
@@ -313,7 +313,7 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::studio::StudioPowerSpectrumSink<complex<float32>>#0"
+            "value": "gr::studio::StudioPowerSpectrumSink<std::complex<float32>>#0"
           },
           "update_ms": {
             "kind": "literal",
@@ -351,8 +351,8 @@
       },
       {
         "id": "gr__blocks__math__Rotator_complex_float32___4",
-        "blockType": "gr::blocks::math::Rotator<complex<float32>>",
-        "title": "Rotator<complex<float32>>",
+        "blockType": "gr::blocks::math::Rotator<std::complex<float32>>",
+        "title": "Rotator<std::complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -382,7 +382,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::blocks::math::Rotator<complex<float32>>"
+            "value": "gr::blocks::math::Rotator<std::complex<float32>>"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -406,7 +406,7 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::blocks::math::Rotator<complex<float32>>#0"
+            "value": "gr::blocks::math::Rotator<std::complex<float32>>#0"
           }
         }
       },
@@ -652,8 +652,8 @@
       },
       {
         "id": "gr__incubator__soapysdr__SoapyRx_complex_float32___15",
-        "blockType": "gr::incubator::soapysdr::SoapyRx<complex<float32>>",
-        "title": "Soapyrx<complex<float32>>",
+        "blockType": "gr::incubator::soapysdr::SoapyRx<std::complex<float32>>",
+        "title": "Soapyrx<std::complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -715,7 +715,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::incubator::soapysdr::SoapyRx<complex<float32>>"
+            "value": "gr::incubator::soapysdr::SoapyRx<std::complex<float32>>"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -739,14 +739,14 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::soapysdr::SoapyRx<complex<float32>>#0"
+            "value": "gr::incubator::soapysdr::SoapyRx<std::complex<float32>>#0"
           }
         }
       },
       {
         "id": "gr__incubator__filter__FirDecimator_complex_float32___16",
-        "blockType": "gr::incubator::filter::FirDecimator<complex<float32>>",
-        "title": "Firdecimator<complex<float32>>",
+        "blockType": "gr::incubator::filter::FirDecimator<std::complex<float32>>",
+        "title": "Firdecimator<std::complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -796,7 +796,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::incubator::filter::FirDecimator<complex<float32>>"
+            "value": "gr::incubator::filter::FirDecimator<std::complex<float32>>"
           },
           "num_taps": {
             "kind": "literal",
@@ -828,7 +828,7 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::filter::FirDecimator<complex<float32>>#0"
+            "value": "gr::incubator::filter::FirDecimator<std::complex<float32>>#0"
           },
           "window": {
             "kind": "literal",
@@ -842,8 +842,8 @@
       },
       {
         "id": "gr__studio__StudioPowerSpectrumSink_complex_float32___2-copy-2",
-        "blockType": "gr::studio::StudioPowerSpectrumSink<complex<float32>>",
-        "title": "Studiopowerspectrumsink<complex<float32>>",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<std::complex<float32>>",
+        "title": "Studiopowerspectrumsink<std::complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -881,7 +881,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::studio::StudioPowerSpectrumSink<complex<float32>>"
+            "value": "gr::studio::StudioPowerSpectrumSink<std::complex<float32>>"
           },
           "num_averages": {
             "kind": "literal",
@@ -937,7 +937,7 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::studio::StudioPowerSpectrumSink<complex<float32>>#0"
+            "value": "gr::studio::StudioPowerSpectrumSink<std::complex<float32>>#0"
           },
           "update_ms": {
             "kind": "literal",
@@ -975,8 +975,8 @@
       },
       {
         "id": "gr__studio__StudioSeriesSink_complex_float32___18",
-        "blockType": "gr::studio::StudioSeriesSink<complex<float32>>",
-        "title": "Studioseriessink<complex<float32>>",
+        "blockType": "gr::studio::StudioSeriesSink<std::complex<float32>>",
+        "title": "Studioseriessink<std::complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -1010,7 +1010,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::studio::StudioSeriesSink<complex<float32>>"
+            "value": "gr::studio::StudioSeriesSink<std::complex<float32>>"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -1042,7 +1042,7 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::studio::StudioSeriesSink<complex<float32>>#0"
+            "value": "gr::studio::StudioSeriesSink<std::complex<float32>>#0"
           },
           "update_ms": {
             "kind": "literal",
