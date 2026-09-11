@@ -2,17 +2,9 @@
 
 include_guard(GLOBAL)
 
-function(gr4_studio_merge_files_into merge_output_file)
-  file(WRITE "${merge_output_file}" "")
-  foreach(merge_input_file IN LISTS ARGN)
-    file(READ "${merge_input_file}" _contents)
-    file(APPEND "${merge_output_file}" "${_contents}")
-  endforeach()
-endfunction()
-
 function(gr4_studio_add_block_plugin plugin_target_base)
   set(options SPLIT_BLOCK_INSTANTIATIONS)
-  set(oneValueArgs MODULE_NAME_BASE PARSER_EXE)
+  set(oneValueArgs MODULE_NAME_BASE)
   set(multiValueArgs HEADERS SOURCES LINK_LIBRARIES INCLUDE_DIRECTORIES)
   cmake_parse_arguments(GR4S_PLUGIN "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
@@ -20,30 +12,27 @@ function(gr4_studio_add_block_plugin plugin_target_base)
     message(FATAL_ERROR "No HEADERS passed to gr4_studio_add_block_plugin(${plugin_target_base})")
   endif()
 
-  if(NOT GR4S_PLUGIN_PARSER_EXE)
-    message(FATAL_ERROR "No PARSER_EXE passed to gr4_studio_add_block_plugin(${plugin_target_base})")
-  endif()
-
   if(NOT GR4S_PLUGIN_MODULE_NAME_BASE)
     set(GR4S_PLUGIN_MODULE_NAME_BASE "${plugin_target_base}")
   endif()
 
   if(GR4S_PLUGIN_SPLIT_BLOCK_INSTANTIATIONS)
-    set(_parser_split_flag "--split")
+    set(_split_arg SPLIT_BLOCK_INSTANTIATIONS)
   else()
-    set(_parser_split_flag "")
+    set(_split_arg "")
   endif()
 
-  set(_gen_dir "${CMAKE_BINARY_DIR}/generated_plugins/${GR4S_PLUGIN_MODULE_NAME_BASE}")
-  file(REMOVE_RECURSE "${_gen_dir}")
+  set(_gen_dir "${CMAKE_BINARY_DIR}/plugins/${GR4S_PLUGIN_MODULE_NAME_BASE}")
   file(MAKE_DIRECTORY "${_gen_dir}")
 
-  set(_generated_cpp "${_gen_dir}/integrator.cpp" ${GR4S_PLUGIN_SOURCES})
+  set(_plugin_sources ${GR4S_PLUGIN_SOURCES})
 
   if(EMSCRIPTEN)
-    set(_parser_registry_flags "")
+    set(_registry_args "")
   else()
-    set(_parser_registry_flags --registry-header plugin_instance.hpp --registry-instance grPluginInstance)
+    set(_registry_args
+      REGISTRY_HEADER plugin_instance.hpp
+      REGISTRY_INSTANCE grPluginInstance)
 
     set(_plugin_instance_header "${_gen_dir}/plugin_instance.hpp")
     set(_plugin_entry_cpp "${_gen_dir}/plugin_entry.cpp")
@@ -54,59 +43,16 @@ function(gr4_studio_add_block_plugin plugin_target_base)
     file(WRITE "${_plugin_entry_cpp}"
       "#include <gnuradio-4.0/Plugin.hpp>\n"
       "GR_PLUGIN(\"${plugin_target_base}\", \"gr4-studio\", \"MIT\", \"${PROJECT_VERSION}\")\n")
-    list(APPEND _generated_cpp "${_plugin_entry_cpp}")
+    list(APPEND _plugin_sources "${_plugin_entry_cpp}")
   endif()
 
-  foreach(_hdr IN LISTS GR4S_PLUGIN_HEADERS)
-    get_filename_component(_abs_hdr "${_hdr}" ABSOLUTE)
-    get_filename_component(_basename "${_hdr}" NAME_WE)
-
-    file(GLOB _old_cpp "${_gen_dir}/*${_basename}*.cpp")
-    if(_old_cpp)
-      file(REMOVE ${_old_cpp})
-    endif()
-
-    file(GLOB _old_hpp_in "${_gen_dir}/*${_basename}*.hpp.in")
-    if(_old_hpp_in)
-      file(REMOVE ${_old_hpp_in})
-    endif()
-
-    execute_process(
-      COMMAND "${GR4S_PLUGIN_PARSER_EXE}" "${_abs_hdr}" "${_gen_dir}" ${_parser_split_flag}
-              ${_parser_registry_flags}
-      RESULT_VARIABLE _gen_res
-      OUTPUT_VARIABLE _gen_out
-      ERROR_VARIABLE _gen_err
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-      ERROR_STRIP_TRAILING_WHITESPACE
-    )
-    if(NOT _gen_res EQUAL 0)
-      message(FATAL_ERROR
-        "Failed generating plugin registration code from ${_hdr}\n"
-        "stdout:\n${_gen_out}\n"
-        "stderr:\n${_gen_err}")
-    endif()
-
-    file(GLOB _generated "${_gen_dir}/${_basename}*.cpp")
-    if(NOT _generated)
-      set(_dummy_cpp "${_gen_dir}/dummy_${_basename}.cpp")
-      file(WRITE "${_dummy_cpp}" "// No macros or expansions found for '${_basename}'\n")
-      list(APPEND _generated "${_dummy_cpp}")
-    endif()
-    list(APPEND _generated_cpp ${_generated})
-  endforeach()
-
-  file(GLOB _decl_hpp_in "${_gen_dir}/*_declarations.hpp.in")
-  if(_decl_hpp_in)
-    gr4_studio_merge_files_into("${_gen_dir}/declarations.hpp" ${_decl_hpp_in})
-  endif()
-  file(GLOB _raw_calls_hpp_in "${_gen_dir}/*_raw_calls.hpp.in")
-  if(_raw_calls_hpp_in)
-    gr4_studio_merge_files_into("${_gen_dir}/raw_calls.hpp" ${_raw_calls_hpp_in})
-  endif()
-
-  add_library(${plugin_target_base} OBJECT ${_generated_cpp})
+  add_library(${plugin_target_base} OBJECT ${_plugin_sources})
   set_target_properties(${plugin_target_base} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  gr_generate_block_instantiations(${plugin_target_base}
+    HEADERS ${GR4S_PLUGIN_HEADERS}
+    MODULE_NAME_BASE ${GR4S_PLUGIN_MODULE_NAME_BASE}
+    ${_split_arg}
+    ${_registry_args})
   target_include_directories(${plugin_target_base} PRIVATE "${_gen_dir}" ${GR4S_PLUGIN_INCLUDE_DIRECTORIES})
   target_link_libraries(${plugin_target_base}
     PUBLIC
@@ -119,7 +65,7 @@ function(gr4_studio_add_block_plugin plugin_target_base)
     target_sources(${_static_lib_name} PRIVATE $<TARGET_OBJECTS:${plugin_target_base}>)
     target_link_libraries(${_static_lib_name} PUBLIC ${GR4S_PLUGIN_LINK_LIBRARIES})
     install(TARGETS ${_static_lib_name} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnuradio-4/plugins)
-    install(FILES "${_gen_dir}/${GR4S_PLUGIN_MODULE_NAME_BASE}.hpp"
+    install(FILES "${CMAKE_BINARY_DIR}/include/gnuradio-4.0/${GR4S_PLUGIN_MODULE_NAME_BASE}.hpp"
       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gnuradio-4.0)
   else()
     set(_plugin_lib_name "${plugin_target_base}Plugin")

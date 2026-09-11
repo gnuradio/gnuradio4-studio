@@ -2,6 +2,7 @@
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GR4_STUDIO_GNURADIO4 REQUIRED IMPORTED_TARGET gnuradio4)
+find_package(GnuRadioBlockLib CONFIG REQUIRED)
 if(NOT EMSCRIPTEN)
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
   set(GR4_STUDIO_OPENSSL_TARGET OpenSSL::Crypto)
@@ -30,14 +31,6 @@ if(NOT EMSCRIPTEN)
       set(GR4_STUDIO_HTTPLIB_TARGET gr4_studio::cpp_httplib)
     endif()
   endif()
-endif()
-
-find_program(GR4_STUDIO_PARSE_REGISTRATIONS_EXE NAMES gnuradio_4_0_parse_registrations)
-
-if(NOT GR4_STUDIO_PARSE_REGISTRATIONS_EXE)
-  message(FATAL_ERROR
-    "gnuradio_4_0_parse_registrations is required for studio plugin generation. "
-    "Set PATH or CMAKE_PROGRAM_PATH.")
 endif()
 
 add_library(gr4_studio_blocks_studio_headers INTERFACE)
@@ -74,7 +67,6 @@ endif()
 
 gr4_studio_add_block_plugin(Gr4StudioBlocks
   SPLIT_BLOCK_INSTANTIATIONS
-  PARSER_EXE "${GR4_STUDIO_PARSE_REGISTRATIONS_EXE}"
   HEADERS ${GR4_STUDIO_HEADERS}
   SOURCES ${GR4_STUDIO_EXTRA_SOURCES}
   LINK_LIBRARIES
