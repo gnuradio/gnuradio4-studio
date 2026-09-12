@@ -17,6 +17,11 @@
     "lint": "eslint .",
     "test": "vitest run"
   },
+  "allowScripts": {
+    "electron@35.6.0": true,
+    "esbuild@0.25.12": true,
+    "fsevents@2.3.3": true
+  },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@tanstack/react-query": "^5.67.0",
