@@ -1,6 +1,11 @@
 import fs from 'node:fs/promises';
 import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+
+const require = createRequire(import.meta.url);
+const { downloadArtifact } = require('@electron/get');
 
 function parsePrefix(argv) {
   const prefixIndex = argv.indexOf('--prefix');
@@ -16,6 +21,131 @@ function parsePrefix(argv) {
   return process.env.PREFIX || process.env.GR4_STUDIO_PREFIX;
 }
 
+async function fileExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function run(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      ...options,
+      stdio: ['ignore', 'ignore', 'inherit'],
+    });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          signal
+            ? `${command} was terminated by ${signal}`
+            : `${command} exited with status ${code ?? 'unknown'}`,
+        ),
+      );
+    });
+  });
+}
+
+function electronRelativeBinary() {
+  switch (process.env.npm_config_platform || process.platform) {
+    case 'darwin':
+    case 'mas':
+      return path.join('Electron.app', 'Contents', 'MacOS', 'Electron');
+    case 'win32':
+      return 'electron.exe';
+    default:
+      return 'electron';
+  }
+}
+
+function requiredElectronFiles(distDir, relativeBinary) {
+  const files = [path.join(distDir, relativeBinary)];
+  const platform = process.env.npm_config_platform || process.platform;
+  if (platform === 'darwin' || platform === 'mas') {
+    files.push(
+      path.join(
+        distDir,
+        'Electron.app',
+        'Contents',
+        'Frameworks',
+        'Electron Framework.framework',
+        'Electron Framework',
+      ),
+    );
+  }
+  return files;
+}
+
+async function ensureElectronRuntime(projectRoot, electronDistDir, relativeBinary) {
+  const requiredFiles = requiredElectronFiles(electronDistDir, relativeBinary);
+  if ((await Promise.all(requiredFiles.map(fileExists))).every(Boolean)) {
+    return;
+  }
+
+  console.log('Electron runtime is incomplete; downloading and repairing it...');
+
+  const electronPackageDir = path.join(projectRoot, 'node_modules', 'electron');
+  const electronPackage = JSON.parse(await fs.readFile(path.join(electronPackageDir, 'package.json'), 'utf8'));
+  const checksums = JSON.parse(await fs.readFile(path.join(electronPackageDir, 'checksums.json'), 'utf8'));
+  const platform = process.env.npm_config_platform || process.platform;
+  const arch = process.env.npm_config_arch || process.arch;
+  const archivePath = await downloadArtifact({
+    version: electronPackage.version,
+    artifactName: 'electron',
+    platform,
+    arch,
+    checksums,
+  });
+
+  // Electron 35's extract-zip dependency can stop partway through macOS archives
+  // on newer Node releases. CMake is already required to build this project and
+  // provides a portable extractor on macOS, Linux, and Windows.
+  const stagingDir = await fs.mkdtemp(path.join(electronPackageDir, '.gr4-electron-dist-'));
+  const backupDir = path.join(electronPackageDir, `.gr4-electron-dist-backup-${process.pid}`);
+  let backedUp = false;
+  let installed = false;
+  try {
+    await run(process.env.CMAKE_COMMAND || 'cmake', ['-E', 'tar', 'xf', archivePath], { cwd: stagingDir });
+
+    const stagedRequiredFiles = requiredElectronFiles(stagingDir, relativeBinary);
+    if (!(await Promise.all(stagedRequiredFiles.map(fileExists))).every(Boolean)) {
+      throw new Error(`Downloaded Electron ${electronPackage.version} archive is incomplete for ${platform}-${arch}`);
+    }
+
+    await fs.rm(backupDir, { recursive: true, force: true });
+    try {
+      await fs.rename(electronDistDir, backupDir);
+      backedUp = true;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+    await fs.rename(stagingDir, electronDistDir);
+    installed = true;
+    await fs.writeFile(path.join(electronPackageDir, 'path.txt'), relativeBinary, 'utf8');
+    await fs.rm(backupDir, { recursive: true, force: true });
+    backedUp = false;
+  } catch (error) {
+    if (installed) {
+      await fs.rm(electronDistDir, { recursive: true, force: true });
+    }
+    if (backedUp) {
+      await fs.rename(backupDir, electronDistDir);
+    }
+    throw error;
+  } finally {
+    await fs.rm(stagingDir, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const prefix = parsePrefix(process.argv.slice(2));
   if (!prefix) {
@@ -28,16 +158,15 @@ async function main() {
   const binDir = path.join(prefix, 'bin');
   const electronDistDir = path.join(projectRoot, 'node_modules', 'electron', 'dist');
   const electronRuntimeDir = path.join(prefix, 'libexec', 'gr4-studio', 'electron');
-  const electronRelativeBinary =
-    process.platform === 'darwin' ? path.join('Electron.app', 'Contents', 'MacOS', 'Electron') : 'electron';
-  const electronBinary = path.join(electronRuntimeDir, electronRelativeBinary);
+  const relativeElectronBinary = electronRelativeBinary();
+  const electronBinary = path.join(electronRuntimeDir, relativeElectronBinary);
   const electronResourcesDir =
     process.platform === 'darwin'
       ? path.join(electronRuntimeDir, 'Electron.app', 'Contents', 'Resources')
       : path.join(electronRuntimeDir, 'resources');
 
   await fs.access(distDir);
-  await fs.access(path.join(electronDistDir, electronRelativeBinary));
+  await ensureElectronRuntime(projectRoot, electronDistDir, relativeElectronBinary);
   await fs.rm(appDir, { recursive: true, force: true });
   await fs.rm(electronRuntimeDir, { recursive: true, force: true });
   await fs.mkdir(appDir, { recursive: true });
