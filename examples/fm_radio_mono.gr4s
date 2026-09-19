@@ -4,6 +4,10 @@
   "metadata": {
     "name": "fm_radio_mono.gr4s",
     "schedulerId": "gr::scheduler::SimpleMulti",
+    "application": {
+      "mode": "popout",
+      "renderer": "react"
+    },
     "studio": {
       "panels": [
         {
@@ -168,49 +172,20 @@
           "direction": "column",
           "children": [
             {
-              "kind": "split",
-              "direction": "row",
-              "children": [
-                {
-                  "kind": "pane",
-                  "panelId": "studio-panel:gr__studio__StudioPowerSpectrumSink_float32__19"
-                },
-                {
-                  "kind": "pane",
-                  "panelId": "studio-panel:gr__studio__StudioAudioSink_float32__21"
-                }
-              ]
-            },
-            {
-              "kind": "split",
-              "direction": "row",
-              "children": [
-                {
-                  "kind": "pane",
-                  "panelId": "studio-panel:gr__studio__StudioPowerSpectrumSink_complex_float32___2"
-                },
-                {
-                  "kind": "pane",
-                  "panelId": "studio-panel:gr__studio__StudioPowerSpectrumSink_complex_float32___2-copy-2"
-                }
-              ],
-              "sizes": [
-                50,
-                50
-              ]
+              "kind": "pane",
+              "panelId": "studio-panel:gr__studio__StudioPowerSpectrumSink_float32__19"
             },
             {
               "kind": "pane",
-              "panelId": "studio-panel:gr__studio__StudioSeriesSink_complex_float32___18"
+              "panelId": "studio-panel:gr__studio__StudioSeriesSink_float32__20"
+            },
+            {
+              "kind": "pane",
+              "panelId": "control-panel"
             }
-          ],
-          "sizes": [
-            33.334,
-            33.333,
-            33.333
           ]
         },
-        "activePanelId": "studio-panel:gr__studio__StudioPowerSpectrumSink_complex_float32___2-copy-2"
+        "activePanelId": "studio-panel:gr__studio__StudioPowerSpectrumSink_float32__19"
       }
     }
   },
@@ -411,9 +386,9 @@
         }
       },
       {
-        "id": "gr__incubator__analog__QuadratureDemod_float32__5",
-        "blockType": "gr::incubator::analog::QuadratureDemod<float32>",
-        "title": "Quadraturedemod<float32>",
+        "id": "gr__blocks__analog__QuadratureDemod_float32__5",
+        "blockType": "gr::blocks::analog::QuadratureDemod<float32>",
+        "title": "QuadratureDemod<float32>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -439,7 +414,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::incubator::analog::QuadratureDemod<float32>"
+            "value": "gr::blocks::analog::QuadratureDemod<float32>"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -455,14 +430,14 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::analog::QuadratureDemod<float32>#0"
+            "value": "gr::blocks::analog::QuadratureDemod<float32>#0"
           }
         }
       },
       {
-        "id": "gr__incubator__analog__FmDeemphasisFilter_float32__6",
-        "blockType": "gr::incubator::analog::FmDeemphasisFilter<float32>",
-        "title": "Fmdeemphasisfilter<float32>",
+        "id": "gr__blocks__analog__FmDeemphasis_float32__6",
+        "blockType": "gr::blocks::analog::FmDeemphasis<float32>",
+        "title": "FmDeemphasis<float32>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -484,7 +459,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::incubator::analog::FmDeemphasisFilter<float32>"
+            "value": "gr::blocks::analog::FmDeemphasis<float32>"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -508,14 +483,14 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::analog::FmDeemphasisFilter<float32>#0"
+            "value": "gr::blocks::analog::FmDeemphasis<float32>#0"
           }
         }
       },
       {
-        "id": "gr__incubator__pfb__PfbArbResampler_float32__8",
-        "blockType": "gr::incubator::pfb::PfbArbResampler<float32>",
-        "title": "Pfbarbresampler<float32>",
+        "id": "gr__blocks__filter__ArbitraryRateResampler_float32__8",
+        "blockType": "gr::blocks::filter::ArbitraryRateResampler<float32>",
+        "title": "ArbitraryRateResampler<float32>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -535,13 +510,13 @@
             "kind": "literal",
             "value": "4096"
           },
-          "name": {
-            "kind": "literal",
-            "value": "gr::incubator::pfb::PfbArbResampler<float32, float32>"
-          },
-          "num_filters": {
+          "bank_size": {
             "kind": "expression",
             "expr": "resampler_num_filters"
+          },
+          "name": {
+            "kind": "literal",
+            "value": "gr::blocks::filter::ArbitraryRateResampler<float32>"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -551,11 +526,7 @@
             "kind": "expression",
             "expr": "resampler_rate"
           },
-          "sample_delay": {
-            "kind": "literal",
-            "value": "0"
-          },
-          "stop_band_attenuation": {
+          "attenuation_db": {
             "kind": "expression",
             "expr": "resampler_stop_band_attenuation"
           },
@@ -573,14 +544,14 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::pfb::PfbArbResampler<float32, float32>#0"
+            "value": "gr::blocks::filter::ArbitraryRateResampler<float32>#0"
           }
         }
       },
       {
-        "id": "gr__incubator__audio__RtAudioSink_float32__12",
-        "blockType": "gr::incubator::audio::RtAudioSink<float32>",
-        "title": "Rtaudiosink<float32>",
+        "id": "gr__blocks__audio__AudioSink_float32__12",
+        "blockType": "gr::blocks::audio::AudioSink<float32>",
+        "title": "AudioSink<float32>",
         "executionMode": "disabled",
         "rotation": 0,
         "position": {
@@ -588,31 +559,11 @@
           "y": 402.1189925803556
         },
         "parameters": {
-          "channels_fallback": {
-            "kind": "literal",
-            "value": "1"
-          },
           "compute_domain": {
             "kind": "literal",
             "value": "default_io"
           },
-          "device_index": {
-            "kind": "literal",
-            "value": "-1"
-          },
           "disconnect_on_done": {
-            "kind": "literal",
-            "value": true
-          },
-          "dither": {
-            "kind": "literal",
-            "value": false
-          },
-          "frames_per_buf": {
-            "kind": "literal",
-            "value": "1024"
-          },
-          "ignore_tag_sample_rate": {
             "kind": "literal",
             "value": true
           },
@@ -620,9 +571,17 @@
             "kind": "literal",
             "value": "1024"
           },
+          "io_buffer_size": {
+            "kind": "literal",
+            "value": "0.2"
+          },
           "name": {
             "kind": "literal",
-            "value": "gr::incubator::audio::RtAudioSink<float32>"
+            "value": "gr::blocks::audio::AudioSink<float32>"
+          },
+          "num_channels": {
+            "kind": "literal",
+            "value": "1"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -636,24 +595,20 @@
             "kind": "literal",
             "value": "0"
           },
-          "target_latency_s": {
-            "kind": "literal",
-            "value": "0.2"
-          },
           "ui_constraints": {
             "kind": "literal",
             "value": ""
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::audio::RtAudioSink<float32>#0"
+            "value": "gr::blocks::audio::AudioSink<float32>#0"
           }
         }
       },
       {
-        "id": "gr__incubator__soapysdr__SoapyRx_complex_float32___15",
-        "blockType": "gr::incubator::soapysdr::SoapyRx<complex<float32>>",
-        "title": "Soapyrx<complex<float32>>",
+        "id": "gr__blocks__sdr__SoapySource_complex_float32___15",
+        "blockType": "gr::blocks::sdr::SoapySource<complex<float32>>",
+        "title": "SoapySource<complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -661,35 +616,15 @@
           "y": 336
         },
         "parameters": {
-          "antenna": {
-            "kind": "literal",
-            "value": ""
-          },
-          "bandwidth": {
-            "kind": "expression",
-            "expr": "rf_sample_rate"
-          },
-          "center_frequency": {
-            "kind": "expression",
-            "expr": "sdr_center_frequency"
-          },
-          "channel": {
-            "kind": "literal",
-            "value": "0"
-          },
           "compute_domain": {
             "kind": "literal",
             "value": "default_io"
-          },
-          "debug": {
-            "kind": "literal",
-            "value": false
           },
           "device": {
             "kind": "literal",
             "value": "hackrf"
           },
-          "device_args": {
+          "device_parameter": {
             "kind": "literal",
             "value": ""
           },
@@ -697,9 +632,9 @@
             "kind": "literal",
             "value": true
           },
-          "gain": {
+          "frequency": {
             "kind": "literal",
-            "value": "72"
+            "value": "[99200000.0]"
           },
           "input_chunk_size": {
             "kind": "literal",
@@ -715,7 +650,11 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::incubator::soapysdr::SoapyRx<complex<float32>>"
+            "value": "gr::blocks::sdr::SoapySource<complex<float32>, 1ul>"
+          },
+          "num_channels": {
+            "kind": "literal",
+            "value": "1"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -725,7 +664,15 @@
             "kind": "expression",
             "expr": "rf_sample_rate"
           },
-          "stream_timeout_us": {
+          "rx_bandwidths": {
+            "kind": "literal",
+            "value": "[2000000.0]"
+          },
+          "rx_gains": {
+            "kind": "literal",
+            "value": "[72.0]"
+          },
+          "max_time_out_us": {
             "kind": "literal",
             "value": "1000"
           },
@@ -739,14 +686,118 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::soapysdr::SoapyRx<complex<float32>>#0"
+            "value": "gr::blocks::sdr::SoapySource<complex<float32>, 1ul>#0"
+          },
+          "clock_source": {
+            "kind": "literal",
+            "value": ""
+          },
+          "dc_blocker_cutoff": {
+            "kind": "literal",
+            "value": "10"
+          },
+          "dc_blocker_enabled": {
+            "kind": "literal",
+            "value": false
+          },
+          "dc_offset": {
+            "kind": "literal",
+            "value": ""
+          },
+          "dc_offset_mode": {
+            "kind": "literal",
+            "value": false
+          },
+          "device_settings": {
+            "kind": "literal",
+            "value": ""
+          },
+          "emit_meta_info": {
+            "kind": "literal",
+            "value": true
+          },
+          "emit_timing_tags": {
+            "kind": "literal",
+            "value": true
+          },
+          "frequency_correction": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "frontend_mapping": {
+            "kind": "literal",
+            "value": ""
+          },
+          "gain_mode": {
+            "kind": "literal",
+            "value": false
+          },
+          "iq_balance": {
+            "kind": "literal",
+            "value": ""
+          },
+          "log_device_state": {
+            "kind": "literal",
+            "value": true
+          },
+          "master_clock_rate": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "max_fragment_count": {
+            "kind": "literal",
+            "value": "100"
+          },
+          "ppm_estimator_cutoff": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "ppm_tag_threshold": {
+            "kind": "literal",
+            "value": "0.10000000149011612"
+          },
+          "reference_clock_rate": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "rx_antennae": {
+            "kind": "literal",
+            "value": ""
+          },
+          "rx_gain_elements": {
+            "kind": "literal",
+            "value": ""
+          },
+          "stream_args": {
+            "kind": "literal",
+            "value": ""
+          },
+          "tag_interval": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "time_source": {
+            "kind": "literal",
+            "value": ""
+          },
+          "trigger_name": {
+            "kind": "literal",
+            "value": "SDR_WALLCLOCK"
+          },
+          "tune_args": {
+            "kind": "literal",
+            "value": ""
+          },
+          "verbose_overflow": {
+            "kind": "literal",
+            "value": false
           }
         }
       },
       {
-        "id": "gr__incubator__filter__FirDecimator_complex_float32___16",
-        "blockType": "gr::incubator::filter::FirDecimator<complex<float32>>",
-        "title": "Firdecimator<complex<float32>>",
+        "id": "gr__blocks__filter__DesignedFilter_complex_float32___16",
+        "blockType": "gr::blocks::filter::DesignedFilter<complex<float32>>",
+        "title": "DesignedFilter<complex<float32>>",
         "executionMode": "active",
         "rotation": 0,
         "position": {
@@ -758,15 +809,11 @@
             "kind": "literal",
             "value": "30"
           },
-          "beta": {
-            "kind": "literal",
-            "value": "6.760000228881836"
-          },
           "compute_domain": {
             "kind": "literal",
             "value": "default_io"
           },
-          "decim": {
+          "decimation": {
             "kind": "literal",
             "value": "5"
           },
@@ -774,17 +821,17 @@
             "kind": "literal",
             "value": true
           },
-          "f_high": {
+          "high_cutoff": {
             "kind": "literal",
             "value": "0"
           },
-          "f_low": {
+          "cutoff": {
             "kind": "literal",
             "value": "120000"
           },
-          "filter_response": {
+          "profile": {
             "kind": "literal",
-            "value": "LOWPASS"
+            "value": "lowpass"
           },
           "gain": {
             "kind": "literal",
@@ -796,11 +843,7 @@
           },
           "name": {
             "kind": "literal",
-            "value": "gr::incubator::filter::FirDecimator<complex<float32>>"
-          },
-          "num_taps": {
-            "kind": "literal",
-            "value": "0"
+            "value": "gr::blocks::filter::DesignedFilter<complex<float32>, float32>"
           },
           "output_chunk_size": {
             "kind": "literal",
@@ -816,7 +859,7 @@
           },
           "taps": {
             "kind": "literal",
-            "value": "[]"
+            "value": "0"
           },
           "transition_width": {
             "kind": "literal",
@@ -828,15 +871,15 @@
           },
           "unique_name": {
             "kind": "literal",
-            "value": "gr::incubator::filter::FirDecimator<complex<float32>>#0"
+            "value": "gr::blocks::filter::DesignedFilter<complex<float32>, float32>#0"
           },
           "window": {
             "kind": "literal",
             "value": "Kaiser"
           },
-          "design_sample_rate": {
+          "window_param": {
             "kind": "literal",
-            "value": "0"
+            "value": "6.760000228881836"
           }
         }
       },
@@ -1395,42 +1438,42 @@
         }
       },
       {
-        "id": "gr__incubator__analog__QuadratureDemod_float32__5:out->gr__incubator__analog__FmDeemphasisFilter_float32__6:in",
+        "id": "gr__blocks__analog__QuadratureDemod_float32__5:out->gr__blocks__analog__FmDeemphasis_float32__6:in",
         "source": {
-          "nodeId": "gr__incubator__analog__QuadratureDemod_float32__5",
+          "nodeId": "gr__blocks__analog__QuadratureDemod_float32__5",
           "portId": "out"
         },
         "target": {
-          "nodeId": "gr__incubator__analog__FmDeemphasisFilter_float32__6",
+          "nodeId": "gr__blocks__analog__FmDeemphasis_float32__6",
           "portId": "in"
         }
       },
       {
-        "id": "gr__incubator__analog__FmDeemphasisFilter_float32__6:out->gr__incubator__pfb__PfbArbResampler_float32__8:in",
+        "id": "gr__blocks__analog__FmDeemphasis_float32__6:out->gr__blocks__filter__ArbitraryRateResampler_float32__8:in",
         "source": {
-          "nodeId": "gr__incubator__analog__FmDeemphasisFilter_float32__6",
+          "nodeId": "gr__blocks__analog__FmDeemphasis_float32__6",
           "portId": "out"
         },
         "target": {
-          "nodeId": "gr__incubator__pfb__PfbArbResampler_float32__8",
+          "nodeId": "gr__blocks__filter__ArbitraryRateResampler_float32__8",
           "portId": "in"
         }
       },
       {
-        "id": "gr__incubator__pfb__PfbArbResampler_float32__8:out->gr__incubator__audio__RtAudioSink_float32__12:in",
+        "id": "gr__blocks__filter__ArbitraryRateResampler_float32__8:out->gr__blocks__audio__AudioSink_float32__12:in",
         "source": {
-          "nodeId": "gr__incubator__pfb__PfbArbResampler_float32__8",
+          "nodeId": "gr__blocks__filter__ArbitraryRateResampler_float32__8",
           "portId": "out"
         },
         "target": {
-          "nodeId": "gr__incubator__audio__RtAudioSink_float32__12",
+          "nodeId": "gr__blocks__audio__AudioSink_float32__12",
           "portId": "in"
         }
       },
       {
-        "id": "gr__incubator__soapysdr__SoapyRx_complex_float32___15:out->gr__blocks__math__Rotator_complex_float32___4:in",
+        "id": "gr__blocks__sdr__SoapySource_complex_float32___15:out->gr__blocks__math__Rotator_complex_float32___4:in",
         "source": {
-          "nodeId": "gr__incubator__soapysdr__SoapyRx_complex_float32___15",
+          "nodeId": "gr__blocks__sdr__SoapySource_complex_float32___15",
           "portId": "out"
         },
         "target": {
@@ -1439,31 +1482,31 @@
         }
       },
       {
-        "id": "gr__blocks__math__Rotator_complex_float32___4:out->gr__incubator__filter__FirDecimator_complex_float32___16:in",
+        "id": "gr__blocks__math__Rotator_complex_float32___4:out->gr__blocks__filter__DesignedFilter_complex_float32___16:in",
         "source": {
           "nodeId": "gr__blocks__math__Rotator_complex_float32___4",
           "portId": "out"
         },
         "target": {
-          "nodeId": "gr__incubator__filter__FirDecimator_complex_float32___16",
+          "nodeId": "gr__blocks__filter__DesignedFilter_complex_float32___16",
           "portId": "in"
         }
       },
       {
-        "id": "gr__incubator__filter__FirDecimator_complex_float32___16:out->gr__incubator__analog__QuadratureDemod_float32__5:in",
+        "id": "gr__blocks__filter__DesignedFilter_complex_float32___16:out->gr__blocks__analog__QuadratureDemod_float32__5:in",
         "source": {
-          "nodeId": "gr__incubator__filter__FirDecimator_complex_float32___16",
+          "nodeId": "gr__blocks__filter__DesignedFilter_complex_float32___16",
           "portId": "out"
         },
         "target": {
-          "nodeId": "gr__incubator__analog__QuadratureDemod_float32__5",
+          "nodeId": "gr__blocks__analog__QuadratureDemod_float32__5",
           "portId": "in"
         }
       },
       {
-        "id": "gr__incubator__filter__FirDecimator_complex_float32___16:out->gr__studio__StudioPowerSpectrumSink_complex_float32___2-copy-2:in",
+        "id": "gr__blocks__filter__DesignedFilter_complex_float32___16:out->gr__studio__StudioPowerSpectrumSink_complex_float32___2-copy-2:in",
         "source": {
-          "nodeId": "gr__incubator__filter__FirDecimator_complex_float32___16",
+          "nodeId": "gr__blocks__filter__DesignedFilter_complex_float32___16",
           "portId": "out"
         },
         "target": {
@@ -1472,9 +1515,9 @@
         }
       },
       {
-        "id": "gr__incubator__filter__FirDecimator_complex_float32___16:out->gr__studio__StudioSeriesSink_complex_float32___18:in#0",
+        "id": "gr__blocks__filter__DesignedFilter_complex_float32___16:out->gr__studio__StudioSeriesSink_complex_float32___18:in#0",
         "source": {
-          "nodeId": "gr__incubator__filter__FirDecimator_complex_float32___16",
+          "nodeId": "gr__blocks__filter__DesignedFilter_complex_float32___16",
           "portId": "out"
         },
         "target": {
@@ -1483,9 +1526,9 @@
         }
       },
       {
-        "id": "gr__incubator__pfb__PfbArbResampler_float32__8:out->gr__studio__StudioPowerSpectrumSink_float32__19:in",
+        "id": "gr__blocks__filter__ArbitraryRateResampler_float32__8:out->gr__studio__StudioPowerSpectrumSink_float32__19:in",
         "source": {
-          "nodeId": "gr__incubator__pfb__PfbArbResampler_float32__8",
+          "nodeId": "gr__blocks__filter__ArbitraryRateResampler_float32__8",
           "portId": "out"
         },
         "target": {
@@ -1494,9 +1537,9 @@
         }
       },
       {
-        "id": "gr__incubator__pfb__PfbArbResampler_float32__8:out->gr__studio__StudioSeriesSink_float32__20:in#0",
+        "id": "gr__blocks__filter__ArbitraryRateResampler_float32__8:out->gr__studio__StudioSeriesSink_float32__20:in#0",
         "source": {
-          "nodeId": "gr__incubator__pfb__PfbArbResampler_float32__8",
+          "nodeId": "gr__blocks__filter__ArbitraryRateResampler_float32__8",
           "portId": "out"
         },
         "target": {
@@ -1505,9 +1548,9 @@
         }
       },
       {
-        "id": "gr__incubator__pfb__PfbArbResampler_float32__8:out->gr__studio__StudioAudioSink_float32__21:in",
+        "id": "gr__blocks__filter__ArbitraryRateResampler_float32__8:out->gr__studio__StudioAudioSink_float32__21:in",
         "source": {
-          "nodeId": "gr__incubator__pfb__PfbArbResampler_float32__8",
+          "nodeId": "gr__blocks__filter__ArbitraryRateResampler_float32__8",
           "portId": "out"
         },
         "target": {

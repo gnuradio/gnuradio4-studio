@@ -1,0 +1,740 @@
+{
+  "format": "gr4-studio.graph",
+  "version": 1,
+  "metadata": {
+    "name": "modem_demo.gr4s",
+    "description": "QPSK modem demo based on gnuradio4-blocks qa_ModemDemo: a continuous PN9-whitened payload, RRC shaping, carrier offset, AWGN, matched filtering, Gardner timing recovery, and Costas carrier recovery.",
+    "schedulerId": "gr::scheduler::SimpleMulti",
+    "application": {
+      "mode": "popout",
+      "renderer": "react",
+      "title": "QPSK Modem Demo"
+    },
+    "studio": {
+      "panels": [
+        {
+          "id": "studio-panel:tx-constellation",
+          "nodeId": "gr__studio__Studio2DSeriesSink_complex_float32___9",
+          "kind": "series2d",
+          "title": "Transmitted QPSK",
+          "visible": true,
+          "previewOnCanvas": false
+        },
+        {
+          "id": "studio-panel:rx-constellation",
+          "nodeId": "gr__studio__Studio2DSeriesSink_complex_float32___10",
+          "kind": "series2d",
+          "title": "Recovered QPSK",
+          "visible": true,
+          "previewOnCanvas": false
+        },
+        {
+          "id": "control-panel",
+          "kind": "control",
+          "title": "Channel Controls",
+          "visible": true,
+          "previewOnCanvas": false,
+          "widgets": [
+            {
+              "id": "control-widget:noise-power",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "gr__blocks__channel__AwgnChannel_complex_float32___5",
+                "parameterName": "noise_power"
+              },
+              "label": "Noise power (12 dB Es/N0)",
+              "inputKind": "number",
+              "mode": "immediate"
+            },
+            {
+              "id": "control-widget:frequency-offset",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "gr__blocks__channel__FrequencyOffset_complex_float32___4",
+                "parameterName": "frequency_offset"
+              },
+              "label": "Carrier offset",
+              "inputKind": "number",
+              "mode": "immediate"
+            },
+            {
+              "id": "control-widget:phase-offset",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "gr__blocks__channel__FrequencyOffset_complex_float32___4",
+                "parameterName": "phase_offset"
+              },
+              "label": "Phase offset",
+              "inputKind": "number",
+              "mode": "immediate"
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "id": "variable-1",
+          "name": "samples_per_symbol",
+          "binding": {
+            "kind": "literal",
+            "value": 4
+          }
+        },
+        {
+          "id": "variable-2",
+          "name": "rolloff",
+          "binding": {
+            "kind": "literal",
+            "value": 0.35
+          }
+        },
+        {
+          "id": "variable-3",
+          "name": "symbol_count",
+          "binding": {
+            "kind": "literal",
+            "value": 0
+          }
+        }
+      ],
+      "layout": {
+        "version": 2,
+        "root": {
+          "kind": "split",
+          "direction": "column",
+          "children": [
+            {
+              "kind": "pane",
+              "panelId": "control-panel"
+            },
+            {
+              "kind": "pane",
+              "panelId": "studio-panel:tx-constellation"
+            },
+            {
+              "kind": "pane",
+              "panelId": "studio-panel:rx-constellation"
+            }
+          ]
+        },
+        "activePanelId": "control-panel"
+      }
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "gr__blocks__testing__CountingSource_uint8__1",
+        "blockType": "gr::blocks::testing::CountingSource<uint8>",
+        "title": "CountingSource<uint8>",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": -80.0749964262567,
+          "y": 325.08412675722263
+        },
+        "parameters": {
+          "default_value": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "n_samples_max": {
+            "kind": "expression",
+            "expr": "symbol_count"
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__digital__ConstellationEncoder_float32__2",
+        "blockType": "gr::blocks::digital::ConstellationEncoder<float32>",
+        "title": "ConstellationEncoder<float32>",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 646.5384148905318,
+          "y": 312.8103173357652
+        },
+        "parameters": {
+          "arity": {
+            "kind": "literal",
+            "value": "4"
+          },
+          "constellation": {
+            "kind": "literal",
+            "value": "qpsk"
+          },
+          "normalization": {
+            "kind": "literal",
+            "value": "power"
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__digital__AdditiveScrambler_uint8__11",
+        "blockType": "gr::blocks::digital::AdditiveScrambler<uint8>",
+        "title": "AdditiveScrambler<uint8>",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 290.26222291971465,
+          "y": 305.62063467153047
+        },
+        "parameters": {
+          "profile": {
+            "kind": "literal",
+            "value": "pn9"
+          },
+          "reset_tag_key": {
+            "kind": "literal",
+            "value": ""
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__filter__RationalResampler_complex_float32___3",
+        "blockType": "gr::blocks::filter::RationalResampler<complex<float32>>",
+        "title": "RRC Shaping / Interpolation",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1041.4422260584306,
+          "y": 321.43793653284695
+        },
+        "parameters": {
+          "decimation": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "interpolation": {
+            "kind": "expression",
+            "expr": "samples_per_symbol"
+          },
+          "taps": {
+            "kind": "literal",
+            "value": "[0.002739975228905678, 0.00915560219436884, 0.007474861573427916, -0.002368966583162546, -0.01158357597887516, -0.010232637636363506, 0.002035445999354124, 0.013270950876176357, 0.009536940604448318, -0.009513727389276028, -0.025359446182847023, -0.014720465056598186, 0.025520168244838715, 0.06510249525308609, 0.05690785124897957, -0.021990923210978508, -0.13466374576091766, -0.1879347562789917, -0.0843767449259758, 0.20610538125038147, 0.6055236458778381, 0.9535827040672302, 1.0915778875350952, 0.9535827040672302, 0.6055236458778381, 0.20610538125038147, -0.0843767449259758, -0.1879347562789917, -0.13466374576091766, -0.021990923210978508, 0.05690785124897957, 0.06510249525308609, 0.025520168244838715, -0.014720465056598186, -0.025359446182847023, -0.009513727389276028, 0.009536940604448318, 0.013270950876176357, 0.002035445999354124, -0.010232637636363506, -0.01158357597887516, -0.002368966583162546, 0.007474861573427916, 0.00915560219436884, 0.002739975228905678]"
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__channel__FrequencyOffset_complex_float32___4",
+        "blockType": "gr::blocks::channel::FrequencyOffset<complex<float32>>",
+        "title": "FrequencyOffset<complex<float32>>",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 127.47375506015925,
+          "y": 595.8138765793287
+        },
+        "parameters": {
+          "drift": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "frequency_offset": {
+            "kind": "literal",
+            "value": "0.0001"
+          },
+          "phase_offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "sample_rate": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "compute_domain": {
+            "kind": "literal",
+            "value": "default_io"
+          },
+          "disconnect_on_done": {
+            "kind": "literal",
+            "value": true
+          },
+          "input_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "name": {
+            "kind": "literal",
+            "value": "gr::blocks::channel::FrequencyOffset<complex<float32>>"
+          },
+          "output_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "stride": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "ui_constraints": {
+            "kind": "literal",
+            "value": ""
+          },
+          "unique_name": {
+            "kind": "literal",
+            "value": "gr::blocks::channel::FrequencyOffset<complex<float32>>#0"
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__channel__AwgnChannel_complex_float32___5",
+        "blockType": "gr::blocks::channel::AwgnChannel<complex<float32>>",
+        "title": "AwgnChannel<complex<float32>>",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 518.2414763368834,
+          "y": 592.0007815114118
+        },
+        "parameters": {
+          "noise_power": {
+            "kind": "literal",
+            "value": "0.2523829377920773"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "12648430"
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__filter__DesignedFilter_complex_float32___6",
+        "blockType": "gr::blocks::filter::DesignedFilter<complex<float32>>",
+        "title": "RRC Matched Filter",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 121.528146290249,
+          "y": 832.2257707901817
+        },
+        "parameters": {
+          "alpha": {
+            "kind": "expression",
+            "expr": "rolloff"
+          },
+          "profile": {
+            "kind": "literal",
+            "value": "root_raised_cosine"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "samples_per_symbol"
+          },
+          "symbol_rate": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "taps": {
+            "kind": "literal",
+            "value": "45"
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__sync__SymbolSync_complex_float32___7",
+        "blockType": "gr::blocks::sync::SymbolSync<complex<float32>>",
+        "title": "SymbolSync<complex<float32>>",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 470.1638575127547,
+          "y": 797.9079151789289
+        },
+        "parameters": {
+          "detector": {
+            "kind": "literal",
+            "value": "Gardner"
+          },
+          "interpolator": {
+            "kind": "literal",
+            "value": "mmse8"
+          },
+          "noise_bandwidth": {
+            "kind": "literal",
+            "value": "0.002"
+          },
+          "rolloff": {
+            "kind": "expression",
+            "expr": "rolloff"
+          },
+          "samples_per_symbol": {
+            "kind": "expression",
+            "expr": "samples_per_symbol"
+          }
+        }
+      },
+      {
+        "id": "gr__blocks__sync__CostasLoop__8",
+        "blockType": "gr::blocks::sync::CostasLoop",
+        "title": "CostasLoop",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 847.8650440748456,
+          "y": 883.0670383624083
+        },
+        "parameters": {
+          "noise_bandwidth": {
+            "kind": "literal",
+            "value": "0.005"
+          },
+          "order": {
+            "kind": "literal",
+            "value": "4"
+          }
+        }
+      },
+      {
+        "id": "gr__studio__Studio2DSeriesSink_complex_float32___9",
+        "blockType": "gr::studio::Studio2DSeriesSink<complex<float32>>",
+        "title": "Transmitted QPSK",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1041.4422260584306,
+          "y": 81.43793653284695
+        },
+        "parameters": {
+          "autoscale": {
+            "kind": "literal",
+            "value": true
+          },
+          "point_alpha": {
+            "kind": "literal",
+            "value": "0.8"
+          },
+          "point_size": {
+            "kind": "literal",
+            "value": "5"
+          },
+          "render_mode": {
+            "kind": "literal",
+            "value": "scatter"
+          },
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "unique_name": {
+            "kind": "literal",
+            "value": "gr::studio::Studio2DSeriesSink<complex<float32>>#0"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "1024"
+          },
+          "compute_domain": {
+            "kind": "literal",
+            "value": "default_io"
+          },
+          "disconnect_on_done": {
+            "kind": "literal",
+            "value": true
+          },
+          "endpoint": {
+            "kind": "literal",
+            "value": "http://127.0.0.1:18081/snapshot"
+          },
+          "input_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "max_labels": {
+            "kind": "literal",
+            "value": "100"
+          },
+          "name": {
+            "kind": "literal",
+            "value": "gr::studio::Studio2DSeriesSink<complex<float32>>"
+          },
+          "output_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "stride": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "topic": {
+            "kind": "literal",
+            "value": ""
+          },
+          "ui_constraints": {
+            "kind": "literal",
+            "value": ""
+          },
+          "x_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "x_min": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "gr__studio__Studio2DSeriesSink_complex_float32___10",
+        "blockType": "gr::studio::Studio2DSeriesSink<complex<float32>>",
+        "title": "Recovered QPSK",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1152.0146461716533,
+          "y": 702.5805384810043
+        },
+        "parameters": {
+          "autoscale": {
+            "kind": "literal",
+            "value": true
+          },
+          "point_alpha": {
+            "kind": "literal",
+            "value": "0.35"
+          },
+          "point_size": {
+            "kind": "literal",
+            "value": "4"
+          },
+          "render_mode": {
+            "kind": "literal",
+            "value": "scatter"
+          },
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "unique_name": {
+            "kind": "literal",
+            "value": "gr::studio::Studio2DSeriesSink<complex<float32>>#1"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "4096"
+          }
+        }
+      },
+      {
+        "id": "studio__VirtualSink_12",
+        "blockType": "studio::VirtualSink",
+        "title": "Virtual Sink",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1395.0695884613822,
+          "y": 353.84904923228834
+        },
+        "parameters": {
+          "stream_id": {
+            "kind": "literal",
+            "value": "tx_signal"
+          }
+        }
+      },
+      {
+        "id": "studio__VirtualSource_13",
+        "blockType": "studio::VirtualSource",
+        "title": "Virtual Source",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": -125.73888015307193,
+          "y": 628.3742006198719
+        },
+        "parameters": {
+          "stream_id": {
+            "kind": "literal",
+            "value": "tx_signal"
+          }
+        }
+      },
+      {
+        "id": "studio__VirtualSink_14",
+        "blockType": "studio::VirtualSink",
+        "title": "Virtual Sink",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 904.2831751738495,
+          "y": 609.3273766979246
+        },
+        "parameters": {
+          "stream_id": {
+            "kind": "literal",
+            "value": "rx_signal"
+          }
+        }
+      },
+      {
+        "id": "studio__VirtualSource_15",
+        "blockType": "studio::VirtualSource",
+        "title": "Virtual Source",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": -139.45989039991775,
+          "y": 878.8047462483627
+        },
+        "parameters": {
+          "stream_id": {
+            "kind": "literal",
+            "value": "rx_signal"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "gr__blocks__testing__CountingSource_uint8__1:out->gr__blocks__digital__AdditiveScrambler_uint8__11:in",
+        "source": {
+          "nodeId": "gr__blocks__testing__CountingSource_uint8__1",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__digital__AdditiveScrambler_uint8__11",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__digital__AdditiveScrambler_uint8__11:out->gr__blocks__digital__ConstellationEncoder_float32__2:in",
+        "source": {
+          "nodeId": "gr__blocks__digital__AdditiveScrambler_uint8__11",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__digital__ConstellationEncoder_float32__2",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__digital__ConstellationEncoder_float32__2:out->gr__blocks__filter__RationalResampler_complex_float32___3:in",
+        "source": {
+          "nodeId": "gr__blocks__digital__ConstellationEncoder_float32__2",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__filter__RationalResampler_complex_float32___3",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__digital__ConstellationEncoder_float32__2:out->gr__studio__Studio2DSeriesSink_complex_float32___9:in",
+        "source": {
+          "nodeId": "gr__blocks__digital__ConstellationEncoder_float32__2",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__studio__Studio2DSeriesSink_complex_float32___9",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__channel__FrequencyOffset_complex_float32___4:out->gr__blocks__channel__AwgnChannel_complex_float32___5:in",
+        "source": {
+          "nodeId": "gr__blocks__channel__FrequencyOffset_complex_float32___4",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__channel__AwgnChannel_complex_float32___5",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__filter__DesignedFilter_complex_float32___6:out->gr__blocks__sync__SymbolSync_complex_float32___7:in",
+        "source": {
+          "nodeId": "gr__blocks__filter__DesignedFilter_complex_float32___6",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__sync__SymbolSync_complex_float32___7",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__sync__SymbolSync_complex_float32___7:out->gr__blocks__sync__CostasLoop__8:in",
+        "source": {
+          "nodeId": "gr__blocks__sync__SymbolSync_complex_float32___7",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__sync__CostasLoop__8",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__sync__CostasLoop__8:out->gr__studio__Studio2DSeriesSink_complex_float32___10:in",
+        "source": {
+          "nodeId": "gr__blocks__sync__CostasLoop__8",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__studio__Studio2DSeriesSink_complex_float32___10",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__filter__RationalResampler_complex_float32___3:out->studio__VirtualSink_12:in",
+        "source": {
+          "nodeId": "gr__blocks__filter__RationalResampler_complex_float32___3",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "studio__VirtualSink_12",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "gr__blocks__channel__AwgnChannel_complex_float32___5:out->studio__VirtualSink_14:in",
+        "source": {
+          "nodeId": "gr__blocks__channel__AwgnChannel_complex_float32___5",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "studio__VirtualSink_14",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "studio__VirtualSource_15:out->gr__blocks__filter__DesignedFilter_complex_float32___6:in",
+        "source": {
+          "nodeId": "studio__VirtualSource_15",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__filter__DesignedFilter_complex_float32___6",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "studio__VirtualSource_13:out->gr__blocks__channel__FrequencyOffset_complex_float32___4:in",
+        "source": {
+          "nodeId": "studio__VirtualSource_13",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gr__blocks__channel__FrequencyOffset_complex_float32___4",
+          "portId": "in"
+        }
+      }
+    ]
+  }
+}
