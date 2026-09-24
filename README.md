@@ -69,6 +69,7 @@ Launch modes:
 - `gr4-studio --remote http://host:8080` connects to a remote control plane
 - `gr4-studio --remote` prompts for a remote endpoint
 - `GR4_STUDIO_CONTROL_PLANE_BASE_URL=http://host:8080 gr4-studio` selects remote mode
+- `gr4-studio --help` lists the launch options
 
 In local mode the launcher stops immediately and prints the backend log if
 `gr4cp_server` exits during startup. Studio keeps the startup screen visible
