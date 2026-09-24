@@ -955,6 +955,15 @@ export function StudioPage() {
     }));
   };
 
+  const deleteSessionAndShowGraph = async (tabId: string) => {
+    await deleteSessionForTab(tabId);
+
+    const context = useRuntimeSessionStore.getState().contextsByTabId[tabId];
+    if (context && !context.sessionId) {
+      setCenterViewByTabId((current) => ({ ...current, [tabId]: 'graph' }));
+    }
+  };
+
   useEffect(() => {
     if (applicationMode === 'in_app' || activeCenterView !== 'application') {
       return;
@@ -1669,7 +1678,7 @@ export function StudioPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void deleteSessionForTab(activeTabId)}
+                    onClick={() => void deleteSessionAndShowGraph(activeTabId)}
                     disabled={Boolean(activeRuntimeContext?.busy) || !activeRuntimeContext?.sessionId}
                     title="Delete session"
                     className="h-6 w-6 rounded border border-rose-700/70 bg-rose-900/35 text-rose-200 hover:bg-rose-800/45 disabled:opacity-50"
