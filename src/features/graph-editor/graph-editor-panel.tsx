@@ -10,6 +10,7 @@ import {
   type EdgeChange,
   type Node,
   type NodeChange,
+  type OnNodeDrag,
 } from '@xyflow/react';
 import { SelectionMode } from '@xyflow/system';
 import '@xyflow/react/dist/style.css';
@@ -587,8 +588,8 @@ export function GraphEditorPanel({
     [applyFlowEdgeChanges],
   );
 
-  const onNodeDragStop = useCallback(
-    (_event: React.MouseEvent, node: FlowGraphNode) => {
+  const onNodeDragStop = useCallback<OnNodeDrag<FlowGraphNode>>(
+    (_event, node) => {
       const idsToPersist = selectedFlowNodeIds.length > 0 ? selectedFlowNodeIds : [node.id];
       const currentNodesById = new Map(latestFlowNodesRef.current.map((entry) => [entry.id, entry]));
 
