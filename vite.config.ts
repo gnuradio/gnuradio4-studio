@@ -133,6 +133,24 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
               ws: true,
               rewrite: stripAppApiPrefix,
+              configure(proxy) {
+                // Vite's default handler turns ECONNREFUSED into an empty 500.
+                // Report an unreachable backend as 502 with the canonical error envelope.
+                proxy.on('error', (err: NodeJS.ErrnoException, _req, res) => {
+                  if (!('writeHead' in res) || res.headersSent || res.writableEnded) {
+                    return; // websocket (raw socket) or already answered: leave to Vite
+                  }
+                  res.writeHead(502, { 'Content-Type': 'application/json' });
+                  res.end(
+                    JSON.stringify({
+                      error: {
+                        code: 'BACKEND_UNREACHABLE',
+                        message: `Cannot reach backend at ${proxyTarget} (${err.code ?? err.message})`,
+                      },
+                    }),
+                  );
+                });
+              },
             },
           },
     },
