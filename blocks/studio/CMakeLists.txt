@@ -60,6 +60,8 @@ list(REMOVE_ITEM GR4_STUDIO_HEADERS
   "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio/StudioWasmTransport.hpp")
 
 if(EMSCRIPTEN)
+  list(REMOVE_ITEM GR4_STUDIO_HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio/StudioAudioSink.hpp")
   set(GR4_STUDIO_EXTRA_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/StudioWasmBindings.cpp")
 else()
   set(GR4_STUDIO_EXTRA_SOURCES "")
