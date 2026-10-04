@@ -7,6 +7,7 @@ import { toEditorCatalogBlock } from '../graph-editor/model/nodeFactory';
 import { getVirtualRoutingCatalogBlocks } from '../graph-editor/model/virtual-routing';
 import { useEditorStore } from '../graph-editor/store/editorStore';
 import {
+  abbreviateTypeExpr,
   buildCategoryTree,
   collectCategoryPaths,
   countCategoryNode,
@@ -42,6 +43,40 @@ function BlockVariantButton({ block }: { block: BlockCatalogItem }) {
   );
 }
 
+function BlockFamilyCard({ name, variants }: { name: string; variants: BlockCatalogItem[] }) {
+  const addNodeFromCatalogItem = useEditorStore((state) => state.addNodeFromCatalogItem);
+  const description = variants.find((block) => block.description)?.description;
+
+  return (
+    <div className="rounded-md border border-slate-700 bg-slate-800/70 px-3 py-2">
+      <div className="text-sm font-medium text-slate-100">{name}</div>
+      {description && (
+        <div className="mt-1 text-xs text-slate-400 line-clamp-2">
+          {extractDoxygenBrief(description) ?? description}
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap gap-1">
+        {variants.map((block) => {
+          const { variantLabel } = parseTypeId(block.blockTypeId);
+          const label =
+            variantLabel === '(default)' ? variantLabel : abbreviateTypeExpr(variantLabel.slice(1, -1));
+          return (
+            <button
+              key={block.blockTypeId}
+              className="rounded border border-slate-600 bg-slate-900 px-2 py-0.5 text-xs text-slate-200 hover:border-accent transition"
+              onClick={() => addNodeFromCatalogItem(toEditorCatalogBlock(block))}
+              title={block.blockTypeId}
+              type="button"
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TypeGroupList({ types, pathKey }: { types: CatalogTypeGroup; pathKey: string }) {
   const typeNames = Array.from(types.keys()).sort((a, b) => a.localeCompare(b));
 
@@ -52,22 +87,11 @@ function TypeGroupList({ types, pathKey }: { types: CatalogTypeGroup; pathKey: s
           .slice()
           .sort((a, b) => a.blockTypeId.localeCompare(b.blockTypeId));
 
-        return (
-          <details
-            key={`${pathKey}:${typeName}`}
-            className="rounded border border-slate-700 bg-slate-950/60 px-2 py-1"
-          >
-            <summary className="cursor-pointer text-xs font-medium text-slate-300 py-1">
-              {typeName} ({variants.length})
-            </summary>
+        if (variants.length === 1) {
+          return <BlockVariantButton key={`${pathKey}:${typeName}`} block={variants[0]} />;
+        }
 
-            <div className="space-y-2 pb-1">
-              {variants.map((block) => (
-                <BlockVariantButton key={block.blockTypeId} block={block} />
-              ))}
-            </div>
-          </details>
-        );
+        return <BlockFamilyCard key={`${pathKey}:${typeName}`} name={typeName} variants={variants} />;
       })}
     </div>
   );

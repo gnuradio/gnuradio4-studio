@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockCatalogItem } from '../../lib/api/blocks';
 import {
+  abbreviateTypeExpr,
   buildCategoryTree,
   collectCategoryPaths,
   deriveNamespaceCategoryPath,
@@ -102,5 +103,12 @@ describe('catalog tree helpers', () => {
     ]);
 
     expect(collectCategoryPaths(tree)).toEqual(['basic', 'incubator', 'incubator/analog']);
+  });
+
+  it('abbreviates variant type expressions', () => {
+    expect(abbreviateTypeExpr('float32')).toBe('f32');
+    expect(abbreviateTypeExpr('std::complex<float>')).toBe('c<f32>');
+    expect(abbreviateTypeExpr('pmtcomplex<float32>')).toBe('c<f32>');
+    expect(abbreviateTypeExpr('gr::DataSet<float32>')).toBe('DataSet<f32>');
   });
 });
