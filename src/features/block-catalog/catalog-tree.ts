@@ -90,6 +90,35 @@ export function parseTypeId(blockTypeId: string): ParsedTypeId {
   };
 }
 
+const TYPE_ABBREVIATIONS: Record<string, string> = {
+  float: 'f32',
+  float32: 'f32',
+  double: 'f64',
+  float64: 'f64',
+  int8: 'i8',
+  int16: 'i16',
+  int32: 'i32',
+  int64: 'i64',
+  uint8: 'ui8',
+  uint16: 'ui16',
+  uint32: 'ui32',
+  uint64: 'ui64',
+  complex: 'c',
+  pmtcomplex: 'c',
+};
+
+/** `std::complex<float32>` -> `c<f32>`; unknown names are kept without namespaces. */
+export function abbreviateTypeExpr(typeExpr: string): string {
+  const trimmed = stripScopedTypeNames(typeExpr.trim());
+  const lt = trimmed.indexOf('<');
+  if (lt < 0 || !trimmed.endsWith('>')) {
+    return TYPE_ABBREVIATIONS[trimmed] ?? trimmed;
+  }
+  const head = trimmed.slice(0, lt).trim();
+  const args = splitTopLevelTemplateArgs(trimmed.slice(lt + 1, -1)).map(abbreviateTypeExpr);
+  return `${TYPE_ABBREVIATIONS[head] ?? head}<${args.join(', ')}>`;
+}
+
 export function deriveNamespaceCategoryPath(blockTypeId: string): string {
   const lt = blockTypeId.indexOf('<');
   const core = lt >= 0 ? blockTypeId.slice(0, lt) : blockTypeId;
