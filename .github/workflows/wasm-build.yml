@@ -1,0 +1,136 @@
+name: WASM build
+
+# Builds the whole stack for the browser: Studio blocks -> control-plane WASM module -> Studio web app.
+#
+# The control-plane WASM support lives in gnuradio/gnuradio4-control-plane PR #24, which is not merged yet
+# and does not publish its WASM output as an artifact, so it is rebuilt here from the PR head. Once the PR
+# is merged, change CONTROL_PLANE_REF to `main`.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      control_plane_ref:
+        description: gnuradio4-control-plane ref to build against
+        default: refs/pull/24/head
+
+env:
+  CONTROL_PLANE_REPOSITORY: gnuradio/gnuradio4-control-plane
+  CONTROL_PLANE_REF: ${{ inputs.control_plane_ref || 'refs/pull/24/head' }}
+
+jobs:
+  control-plane-wasm:
+    name: Control-plane WASM (Ubuntu 24.04 | Emscripten | Release)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gnuradio/gnuradio4-blocks-sdk:main-ubuntu-24.04-emscripten-release
+
+    steps:
+      - name: Check out gnuradio4-studio
+        uses: actions/checkout@v4
+        with:
+          path: gnuradio4-studio
+
+      - name: Check out gnuradio4-control-plane
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CONTROL_PLANE_REPOSITORY }}
+          ref: ${{ env.CONTROL_PLANE_REF }}
+          path: gnuradio4-control-plane
+          fetch-depth: 0
+
+      - name: Build and install Studio blocks (Emscripten)
+        shell: bash
+        env:
+          PKG_CONFIG_PATH: /opt/gnuradio4/lib/pkgconfig:/opt/gnuradio4/lib64/pkgconfig:/opt/gnuradio4/share/pkgconfig
+        run: |
+          if ! command -v pkg-config >/dev/null; then
+            apt-get update && apt-get install -y --no-install-recommends pkg-config
+          fi
+          system_node="$(command -v node)"
+          emcmake cmake -S gnuradio4-studio/blocks -B build-studio-blocks \
+            -DCMAKE_COLOR_DIAGNOSTICS=ON \
+            -DCMAKE_PREFIX_PATH=/opt/gnuradio4 \
+            -DCMAKE_FIND_ROOT_PATH=/opt/gnuradio4 \
+            -DCMAKE_CROSSCOMPILING_EMULATOR="${system_node}" \
+            -DCMAKE_INSTALL_PREFIX=/opt/gnuradio4 \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-studio-blocks --parallel 4
+          cmake --install build-studio-blocks
+
+      - name: Configure control-plane (Emscripten)
+        shell: bash
+        run: |
+          system_node="$(command -v node)"
+          emcmake cmake -S gnuradio4-control-plane -B build-control-plane \
+            -DCMAKE_COLOR_DIAGNOSTICS=ON \
+            -DCMAKE_PREFIX_PATH=/opt/gnuradio4 \
+            -DCMAKE_FIND_ROOT_PATH=/opt/gnuradio4 \
+            -DGR4CP_GNURADIO4_PREFIX=/opt/gnuradio4 \
+            -DCMAKE_CROSSCOMPILING_EMULATOR="${system_node}" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build control-plane
+        run: cmake --build build-control-plane --parallel 4
+
+      - name: Verify WASM module
+        run: |
+          test -s build-control-plane/gr4cp_wasm.mjs
+          test -s build-control-plane/gr4cp_wasm.wasm
+
+      - name: Upload WASM module
+        uses: actions/upload-artifact@v4
+        with:
+          name: gr4cp-wasm
+          path: |
+            build-control-plane/gr4cp_wasm.mjs
+            build-control-plane/gr4cp_wasm.wasm
+          if-no-files-found: error
+
+  studio-web:
+    name: Studio web app (WASM control plane)
+    needs: control-plane-wasm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Download WASM module
+        uses: actions/download-artifact@v4
+        with:
+          name: gr4cp-wasm
+          path: public/wasm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm tests
+        run: npm test
+
+      - name: Build web app
+        env:
+          VITE_CONTROL_PLANE_TRANSPORT: wasm
+        run: npm run build:web
+
+      - name: Verify bundled WASM module
+        run: |
+          test -s dist/wasm/gr4cp_wasm.mjs
+          test -s dist/wasm/gr4cp_wasm.wasm
+
+      - name: Upload web app
+        uses: actions/upload-artifact@v4
+        with:
+          name: gr4-studio-web
+          path: dist
+          if-no-files-found: error
