@@ -128,6 +128,9 @@ jobs:
           test -s dist/wasm/gr4cp_wasm.mjs
           test -s dist/wasm/gr4cp_wasm.wasm
 
+      - name: Add dev server script
+        run: install -m 755 scripts/serve.py dist/serve.py
+
       - name: Upload web app
         uses: actions/upload-artifact@v4
         with:
