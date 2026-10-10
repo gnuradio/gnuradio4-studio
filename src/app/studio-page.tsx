@@ -89,6 +89,7 @@ import {
   subscribeToDisplayApplicationCommands,
   writeDisplayApplicationLaunchSnapshot,
 } from '../features/application/runtime/display-application-launch';
+import { effectiveApplicationMode } from '../features/application/runtime/application-mode';
 import { SidePanelToggleButton } from '../components/side-panel-toggle-button';
 import { getStudioShellGridTemplate } from './side-panel-layout';
 
@@ -548,7 +549,9 @@ export function StudioPage() {
     () => (studioPlotPalettes && studioPlotPalettes.length > 0 ? studioPlotPalettes : buildDefaultStudioPlotPalettes()),
     [studioPlotPalettes],
   );
-  const applicationMode = application?.mode ?? 'in_app';
+  const applicationMode = effectiveApplicationMode(application?.mode ?? 'in_app', {
+    inProcessControlPlane: isControlPlaneWasmEnabled(),
+  });
   const applicationTitle = application?.title?.trim() || activeTab?.document.displayName || documentName || 'Application';
   const activeCenterView: CenterViewMode = activeTabId ? centerViewByTabId[activeTabId] ?? 'graph' : 'graph';
   const buildWorkspacePanelEntriesForRuntime = useCallback(

@@ -16,6 +16,8 @@ import {
 import { useEditorStore } from '../graph-editor/store/editorStore';
 import { useGraphTabsStore, type EditorSnapshot } from '../graph-tabs/store/graphTabsStore';
 import type { ApplicationMode } from '../graph-document/model/studio-workspace';
+import { effectiveApplicationMode } from '../application/runtime/application-mode';
+import { isControlPlaneWasmEnabled } from '../../lib/wasm/control-plane-wasm';
 import type { RuntimeSettingsValue } from '../../lib/api/block-settings';
 import { useRuntimeSessionStore } from '../runtime-session/store/runtimeSessionStore';
 import { buildCurrentGraphSubmissionFromEditorSnapshot } from '../runtime-submission/model/current-graph-submission';
@@ -836,7 +838,8 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
   );
 
   const recentActivity = runtimeContext?.activity.slice(0, 15) ?? [];
-  const applicationMode = application?.mode ?? 'in_app';
+  const inProcessControlPlane = isControlPlaneWasmEnabled();
+  const applicationMode = effectiveApplicationMode(application?.mode ?? 'in_app', { inProcessControlPlane });
   const applicationTitle = application?.title ?? '';
   const updateApplicationMode = (mode: ApplicationMode) => {
     setApplication({
@@ -920,15 +923,21 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
                 </div>
                 <div>
                   <SummaryLabel>Display Mode</SummaryLabel>
-                  <select
-                    value={applicationMode}
-                    onChange={(event) => updateApplicationMode(event.target.value as ApplicationMode)}
-                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
-                  >
-                    <option value="in_app">In-app</option>
-                    <option value="new_tab">New tab</option>
-                    <option value="popout">Popout</option>
-                  </select>
+                  {inProcessControlPlane ? (
+                    <p className="mt-1 text-xs text-slate-400">
+                      Other display modes require a native backend, WASM only supports in-app displays.
+                    </p>
+                  ) : (
+                    <select
+                      value={applicationMode}
+                      onChange={(event) => updateApplicationMode(event.target.value as ApplicationMode)}
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                    >
+                      <option value="in_app">In-app</option>
+                      <option value="new_tab">New tab</option>
+                      <option value="popout">Popout</option>
+                    </select>
+                  )}
                 </div>
                 <div>
                   <SummaryLabel>Display Title</SummaryLabel>
