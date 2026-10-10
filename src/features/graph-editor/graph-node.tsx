@@ -17,7 +17,8 @@ type GraphFlowNode = Node<FlowNodeData>;
 const PORT_BADGE_HEIGHT_PX = 18;
 const PORT_BADGE_GAP_PX = Math.floor(PORT_BADGE_HEIGHT_PX * 0.5);
 const PORT_BADGE_STEP_PX = PORT_BADGE_HEIGHT_PX + PORT_BADGE_GAP_PX;
-const PORT_BADGE_MIN_WIDTH_PX = 56;
+const PORT_DOT_SIZE_PX = 7;
+const PORT_TAB_LENGTH_PX = 24;
 const PORT_BADGE_MAX_WIDTH_PX = 140;
 const NODE_MIN_BODY_HEIGHT_PX = 120;
 const NODE_VERTICAL_PADDING_PX = 20;
@@ -67,6 +68,7 @@ type PortBadgeProps = {
   total: number;
   side: LogicalNodePortSide;
   rotation: 0 | 90 | 180 | 270;
+  expanded: boolean;
 };
 
 function getHandlePositionForVisualSide(side: VisualNodePortSide): Position {
@@ -110,7 +112,7 @@ function getPortBadgePlacementStyle(
 
   if (side === 'right') {
     return {
-      right: 2,
+      right: 8,
       top: offset,
       transform: 'translate(100%, -50%)',
     };
@@ -132,34 +134,120 @@ function getVirtualNodeWidth(streamId: string): number {
   return Math.min(VIRTUAL_NODE_MAX_WIDTH_PX, Math.max(VIRTUAL_NODE_MIN_WIDTH_PX, estimatedWidth));
 }
 
-function ConnectablePortBadge({ port, index, total, side, rotation }: PortBadgeProps) {
+function getPortDotPlacementStyle(side: VisualNodePortSide): CSSProperties {
+  // The dot sits at the outer end of the tab, i.e. at the connection end.
+  if (side === 'top') {
+    return { top: 4.5, left: '50%', transform: 'translateX(-50%)' };
+  }
+
+  if (side === 'bottom') {
+    return { bottom: 4.5, left: '50%', transform: 'translateX(-50%)' };
+  }
+
+  if (side === 'right') {
+    return { right: 4.5, top: '50%', transform: 'translateY(-50%)' };
+  }
+
+  return { left: 4.5, top: '50%', transform: 'translateY(-50%)' };
+}
+
+// The pill is anchored at the card-side end of the (fixed-size) handle and grows
+// outward on hover, so the handle bounds, and with them the edge anchor, never move.
+function getPortPillAnchorStyle(side: VisualNodePortSide): CSSProperties {
+  if (side === 'top') {
+    return { bottom: 0, left: 0 };
+  }
+
+  if (side === 'bottom') {
+    return { top: 0, left: 0 };
+  }
+
+  if (side === 'right') {
+    return { left: 0, top: 0 };
+  }
+
+  return { right: 0, top: 0 };
+}
+
+function PortTabContent({ port, visualSide, expanded }: { port: RenderedPort; visualSide: VisualNodePortSide; expanded: boolean }) {
   const typeColor = getPortTypeColor(port.typeName);
-  const visualSide = resolveNodePortVisualSide(side, rotation);
   const isVertical = isVerticalPortSide(visualSide);
-  const baseStyle: CSSProperties = {
-    width: isVertical ? PORT_BADGE_HEIGHT_PX : 'auto',
-    minWidth: isVertical ? PORT_BADGE_HEIGHT_PX : PORT_BADGE_MIN_WIDTH_PX,
-    maxWidth: isVertical ? PORT_BADGE_HEIGHT_PX : PORT_BADGE_MAX_WIDTH_PX,
-    height: isVertical ? PORT_BADGE_MIN_WIDTH_PX : PORT_BADGE_HEIGHT_PX,
-    minHeight: isVertical ? PORT_BADGE_MIN_WIDTH_PX : undefined,
-    maxHeight: isVertical ? PORT_BADGE_MAX_WIDTH_PX : undefined,
-    borderRadius: 3,
-    border: `1px solid ${typeColor.border}`,
-    background: typeColor.background,
-    color: typeColor.text,
-    fontSize: 10,
-    fontWeight: 500,
-    lineHeight: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: isVertical ? '6px 0' : '0 6px',
-    whiteSpace: 'nowrap',
+  // The dot comes first in the DOM and sits at the card-side end of the pill.
+  const outwardIsStart = visualSide === 'left' || visualSide === 'top';
+  const flexDirection = isVertical
+    ? outwardIsStart ? 'column-reverse' : 'column'
+    : outwardIsStart ? 'row-reverse' : 'row';
+
+  const dot = (
+    <span
+      className="relative shrink-0"
+      style={isVertical ? { height: PORT_TAB_LENGTH_PX } : { width: PORT_TAB_LENGTH_PX }}
+    >
+      <span
+        className="absolute rounded-full transition-transform group-hover/port:scale-125 group-[.valid]/port:scale-125"
+        style={{
+          width: PORT_DOT_SIZE_PX,
+          height: PORT_DOT_SIZE_PX,
+          background: typeColor.background,
+          boxShadow: `0 0 0 1px ${typeColor.border}`,
+          ...getPortDotPlacementStyle(visualSide),
+        }}
+        aria-hidden="true"
+      />
+    </span>
+  );
+
+  const label = (
+    <span
+      className={`flex items-center overflow-hidden whitespace-nowrap text-[10px] font-medium leading-4 text-slate-200 transition-all duration-150 ${
+        isVertical
+          ? expanded ? 'max-h-[140px]' : 'max-h-0 group-hover/port:max-h-[140px]'
+          : expanded ? 'max-w-[140px]' : 'max-w-0 group-hover/port:max-w-[140px]'
+      }`}
+      style={isVertical ? { writingMode: 'vertical-rl' } : undefined}
+    >
+      <span className={isVertical ? 'py-1.5' : 'px-1.5'}>
+        {port.displayLabel}
+      </span>
+    </span>
+  );
+
+  return (
+    <span
+      className="absolute flex items-stretch rounded-full border border-slate-600 bg-slate-900 shadow-sm"
+      style={{
+        flexDirection,
+        width: isVertical ? PORT_BADGE_HEIGHT_PX : undefined,
+        height: isVertical ? undefined : PORT_BADGE_HEIGHT_PX,
+        ...getPortPillAnchorStyle(visualSide),
+      }}
+    >
+      {dot}
+      {label}
+    </span>
+  );
+}
+
+function getPortTabStyle(side: VisualNodePortSide, index: number, total: number): CSSProperties {
+  const isVertical = isVerticalPortSide(side);
+
+  return {
+    ...getPortBadgePlacementStyle(side, index, total),
+    width: isVertical ? PORT_BADGE_HEIGHT_PX : PORT_TAB_LENGTH_PX,
+    height: isVertical ? PORT_TAB_LENGTH_PX : PORT_BADGE_HEIGHT_PX,
+    minWidth: 0,
+    minHeight: 0,
+    border: 'none',
+    background: 'transparent',
+    borderRadius: 0,
     pointerEvents: 'all',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
   };
-  const sideStyle = getPortBadgePlacementStyle(visualSide, index, total);
+}
+
+const PORT_TAB_CLASS = 'group/port absolute z-0';
+
+function ConnectablePortBadge({ port, index, total, side, rotation, expanded }: PortBadgeProps) {
+  const visualSide = resolveNodePortVisualSide(side, rotation);
 
   return (
     <Handle
@@ -167,61 +255,20 @@ function ConnectablePortBadge({ port, index, total, side, rotation }: PortBadgeP
       key={`${side}:${port.key}`}
       type={side === 'input' ? 'target' : 'source'}
       position={getHandlePositionForVisualSide(visualSide)}
-      title={port.displayLabel}
-      style={{ ...baseStyle, ...sideStyle, zIndex: 0 }}
+      className={PORT_TAB_CLASS}
+      style={getPortTabStyle(visualSide, index, total)}
     >
-      <span
-        style={{
-          display: 'inline-block',
-          maxWidth: isVertical ? PORT_BADGE_MAX_WIDTH_PX : '100%',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          transform: isVertical ? 'rotate(90deg)' : undefined,
-        }}
-      >
-        {port.displayLabel}
-      </span>
+      <PortTabContent port={port} visualSide={visualSide} expanded={expanded} />
     </Handle>
   );
 }
 
-function CollapsedPortBadge({ port, index, total, side, rotation }: PortBadgeProps) {
-  const typeColor = getPortTypeColor(port.typeName);
+function CollapsedPortBadge({ port, index, total, side, rotation, expanded }: PortBadgeProps) {
   const visualSide = resolveNodePortVisualSide(side, rotation);
-  const isVertical = isVerticalPortSide(visualSide);
-  const style = getPortBadgePlacementStyle(visualSide, index, total);
 
   return (
-    <div
-      className="absolute z-0 min-w-14 max-w-[140px] h-[18px] rounded text-[10px] font-medium leading-4 flex items-center justify-center px-1 whitespace-nowrap overflow-hidden text-ellipsis"
-      style={{
-        ...style,
-        border: `1px solid ${typeColor.border}`,
-        background: typeColor.background,
-        color: typeColor.text,
-        width: isVertical ? PORT_BADGE_HEIGHT_PX : undefined,
-        minWidth: isVertical ? PORT_BADGE_HEIGHT_PX : undefined,
-        maxWidth: isVertical ? PORT_BADGE_HEIGHT_PX : undefined,
-        height: isVertical ? PORT_BADGE_MIN_WIDTH_PX : undefined,
-        minHeight: isVertical ? PORT_BADGE_MIN_WIDTH_PX : undefined,
-        maxHeight: isVertical ? PORT_BADGE_MAX_WIDTH_PX : undefined,
-        padding: isVertical ? '6px 0' : undefined,
-      }}
-      title={port.displayLabel}
-    >
-      <span
-        style={{
-          display: 'inline-block',
-          maxWidth: isVertical ? PORT_BADGE_MAX_WIDTH_PX : '100%',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          transform: isVertical ? 'rotate(90deg)' : undefined,
-        }}
-      >
-        {port.displayLabel}
-      </span>
+    <div className={PORT_TAB_CLASS} style={getPortTabStyle(visualSide, index, total)}>
+      <PortTabContent port={port} visualSide={visualSide} expanded={expanded} />
     </div>
   );
 }
@@ -283,6 +330,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             total={inputPorts.length}
             side="input"
             rotation={rotation}
+            expanded={selected}
           />
         ) : (
           <CollapsedPortBadge
@@ -292,6 +340,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             total={inputPorts.length}
             side="input"
             rotation={rotation}
+            expanded={selected}
           />
         ),
       )}
@@ -305,6 +354,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             total={outputPorts.length}
             side="output"
             rotation={rotation}
+            expanded={selected}
           />
         ) : (
           <CollapsedPortBadge
@@ -314,6 +364,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             total={outputPorts.length}
             side="output"
             rotation={rotation}
+            expanded={selected}
           />
         ),
       )}
