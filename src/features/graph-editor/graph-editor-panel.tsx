@@ -4,6 +4,7 @@ import {
   applyNodeChanges,
   Background,
   ReactFlow,
+  SelectionMode,
   useReactFlow,
   type Connection,
   type Edge,
@@ -12,14 +13,14 @@ import {
   type NodeChange,
   type OnNodeDrag,
 } from '@xyflow/react';
-import { SelectionMode } from '@xyflow/system';
 import '@xyflow/react/dist/style.css';
 import { getBlockDetails, type BlockDetails } from '../../lib/api/block-details';
 import { useBlockCatalogQuery } from '../block-catalog/hooks/use-block-catalog-query';
 import { normalizeTypeName } from '../ports/model/typeColors';
 import { resolveRenderedPorts } from '../ports/model/resolveRenderedPorts';
 import type { RenderedPort, SchemaPort } from '../ports/model/types';
-import type { EditorGraphEdge, EditorGraphNode, FlowNodeData } from './model/types';
+import type { EditorCatalogBlock, EditorGraphEdge, EditorGraphNode, FlowNodeData } from './model/types';
+import { CATALOG_BLOCK_DRAG_MIME } from './model/catalog-drag';
 import { getNodeExecutionMode, isLinearBypassableBlock } from './model/node-execution';
 import { rotateNodeRotation } from './model/node-rotation';
 import {
@@ -402,6 +403,8 @@ export function GraphEditorPanel({
   const selectNode = useEditorStore((state) => state.selectNode);
   const setNodePosition = useEditorStore((state) => state.setNodePosition);
   const setNodeExecutionMode = useEditorStore((state) => state.setNodeExecutionMode);
+  const addNodeFromCatalogItem = useEditorStore((state) => state.addNodeFromCatalogItem);
+  const reactFlow = useReactFlow();
   const addEdge = useEditorStore((state) => state.addEdge);
   const removeEdge = useEditorStore((state) => state.removeEdge);
   const copyNodesToClipboard = useEditorStore((state) => state.copyNodesToClipboard);
@@ -603,6 +606,36 @@ export function GraphEditorPanel({
     [selectedFlowNodeIds, setNodePosition],
   );
 
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    if (!event.dataTransfer.types.includes(CATALOG_BLOCK_DRAG_MIME)) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      const raw = event.dataTransfer.getData(CATALOG_BLOCK_DRAG_MIME);
+      if (!raw) {
+        return;
+      }
+      event.preventDefault();
+      let block: EditorCatalogBlock;
+      try {
+        block = JSON.parse(raw) as EditorCatalogBlock;
+      } catch {
+        return;
+      }
+      if (typeof block.blockTypeId !== 'string') {
+        return;
+      }
+      const position = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      addNodeFromCatalogItem(block, position);
+    },
+    [addNodeFromCatalogItem, reactFlow],
+  );
+
   useEffect(() => {
     if (!openRuntimeVisualizationId) {
       return;
@@ -748,6 +781,8 @@ export function GraphEditorPanel({
           selectNode(null);
         }}
         onNodeDragStop={onNodeDragStop}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
         onNodeDoubleClick={(_, node) => {
           selectNode(node.id);
           onOpenBlockProperties(node.id);

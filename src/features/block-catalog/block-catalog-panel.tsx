@@ -17,6 +17,7 @@ import {
 } from './catalog-tree';
 import { useBlockCatalogQuery } from './hooks/use-block-catalog-query';
 import { config } from '../../lib/config';
+import { CATALOG_BLOCK_DRAG_MIME } from '../graph-editor/model/catalog-drag';
 import { SidePanelToggleButton } from '../../components/side-panel-toggle-button';
 
 function BlockVariantButton({ block }: { block: BlockCatalogItem }) {
@@ -26,6 +27,14 @@ function BlockVariantButton({ block }: { block: BlockCatalogItem }) {
   return (
     <button
       className="w-full text-left rounded-md border border-slate-700 bg-slate-800/70 px-3 py-2 hover:border-accent hover:bg-slate-800 transition"
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData(
+          CATALOG_BLOCK_DRAG_MIME,
+          JSON.stringify(toEditorCatalogBlock(block)),
+        );
+        event.dataTransfer.effectAllowed = 'copy';
+      }}
       onClick={() => addNodeFromCatalogItem(toEditorCatalogBlock(block))}
       title={block.blockTypeId}
       type="button"
