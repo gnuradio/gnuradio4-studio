@@ -91,7 +91,7 @@ type EditorState = {
       application?: ApplicationSpec;
     };
   }) => void;
-  addNodeFromCatalogItem: (block: EditorCatalogBlock) => void;
+  addNodeFromCatalogItem: (block: EditorCatalogBlock, position?: GraphPoint) => void;
   applyFlowNodeChanges: (changes: NodeChange[]) => void;
   applyFlowEdgeChanges: (changes: EdgeChange[]) => void;
   selectNode: (nodeId: string | null) => void;
@@ -232,9 +232,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       nextNodeSequence: Math.max(maxSuffix + 1, nodes.length + 1, 1),
     }));
   },
-  addNodeFromCatalogItem: (block) => {
+  addNodeFromCatalogItem: (block, dropPosition) => {
     const { nextNodeSequence, nodes } = get();
-    const position = getNextNodePosition(nodes.length);
+    const position = dropPosition ?? getNextNodePosition(nodes.length);
     const node = createEditorNode(block, nextNodeSequence, position);
 
     set((state) => ({
