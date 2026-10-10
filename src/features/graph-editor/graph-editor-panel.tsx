@@ -4,6 +4,7 @@ import {
   applyNodeChanges,
   Background,
   ReactFlow,
+  SelectionMode,
   useReactFlow,
   type Connection,
   type Edge,
@@ -12,7 +13,6 @@ import {
   type NodeChange,
   type OnNodeDrag,
 } from '@xyflow/react';
-import { SelectionMode } from '@xyflow/system';
 import '@xyflow/react/dist/style.css';
 import { getBlockDetails, type BlockDetails } from '../../lib/api/block-details';
 import { useBlockCatalogQuery } from '../block-catalog/hooks/use-block-catalog-query';
