@@ -25,3 +25,6 @@ jobs:
 
       - name: Run npm tests
         run: npm test
+
+      - name: Type check
+        run: npx tsc -b
