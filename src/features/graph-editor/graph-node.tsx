@@ -461,23 +461,26 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
               {executionMode === 'disabled' ? 'Disabled' : 'Bypassed'}
             </div>
           )}
-          {data.parameterLines.length > 0 ? (
-            <div className="mt-2 grid grid-cols-2 gap-1 min-w-0">
-              {data.parameterLines.map((line) => (
+          {data.parameterRows.length > 0 ? (
+            <div className="mt-2 min-w-0 border-t border-slate-700/60 pt-1">
+              {data.parameterRows.map((row) => (
                 <div
-                  key={line}
-                  className="min-w-0 rounded border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] text-slate-200 overflow-hidden text-ellipsis whitespace-nowrap"
-                  title={line}
+                  key={row.name}
+                  className="flex min-w-0 items-baseline justify-between gap-3 border-t border-slate-700/40 py-[3px] text-[11px] first:border-t-0"
+                  title={`${row.name} = ${row.value}`}
                 >
-                  {line}
+                  <span className="shrink-0 text-slate-400">{row.name}</span>
+                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10.5px] text-slate-100">
+                    {row.value}
+                  </span>
                 </div>
               ))}
               {data.parameterOverflowCount > 0 && (
                 <div
-                  className="min-w-0 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400 overflow-hidden text-ellipsis whitespace-nowrap"
+                  className="mt-1 text-[10px] text-slate-500"
                   title={`${data.parameterOverflowCount} additional parameter value(s)`}
                 >
-                  +{data.parameterOverflowCount} more
+                  + {data.parameterOverflowCount} more
                 </div>
               )}
             </div>

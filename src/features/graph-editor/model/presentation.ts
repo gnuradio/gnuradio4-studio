@@ -6,9 +6,14 @@ import type { EditorNodeParameterDrafts } from './types';
 const MAX_PARAMETER_LINES = 6;
 const MAX_LINE_VALUE_LENGTH = 36;
 
+export type ParameterRow = {
+  name: string;
+  value: string;
+};
+
 type BlockCardSummary = {
   shortDisplayName: string;
-  parameterLines: string[];
+  parameterRows: ParameterRow[];
   parameterOverflowCount: number;
 };
 
@@ -68,7 +73,7 @@ function buildParameterLines(
   blockTypeId: string,
   parameters: EditorNodeParameterDrafts,
   details?: BlockDetails,
-): { lines: string[]; overflowCount: number } {
+): { rows: ParameterRow[]; overflowCount: number } {
   if (!details) {
     const fallback = Object.entries(parameters)
       .filter(
@@ -76,10 +81,10 @@ function buildParameterLines(
           !isAdvancedParameterName(name) &&
           !isDescriptorBindingHiddenParameter(blockTypeId, name),
       )
-      .map(([name, entry]) => `${name}=${truncateValue(entry.value)}`);
+      .map(([name, entry]): ParameterRow => ({ name, value: truncateValue(entry.value) }));
     const visible = fallback.slice(0, MAX_PARAMETER_LINES);
     return {
-      lines: visible,
+      rows: visible,
       overflowCount: Math.max(0, fallback.length - visible.length),
     };
   }
@@ -93,14 +98,14 @@ function buildParameterLines(
         !parameter.readOnly &&
         parameter.mutable,
     )
-    .map((parameter: BlockParameterMeta) => {
+    .map((parameter: BlockParameterMeta): ParameterRow => {
       const currentValue = getCurrentValue(parameters, parameter.name) ?? parameter.defaultValue ?? '';
-      return `${parameter.name}=${truncateValue(currentValue)}`;
+      return { name: parameter.name, value: truncateValue(currentValue) };
     });
 
   const visible = ordered.slice(0, MAX_PARAMETER_LINES);
   return {
-    lines: visible,
+    rows: visible,
     overflowCount: Math.max(0, ordered.length - visible.length),
   };
 }
@@ -113,7 +118,7 @@ export function buildBlockCardSummary(
 
   return {
     shortDisplayName: toShortBlockName(node.displayName, node.blockTypeId),
-    parameterLines: parameterSummary.lines,
+    parameterRows: parameterSummary.rows,
     parameterOverflowCount: parameterSummary.overflowCount,
   };
 }

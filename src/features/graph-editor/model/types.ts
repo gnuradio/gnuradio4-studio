@@ -1,4 +1,5 @@
 import type { RenderedPort } from '../../ports/model/types';
+import type { ParameterRow } from './presentation';
 import type { NodeExecutionMode, NodeRotation } from '../../graph-document/model/types';
 
 export type GraphPoint = {
@@ -47,7 +48,7 @@ export type FlowNodeData = {
   missingFromCatalog: boolean;
   category?: string;
   parameterValues: Record<string, string>;
-  parameterLines: string[];
+  parameterRows: ParameterRow[];
   parameterOverflowCount: number;
   executionMode: NodeExecutionMode;
   rotation: NodeRotation;
