@@ -78,8 +78,11 @@ describe('graph node short-name presentation', () => {
       undefined,
     );
 
-    expect(summary.parameterLines).toEqual(['transport=http_poll', 'n_inputs=1']);
-    expect(summary.parameterLines.some((line) => line.startsWith('endpoint='))).toBe(false);
+    expect(summary.parameterRows).toEqual([
+      { name: 'transport', value: 'http_poll' },
+      { name: 'n_inputs', value: '1' },
+    ]);
+    expect(summary.parameterRows.some((row) => row.name === 'endpoint')).toBe(false);
   });
 
   it('hides endpoint parameters from graph-node summary chips for descriptor-managed families', () => {
@@ -95,7 +98,7 @@ describe('graph node short-name presentation', () => {
       undefined,
     );
 
-    expect(summary.parameterLines).toEqual(['transport=http_poll']);
-    expect(summary.parameterLines.some((line) => line.startsWith('endpoint='))).toBe(false);
+    expect(summary.parameterRows).toEqual([{ name: 'transport', value: 'http_poll' }]);
+    expect(summary.parameterRows.some((row) => row.name === 'endpoint')).toBe(false);
   });
 });
