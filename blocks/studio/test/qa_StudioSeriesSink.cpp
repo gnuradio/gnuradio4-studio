@@ -113,7 +113,7 @@ void testSnapshotJsonSanitizesNonFiniteComplexSamples() {
 
 void testSeriesSinkSerializesInputTags() {
     gr::Graph graph;
-    auto& source = graph.emplaceBlock<gr::testing::TagSource<float, gr::testing::ProcessFunction::USE_PROCESS_BULK>>({
+    auto& source = graph.emplaceBlock<gr::blocks::testing::TagSource<float, gr::blocks::testing::ProcessFunction::USE_PROCESS_BULK>>({
         {"n_samples_max", gr::Size_t{40UZ}},
         {"mark_tag", false},
     });
@@ -152,7 +152,7 @@ void testSeriesSinkSerializesInputTags() {
 
 void testSeriesSinkTagOffsetsFollowSlidingWindow() {
     gr::Graph graph;
-    auto& source = graph.emplaceBlock<gr::testing::TagSource<float, gr::testing::ProcessFunction::USE_PROCESS_BULK>>({
+    auto& source = graph.emplaceBlock<gr::blocks::testing::TagSource<float, gr::blocks::testing::ProcessFunction::USE_PROCESS_BULK>>({
         {"n_samples_max", gr::Size_t{300UZ}},
         {"mark_tag", false},
     });
@@ -188,11 +188,11 @@ void testSeriesSinkTagOffsetsFollowSlidingWindow() {
 
 void testSeriesSinkPublishesOneSeriesPerInputPort() {
     gr::Graph graph;
-    auto& first = graph.emplaceBlock<gr::testing::CountingSource<float>>({
+    auto& first = graph.emplaceBlock<gr::blocks::testing::CountingSource<float>>({
         {"default_value", 0.0F},
         {"n_samples_max", gr::Size_t{4UZ}},
     });
-    auto& second = graph.emplaceBlock<gr::testing::CountingSource<float>>({
+    auto& second = graph.emplaceBlock<gr::blocks::testing::CountingSource<float>>({
         {"default_value", 100.0F},
         {"n_samples_max", gr::Size_t{4UZ}},
     });
