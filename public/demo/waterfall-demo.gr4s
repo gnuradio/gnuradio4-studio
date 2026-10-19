@@ -9,7 +9,7 @@
     "nodes": [
       {
         "id": "src0",
-        "blockType": "gr::basic::SignalGenerator<float32>",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
         "title": "SignalGenerator",
         "position": {
           "x": 120,
