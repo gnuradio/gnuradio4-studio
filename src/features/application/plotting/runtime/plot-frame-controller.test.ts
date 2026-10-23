@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { createPlotFrameController } from './plot-frame-controller';
 
 describe('plot frame controller', () => {
+  it('retains large complete spectra with a -1 window and replaces the previous sweep', () => {
+    const controller = createPlotFrameController({
+      panelId: 'all-bins', kind: 'timeseries', source: { sinkId: 'dataset' },
+      view: { kind: 'timeseries', windowSize: -1, xMode: 'frequency' },
+    });
+    const x = Array.from({ length: 150000 }, (_, i) => 2e9 + i);
+    const y = x.map((_, i) => -100 - i / 1000);
+    controller.ingestSeries([{ id: 'rf', label: 'Spectrum', x, y }], 0, 'replace');
+    expect(controller.getFrame().series?.[0].x).toEqual(x);
+    expect(controller.getFrame().series?.[0].y).toEqual(y);
+    controller.ingestSeries([{ id: 'rf', label: 'Spectrum', x: [1, 2], y: [-10, -20] }], 1, 'replace');
+    expect(controller.getFrame().series?.[0].y).toEqual([-10, -20]);
+  });
+
   it('starts as no-data and empty image for waterfall panels', () => {
     const controller = createPlotFrameController({
       panelId: 'panel-waterfall',

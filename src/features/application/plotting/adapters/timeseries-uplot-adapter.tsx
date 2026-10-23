@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { PlotAdapterProps, PlotAxisMode, PlotSeriesFrame, PlotTagAnnotation, PlotViewSpec } from '../model/types';
+import { buildPlotXAxis, buildPlotYLabel } from './plot-axis-format';
 import { STUDIO_BUILTIN_PLOT_PALETTES } from '../model/plot-style';
 import { buildPlotTagMarkers, type PlotTagMarker } from './timeseries-tag-markers';
 
@@ -324,7 +325,9 @@ function applyDataUpdateScales(
   } else {
     const values: number[] = [];
     data.slice(1).forEach((series) => {
-      values.push(...((series ?? []) as readonly number[]));
+      for (const value of series ?? []) {
+        if (typeof value === 'number') values.push(value);
+      }
     });
     const yExtent = finiteExtent(values);
     if (yExtent) {
@@ -578,7 +581,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 
         scales: buildTimeseriesScaleOptions(spec.xMode),
         axes: [
           {
-            label: spec.xLabel ?? 'sample',
+            ...buildPlotXAxis(spec, frame.meta?.axisMetadata),
             stroke: AXIS_STROKE,
             grid: {
               stroke: GRID_STROKE,
@@ -586,7 +589,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 
             },
           },
           {
-            label: spec.yLabel ?? 'value',
+            label: buildPlotYLabel(spec, frame.meta?.axisMetadata),
             stroke: AXIS_STROKE,
             grid: {
               stroke: GRID_STROKE,
@@ -799,6 +802,10 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 
     };
   }, [
     canRender,
+    frame.meta?.axisMetadata?.axisName,
+    frame.meta?.axisMetadata?.axisUnit,
+    frame.meta?.axisMetadata?.signalName,
+    frame.meta?.axisMetadata?.signalUnit,
     minHeight,
     minWidth,
     seriesOptions,

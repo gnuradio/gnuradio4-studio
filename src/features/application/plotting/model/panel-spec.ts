@@ -80,7 +80,7 @@ function parseWindowSize(parameters: PlotParameterMap | undefined): number | und
     return undefined;
   }
   const parsed = Number.parseInt(String(raw), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  if (!Number.isFinite(parsed) || (parsed !== -1 && parsed <= 0)) {
     return undefined;
   }
   return parsed;
@@ -240,8 +240,8 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
   const isWaterfall = entry.panel.kind === 'waterfall' || payloadFormat === 'waterfall-spectrum-json-v1';
   const defaultXLabel = isWaterfall || isHistogram ? 'Frequency' : isSeries2D ? 'x' : 'sample';
   const defaultYLabel = isWaterfall || isHistogram ? 'Power' : isSeries2D ? 'y' : 'value';
-  const xLabel = readTextParameterValue(entry.nodeParameters, ['x_label', 'xlabel']) ?? defaultXLabel;
-  const yLabel = readTextParameterValue(entry.nodeParameters, ['y_label', 'ylabel']) ?? defaultYLabel;
+  const xLabel = readTextParameterValue(entry.nodeParameters, ['x_label', 'xlabel']) ?? (payloadFormat === 'dataset-xy-json-v1' ? undefined : defaultXLabel);
+  const yLabel = readTextParameterValue(entry.nodeParameters, ['y_label', 'ylabel']) ?? (payloadFormat === 'dataset-xy-json-v1' ? undefined : defaultYLabel);
   // Metadata precedence:
   // 1) explicit graph/block params (series_labels/channel_labels)
   // 2) payload-side metadata (handled at runtime for dataset/vector payloads)
@@ -253,7 +253,8 @@ export function derivePlotPanelSpec(entry: WorkspacePanelViewModel): PlotPanelSp
       : buildDefaultSeriesLabels(
           parseSeriesCount(entry.nodeParameters, Boolean(binding?.blockTypeId.startsWith('gr::studio::StudioSeriesSink<'))),
         ));
-  const windowSize = parseWindowSize(entry.nodeParameters) ?? 1024;
+  const windowSize = parseWindowSize(entry.nodeParameters) ??
+    (binding?.blockTypeId.startsWith('gr::studio::StudioDataSetSink<') ? -1 : 1024);
   const maxLabels = parsePositiveInteger(entry.nodeParameters, ['max_labels', 'maxLabels']) ?? 100;
   const autoscale =
     parseBooleanValue(readParameterValue(entry.nodeParameters, ['autoscale', 'auto_scale'])) ?? true;

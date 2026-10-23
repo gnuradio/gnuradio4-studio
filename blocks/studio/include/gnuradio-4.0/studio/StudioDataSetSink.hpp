@@ -174,11 +174,15 @@ inline bool isHttpTransport(const std::string& transport) {
 template<typename T>
 class DataSetWindow {
 public:
-    void configure(std::size_t signal_index, std::size_t axis_index, std::size_t window_size) {
+    void configure(std::size_t signal_index, std::size_t axis_index, std::int64_t window_size) {
+        if (window_size != -1 && window_size < 1) {
+            throw gr::exception("StudioDataSetSink window_size must be -1 (all "
+                                "points) or a positive integer.");
+        }
         std::lock_guard lock(_mutex);
         _signal_index = signal_index;
-        _axis_index = axis_index;
-        _window_size = std::max<std::size_t>(1UZ, window_size);
+        _axis_index   = axis_index;
+        _window_size  = window_size;
     }
 
     void push(std::span<const DataSet<T>> input) {
@@ -193,7 +197,7 @@ public:
     [[nodiscard]] std::string snapshotJson() const {
         std::size_t signal_index = 0UZ;
         std::size_t axis_index = 0UZ;
-        std::size_t window_size = 1024UZ;
+        std::int64_t window_size  = -1;
         DataSet<T> copy;
         bool has_data = false;
         {
@@ -257,7 +261,7 @@ public:
             return R"({"payload_format":"dataset-xy-json-v1","layout":"pairs_xy","points":0,"data":[]})";
         }
 
-        const std::size_t clipped = std::min(n, window_size);
+        const std::size_t  clipped = window_size == -1 ? n : std::min(n, static_cast<std::size_t>(window_size));
         const std::size_t begin = n - clipped;
         std::ostringstream os;
         os.precision(9);
@@ -294,7 +298,7 @@ private:
     bool               _has_data = false;
     std::size_t        _signal_index = 0UZ;
     std::size_t        _axis_index = 0UZ;
-    std::size_t        _window_size = 1024UZ;
+    std::int64_t       _window_size  = -1;
 };
 
 } // namespace detail
@@ -310,7 +314,11 @@ struct StudioDataSetSink : Block<StudioDataSetSink<T>> {
     Annotated<std::string, "transport", Doc<"Data-plane transport mode">, Visible> transport = "http_poll";
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18084/snapshot";
     Annotated<std::uint32_t, "poll_ms", Doc<"Suggested poll interval in milliseconds for poll transports">, Visible> poll_ms = 250U;
-    Annotated<gr::Size_t, "window_size", Doc<"Maximum XY points included in snapshot payload">, Visible> window_size = 1024UZ;
+    Annotated<std::int64_t, "window_size",
+        Doc<"Maximum XY points in snapshot; -1 includes the complete "
+            "latest DataSet">,
+        Visible>
+                                                                                                      window_size  = -1;
     Annotated<gr::Size_t, "signal_index", Doc<"Selected DataSet signal index">, Visible> signal_index = 0UZ;
     Annotated<gr::Size_t, "axis_index", Doc<"Selected DataSet axis index">, Visible> axis_index = 0UZ;
     Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
@@ -325,7 +333,7 @@ struct StudioDataSetSink : Block<StudioDataSetSink<T>> {
     using Block<StudioDataSetSink<T>>::Block;
 
     void start() {
-        _window.configure(static_cast<std::size_t>(signal_index), static_cast<std::size_t>(axis_index), static_cast<std::size_t>(window_size));
+        _window.configure(static_cast<std::size_t>(signal_index), static_cast<std::size_t>(axis_index), window_size.value);
         startTransport();
     }
 
@@ -335,7 +343,7 @@ struct StudioDataSetSink : Block<StudioDataSetSink<T>> {
 
     void settingsChanged(const property_map&, const property_map& new_settings) {
         if (new_settings.contains("signal_index") || new_settings.contains("axis_index") || new_settings.contains("window_size")) {
-            _window.configure(static_cast<std::size_t>(signal_index), static_cast<std::size_t>(axis_index), static_cast<std::size_t>(window_size));
+            _window.configure(static_cast<std::size_t>(signal_index), static_cast<std::size_t>(axis_index), window_size.value);
         }
 
         if (new_settings.contains("transport") || new_settings.contains("endpoint")) {

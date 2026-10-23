@@ -266,6 +266,16 @@ describe('derivePlotPanelSpec', () => {
     expect(spec?.view.plotColors).toEqual(['#22c55e', '#0ea5e9']);
   });
 
+  it('defaults DataSet plots to all bins and preserves explicit window limits', () => {
+    for (const [value, expected] of [[undefined, -1], ['-1', -1], ['4096', 4096]] as const) {
+      const spec = derivePlotPanelSpec(makeSeriesEntry({
+        nodeBlockTypeId: 'gr::studio::StudioDataSetSink<float64>',
+        nodeParameters: value === undefined ? {} : { window_size: value },
+      }));
+      expect(spec?.view.windowSize).toBe(expected);
+    }
+  });
+
   it('derives dataset-xy payload format from StudioDataSetSink IDs', () => {
     const spec = derivePlotPanelSpec(
       makeSeriesEntry({
@@ -283,6 +293,8 @@ describe('derivePlotPanelSpec', () => {
 
     expect(spec?.source.payloadFormat).toBe('dataset-xy-json-v1');
     expect(spec?.view.xMode).toBe('frequency');
+    expect(spec?.view.xLabel).toBeUndefined();
+    expect(spec?.view.yLabel).toBeUndefined();
   });
 
   it('derives dataset-xy payload format from StudioPowerSpectrumSink IDs', () => {
