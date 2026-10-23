@@ -221,6 +221,37 @@ function makeFloatScalarDetails(): BlockDetails {
 }
 
 describe('toGrctrlContentSubmission', () => {
+  it('omits read-only defaults and persisted values from runtime settings', () => {
+    const document = makeDocument('readonly-fields', '{}');
+    const node = document.graph.nodes[0];
+    node.parameters.stride = { kind: 'literal', value: 0 };
+    node.parameters.unique_name = { kind: 'literal', value: 'stale-runtime-name' };
+    const details: BlockDetails = {
+      blockTypeId: node.blockType,
+      displayName: 'Test block',
+      parameters: [
+        ...['stride', 'input_chunk_size', 'output_chunk_size', 'unique_name'].map((name) => ({
+          name,
+          label: name,
+          defaultValue: '1',
+          mutable: false,
+          readOnly: true,
+          valueType: 'uint32',
+          valueKind: 'scalar' as const,
+        })),
+        { name: 'bind_port', label: 'bind_port', defaultValue: '80', mutable: true, readOnly: false, valueType: 'int', valueKind: 'scalar' },
+      ],
+      inputPorts: [],
+      outputPorts: [],
+    };
+    const submission = toGrctrlContentSubmission(document, {
+      blockDetailsByType: new Map([[node.blockType, details]]),
+    });
+    expect(submission.content).not.toMatch(/(?:stride|input_chunk_size|output_chunk_size|unique_name):/);
+    expect(submission.content).toContain('bind_port: 8080');
+    expect(submission.content).toContain('name: http_sink_1');
+  });
+
   it('emits runtime importer block shape with block type in id and instance name in parameters.name', () => {
     const document: GraphDocument = {
       format: 'gr4-studio.graph',
