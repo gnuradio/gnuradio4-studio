@@ -42,6 +42,7 @@ type ParsedLivePayload =
   | {
       kind: 'series';
       series: PlotSeriesFrame[];
+      axisMetadata?: NonNullable<PlotDataFrame['meta']>['axisMetadata'];
       xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
       xyPointSize?: number;
       xyPointAlpha?: number;
@@ -332,6 +333,7 @@ export function parseLiveFrameFromPayload(params: {
   const mapVectorSnapshot = (snapshot: HttpVectorSnapshot): {
     kind: 'series';
     series: PlotSeriesFrame[];
+    axisMetadata?: NonNullable<PlotDataFrame['meta']>['axisMetadata'];
     xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
     xyPointSize?: number;
     xyPointAlpha?: number;
@@ -339,6 +341,12 @@ export function parseLiveFrameFromPayload(params: {
   } => ({
     kind: 'series',
     series: mapSnapshotToVectorPlotSeriesFrames(snapshot, params.seriesLabels?.[0]),
+    axisMetadata: {
+      axisName: snapshot.axisName,
+      axisUnit: snapshot.axisUnit,
+      signalName: snapshot.signalName,
+      signalUnit: snapshot.signalUnit,
+    },
     xyRenderMode: snapshot.renderMode,
     xyPointSize: snapshot.pointSize,
     xyPointAlpha: snapshot.pointAlpha,
@@ -486,6 +494,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState, isPaused
           stage: 'frame-ingest',
         });
         controllerRef.current.ingestSeries(parsed.series, Date.now(), 'replace', {
+          axisMetadata: parsed.axisMetadata,
           xyRenderMode: parsed.xyRenderMode,
           xyPointSize: parsed.xyPointSize,
           xyPointAlpha: parsed.xyPointAlpha,
@@ -665,6 +674,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState, isPaused
           pending.emittedAtMs,
           'replace',
           {
+            axisMetadata: pending.payload.axisMetadata,
             xyRenderMode: pending.payload.xyRenderMode,
             xyPointSize: pending.payload.xyPointSize,
             xyPointAlpha: pending.payload.xyPointAlpha,
@@ -796,6 +806,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState, isPaused
           pending.emittedAtMs,
           'replace',
           {
+            axisMetadata: pending.payload.axisMetadata,
             xyRenderMode: pending.payload.xyRenderMode,
             xyPointSize: pending.payload.xyPointSize,
             xyPointAlpha: pending.payload.xyPointAlpha,
@@ -926,6 +937,7 @@ export function useTimeseriesLiveFrame({ spec, binding, executionState, isPaused
             pending.emittedAtMs,
             'replace',
             {
+              axisMetadata: pending.payload.axisMetadata,
               xyRenderMode: pending.payload.xyRenderMode,
               xyPointSize: pending.payload.xyPointSize,
               xyPointAlpha: pending.payload.xyPointAlpha,

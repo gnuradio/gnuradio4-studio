@@ -9,6 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(USE_CCACHE "Use ccache if available" ON)
+option(ENABLE_TESTING "Build Studio block tests" OFF)
+if(ENABLE_TESTING)
+  enable_testing()
+endif()
 
 if(EMSCRIPTEN)
   add_compile_options(-pthread -fexceptions)

@@ -16,6 +16,7 @@ export type PlotFrameController = {
     emittedAtMs?: number,
     mode?: 'append' | 'replace',
     metadata?: {
+      axisMetadata?: NonNullable<PlotDataFrame['meta']>['axisMetadata'];
       xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
       xyPointSize?: number;
       xyPointAlpha?: number;
@@ -143,6 +144,7 @@ export function createPlotFrameController(spec: PlotPanelSpec): PlotFrameControl
     emittedAtMs?: number,
     mode: 'append' | 'replace' = 'append',
     metadata?: {
+      axisMetadata?: NonNullable<PlotDataFrame['meta']>['axisMetadata'];
       xyRenderMode?: NonNullable<PlotDataFrame['meta']>['xyRenderMode'];
       xyPointSize?: number;
       xyPointAlpha?: number;
@@ -166,9 +168,9 @@ export function createPlotFrameController(spec: PlotPanelSpec): PlotFrameControl
           mergedX.length = 0;
         }
       }
-      mergedY.push(...nextChunk);
+      for (const value of nextChunk) mergedY.push(value);
       if (mergedX && nextXChunk) {
-        mergedX.push(...nextXChunk);
+        for (const value of nextXChunk) mergedX.push(value);
       }
       if (windowSize && windowSize > 0 && mergedY.length > windowSize) {
         const overflow = mergedY.length - windowSize;
@@ -197,6 +199,7 @@ export function createPlotFrameController(spec: PlotPanelSpec): PlotFrameControl
       sequence,
       emittedAtMs,
       state: hasSamples ? 'ready' : 'no-data',
+      axisMetadata: metadata?.axisMetadata,
       xyRenderMode: metadata?.xyRenderMode,
       xyPointSize: metadata?.xyPointSize,
       xyPointAlpha: metadata?.xyPointAlpha,

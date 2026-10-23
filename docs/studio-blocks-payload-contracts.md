@@ -201,6 +201,7 @@ Expected payload fields:
 
 Semantics:
 
+- `StudioDataSetSink.window_size` defaults to `-1`, which publishes every point of the latest DataSet. A positive value publishes the last N points; zero and values below -1 are invalid. The sink retains the latest DataSet, without accumulating history.
 - DataSet semantics remain sink/runtime-side.
 - Payload normalizes to one XY trace for plotting.
 - `StudioPowerSpectrumSink` uses this contract to publish FFT frequency bins against averaged power values.

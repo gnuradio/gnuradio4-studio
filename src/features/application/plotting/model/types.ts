@@ -70,6 +70,13 @@ export type PlotImageFrame = {
 export type PlotXyRenderMode = 'line' | 'scatter';
 export type PlotAxisMode = 'x' | 'y' | 'xy';
 
+export type PlotAxisMetadata = {
+  axisName?: string;
+  axisUnit?: string;
+  signalName?: string;
+  signalUnit?: string;
+};
+
 export type PlotDataFrame = {
   kind: PlotKind;
   series?: PlotSeriesFrame[];
@@ -80,6 +87,7 @@ export type PlotDataFrame = {
     sampleRateHz?: number;
     liveIngressFpsHz?: number;
     domain?: 'time' | 'frequency' | 'image';
+    axisMetadata?: PlotAxisMetadata;
     xyRenderMode?: PlotXyRenderMode;
     xyPointSize?: number;
     xyPointAlpha?: number;

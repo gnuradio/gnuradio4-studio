@@ -23,3 +23,5 @@ gr4_studio_add_block_test(qa_Studio2DSeriesSink)
 gr4_studio_add_block_test(qa_StudioSeriesSink)
 gr4_studio_add_block_test(qa_StudioScalarSink ${GR4_STUDIO_HTTPLIB_TARGET})
 gr4_studio_add_block_test(qa_StudioWaterfallSink)
+
+gr4_studio_add_block_test(qa_StudioDataSetSink)
