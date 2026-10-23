@@ -448,7 +448,7 @@ function serializeGraphDocumentToInlineGrc(
       const blockDetails = blockDetailsByType?.get(node.blockType);
       if (blockDetails) {
         blockDetails.parameters.forEach((parameter) => {
-          if (parameter.name === 'name' || parameterEntries.has(parameter.name)) {
+          if (parameter.readOnly || !parameter.mutable || parameter.name === 'name' || parameterEntries.has(parameter.name)) {
             return;
           }
           if (parameter.defaultValue === undefined) {
@@ -486,6 +486,10 @@ function serializeGraphDocumentToInlineGrc(
             return;
           }
           const parameterMeta = blockDetails?.parameters.find((candidate) => candidate.name === name);
+          // Saved documents can still carry fields that reflection now marks read-only.
+          if (parameterMeta && (parameterMeta.readOnly || !parameterMeta.mutable)) {
+            return;
+          }
           lines.push(...indent([`    ${name}: ${renderParameterValue(name, parameterValue, parameterMeta)}`]));
         });
       }
