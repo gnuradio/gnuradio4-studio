@@ -48,9 +48,10 @@ describe('managed local backend', () => {
     const capturedOutput = [];
     const script = [
       "const fs = require('node:fs');",
+      "fs.writeSync(1, 'stdout marker\\n');",
+      "fs.writeSync(2, 'stderr marker\\n');",
+      // Publish readiness only after the output under test has been emitted.
       "fs.writeFileSync(process.env.GR4CP_PORT_FILE, '43123\\n');",
-      "console.log('stdout marker');",
-      "console.error('stderr marker');",
       'setInterval(() => {}, 1000);',
     ].join('');
 
