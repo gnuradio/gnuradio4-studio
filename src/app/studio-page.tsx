@@ -98,6 +98,8 @@ import {
 import { effectiveApplicationMode } from '../features/application/runtime/application-mode';
 import { SidePanelToggleButton } from '../components/side-panel-toggle-button';
 import { getStudioShellGridTemplate } from './side-panel-layout';
+import { createRecentDocuments, type RecentDocument } from '../features/document-file/recent-documents';
+import { RecentDocumentsDialog } from '../features/document-file/recent-documents-dialog';
 
 type ConnectionStatus = 'idle' | 'loading' | 'connected' | 'error';
 type CenterViewMode = 'graph' | 'variables' | 'workspace' | 'application';
@@ -204,6 +206,8 @@ export function StudioPage() {
   const [renameDocument, setRenameDocument] = useState<{ tabId: string; name: string } | null>(null);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const persistenceService = useMemo(() => createDocumentPersistenceService(), []);
+  const recentDocuments = useMemo(() => createRecentDocuments(window), []);
+  const [isRecentDocumentsOpen, setIsRecentDocumentsOpen] = useState(false);
   const blockCatalogQuery = useBlockCatalogQuery();
   const connectionStatus = getConnectionStatus(blockCatalogQuery);
 
@@ -986,6 +990,15 @@ export function StudioPage() {
     },
   });
 
+  const rememberDocument = async (document: Parameters<typeof recentDocuments.remember>[0], replaceId?: string) => {
+    try {
+      await recentDocuments.remember(document, replaceId);
+      return recentDocuments.warning;
+    } catch {
+      return 'The file opened or saved successfully, but recent history could not be updated.';
+    }
+  };
+
   const saveTab = async (tabId: string, mode: 'save' | 'saveAs'): Promise<PersistenceResult> => {
     const tab = useGraphTabsStore.getState().tabs.find((entry) => entry.id === tabId);
     if (!tab) {
@@ -1015,7 +1028,9 @@ export function StudioPage() {
         if (activeTabId === tabId) {
           replaceGraph(nextSnapshot);
         }
-        setLastStatusMessage(buildSaveSuccessMessage(result.value.documentIdentity));
+        const historyWarning = result.value.documentIdentity.lastPersistenceMethod !== 'save_in_place'
+          ? await rememberDocument(result.value.documentIdentity) : null;
+        setLastStatusMessage(historyWarning ?? buildSaveSuccessMessage(result.value.documentIdentity));
       } else if (result.kind !== 'canceled') {
         if (result.reason === 'permission_revoked') {
           downgradeTabWritableBacking(tabId, tab.document.sourceKind === 'file_handle' ? 'imported_file' : tab.document.sourceKind);
@@ -1091,18 +1106,18 @@ export function StudioPage() {
     setLastStatusMessage(`New tab: ${tab.document.displayName}`);
   };
 
-  const handleOpenCommand = async () => {
+  const handleOpenCommand = async (recent?: RecentDocument, locate = false): Promise<boolean> => {
     setOpening(true);
     setLastError(null);
     setLastStatusMessage(null);
 
     try {
-      const result = await persistenceService.openDocument(capabilities, activeDocument);
+      const result = await persistenceService.openDocument(capabilities, activeDocument, locate ? undefined : recent);
       if (result.kind !== 'success') {
         if (result.kind !== 'canceled') {
           setLastError(result.message);
         }
-        return;
+        return false;
       }
 
       const previousActiveTabId = activeTabId;
@@ -1121,7 +1136,9 @@ export function StudioPage() {
         closeTab(previousActiveTabId);
         removeTabContext(previousActiveTabId);
       }
-      setLastStatusMessage(buildOpenSuccessMessage(result.value.documentIdentity));
+      const historyWarning = await rememberDocument(result.value.documentIdentity, recent?.id);
+      setLastStatusMessage(historyWarning ?? buildOpenSuccessMessage(result.value.documentIdentity));
+      return true;
     } finally {
       setOpening(false);
     }
@@ -1389,7 +1406,7 @@ export function StudioPage() {
     setStudioPanels(nextPanels);
   };
 
-  const commandsAvailable = !busy && !pendingDestructiveAction && !editingBlockId && !plotStyleEditorPanelId && !isDiagnosticsOpen && !renameDocument;
+  const commandsAvailable = !busy && !pendingDestructiveAction && !editingBlockId && !plotStyleEditorPanelId && !isDiagnosticsOpen && !renameDocument && !isRecentDocumentsOpen;
   const runtimeAvailable = commandsAvailable && Boolean(activeTabId) && !activeRuntimeContext?.busy;
   const canRun = runtimeAvailable && Boolean(runtimeView) && runtimeView?.executionState !== 'running';
   const canStop = runtimeAvailable && Boolean(activeRuntimeContext?.sessionId) && runtimeView?.executionState === 'running';
@@ -1398,6 +1415,7 @@ export function StudioPage() {
   useStudioCommands({
     new: { enabled: commandsAvailable, execute: handleCreateTab },
     open: { enabled: commandsAvailable, execute: handleOpenCommand },
+    openRecent: { enabled: commandsAvailable, execute: () => { setLastError(null); setIsRecentDocumentsOpen(true); } },
     save: { enabled: commandsAvailable && saveEnabled, execute: handleSaveCurrentDocument },
     saveAs: { enabled: commandsAvailable && Boolean(activeTabId), execute: handleSaveAsCurrentDocument },
     rename: { enabled: commandsAvailable && Boolean(activeTabId), execute: handleRenameCurrentDocument },
@@ -1419,6 +1437,8 @@ export function StudioPage() {
 
   return (
     <div className="h-screen overflow-hidden bg-slate-900 text-slate-100 flex flex-col">
+      {isRecentDocumentsOpen && <RecentDocumentsDialog history={recentDocuments} error={documentError}
+        onOpen={handleOpenCommand} onClose={() => setIsRecentDocumentsOpen(false)} />}
       {!desktopMenus && <header className="h-16 shrink-0 border-b border-cyan-950/70 bg-slate-950/92 px-4 flex items-center justify-between gap-4 shadow-sm">
         <div className="min-w-0 flex items-center gap-3">
           <StudioMark className="h-9 w-9 shrink-0" />
@@ -1448,6 +1468,14 @@ export function StudioPage() {
                 className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
                 Open...
+              </button>
+              <button type="button" disabled={!commandsAvailable}
+                onClick={(event) => {
+                  event.currentTarget.closest('details')?.removeAttribute('open');
+                  executeStudioCommand('openRecent');
+                }}
+                className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">
+                Open Recent…
               </button>
               <button
                 type="button"

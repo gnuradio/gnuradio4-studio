@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { createRecentDocuments } from './recent-documents.mjs';
 
 async function writeDocument(filePath, content) {
   if (typeof content !== 'string') throw new Error('Document content must be text.');
@@ -22,14 +23,15 @@ async function writeDocument(filePath, content) {
   }
 }
 
-// The renderer receives opaque handles only. It cannot choose a filesystem path via IPC.
-export function createDesktopDocuments({ dialog, getWindow }) {
+// File access uses opaque handles or stored recent IDs. The renderer cannot choose a path via IPC.
+export function createDesktopDocuments({ dialog, getWindow, getRecentPath }) {
   const files = new Map();
   let lastDirectory;
   const directoryFor = (token) => {
     const filePath = typeof token === 'string' ? files.get(token) : undefined;
     return filePath ? path.dirname(filePath) : lastDirectory;
   };
+  const recent = createRecentDocuments(getRecentPath);
   const remember = (filePath) => {
     const token = randomUUID();
     files.set(token, filePath);
@@ -39,6 +41,19 @@ export function createDesktopDocuments({ dialog, getWindow }) {
   const filters = [{ name: 'Studio documents', extensions: ['gr4s'] }, { name: 'All files', extensions: ['*'] }];
   return {
     clear() { files.clear(); },
+    listRecent: () => recent.list(),
+    clearRecent: () => recent.clear(),
+    removeRecent: ({ id }) => recent.remove(id),
+    async rememberRecent({ token, replaceId }) {
+      const filePath = files.get(token);
+      if (!filePath) throw new Error('This document handle has expired.');
+      await recent.remember(filePath, replaceId);
+    },
+    async openRecent({ id }) {
+      const filePath = await recent.resolve(id);
+      const content = await fs.readFile(filePath, 'utf8');
+      return { ...remember(filePath), content };
+    },
     async open({ token } = {}) {
       const result = await dialog.showOpenDialog(getWindow(), {
         filters, properties: ['openFile'], defaultPath: directoryFor(token),
