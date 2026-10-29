@@ -1,3 +1,5 @@
+import { executeStudioCommand, hasDesktopMenus, isTextEditingTarget } from '../../lib/commands/studio-commands';
+import { useStudioCommands } from '../../lib/commands/use-studio-commands';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import {
@@ -45,7 +47,6 @@ const nodeTypes = {
 type FlowGraphNode = Node<FlowNodeData>;
 
 function GraphCanvasControls() {
-  const reactFlow = useReactFlow();
 
   return (
     <div className="absolute bottom-3 left-3 z-20 overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 p-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur">
@@ -53,7 +54,7 @@ function GraphCanvasControls() {
         <button
           type="button"
           title="Zoom in"
-          onClick={() => reactFlow.zoomIn({ duration: 160 })}
+          onClick={() => executeStudioCommand('zoomIn')}
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800"
         >
           <span className="text-sm leading-none">+</span>
@@ -61,7 +62,7 @@ function GraphCanvasControls() {
         <button
           type="button"
           title="Zoom out"
-          onClick={() => reactFlow.zoomOut({ duration: 160 })}
+          onClick={() => executeStudioCommand('zoomOut')}
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800"
         >
           <span className="text-sm leading-none">−</span>
@@ -69,9 +70,7 @@ function GraphCanvasControls() {
         <button
           type="button"
           title="Fit view"
-          onClick={() => {
-            void reactFlow.fitView({ duration: 180, padding: 0.2 });
-          }}
+          onClick={() => executeStudioCommand('fitView')}
           className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800"
         >
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden="true">
@@ -388,11 +387,13 @@ function buildRenderedNodeSignature(nodes: FlowGraphNode[]): string {
 type GraphEditorPanelProps = {
   onOpenBlockProperties: (instanceId: string) => void;
   isBlockPropertiesOpen: boolean;
+  commandsDisabled?: boolean;
 };
 
 export function GraphEditorPanel({
   onOpenBlockProperties,
   isBlockPropertiesOpen,
+  commandsDisabled = false,
 }: GraphEditorPanelProps) {
   const blockCatalogQuery = useBlockCatalogQuery();
   const editorNodes = useEditorStore((state) => state.nodes);
@@ -408,6 +409,7 @@ export function GraphEditorPanel({
   const addEdge = useEditorStore((state) => state.addEdge);
   const removeEdge = useEditorStore((state) => state.removeEdge);
   const copyNodesToClipboard = useEditorStore((state) => state.copyNodesToClipboard);
+  const clipboard = useEditorStore((state) => state.clipboard);
   const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
   const [openRuntimeVisualizationId, setOpenRuntimeVisualizationId] = useState<string | null>(null);
 
@@ -478,10 +480,11 @@ export function GraphEditorPanel({
       openRuntimeVisualizationId,
     ],
   );
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const nodePortTypeMap = useMemo(() => buildNodePortTypeMap(nodes), [nodes]);
   const flowEdges = useMemo(
-    () => editorEdges.map((edge) => toStyledFlowEdge(edge, nodePortTypeMap)),
-    [editorEdges, nodePortTypeMap],
+    () => editorEdges.map((edge) => ({ ...toStyledFlowEdge(edge, nodePortTypeMap), selected: selectedEdgeIds.includes(edge.id) })),
+    [editorEdges, nodePortTypeMap, selectedEdgeIds],
   );
   const storeNodeSignature = useMemo(() => buildStoreNodeSignature(editorNodes), [editorNodes]);
   const renderedNodeSignature = useMemo(() => buildRenderedNodeSignature(nodes), [nodes]);
@@ -586,6 +589,16 @@ export function GraphEditorPanel({
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
+      setSelectedEdgeIds((current) => {
+        const next = new Set(current);
+        for (const change of changes) {
+          if (change.type === 'select') {
+            if (change.selected) next.add(change.id);
+            else next.delete(change.id);
+          } else if (change.type === 'remove') next.delete(change.id);
+        }
+        return next.size === current.length && current.every((id) => next.has(id)) ? current : [...next];
+      });
       applyFlowEdgeChanges(changes);
     },
     [applyFlowEdgeChanges],
@@ -647,52 +660,60 @@ export function GraphEditorPanel({
     }
   }, [editorNodes, openRuntimeVisualizationId]);
 
+  const deleteSelectedNodes = () => {
+    const ids = getTargetNodeIds();
+    setFlowNodes((current) => current.filter((node) => !ids.includes(node.id)));
+    applyFlowNodeChanges(ids.map((id) => ({ id, type: 'remove' } as NodeChange)));
+    applyFlowEdgeChanges(selectedEdgeIds.map((id) => ({ id, type: 'remove' })));
+    setSelectedEdgeIds([]);
+  };
+  const canEdit = !commandsDisabled && !isBlockPropertiesOpen;
+  const hasSelection = getTargetNodeIds().length > 0;
+  useStudioCommands({
+    cut: { enabled: canEdit && hasSelection, execute: () => { copyNodesToClipboard(getTargetNodeIds()); deleteSelectedNodes(); } },
+    copy: { enabled: canEdit && hasSelection, execute: () => copyNodesToClipboard(getTargetNodeIds()) },
+    paste: { enabled: canEdit && Boolean(clipboard), execute: () => {
+      const pasted = pasteClipboard();
+      if (pasted) pendingPasteSelectionRef.current = pasted.nodeIds;
+    } },
+    delete: { enabled: canEdit && (hasSelection || selectedEdgeIds.length > 0), execute: deleteSelectedNodes },
+    selectAll: { enabled: canEdit && editorNodes.length > 0, execute: () => {
+      setFlowNodes((current) => current.map((node) => ({ ...node, selected: true })));
+      selectNode(editorNodes[0]?.instanceId ?? null);
+      setSelectedEdgeIds(editorEdges.map((edge) => edge.id));
+    } },
+    zoomIn: { enabled: canEdit, execute: () => reactFlow.zoomIn({ duration: 160 }) },
+    zoomOut: { enabled: canEdit, execute: () => reactFlow.zoomOut({ duration: 160 }) },
+    fitView: { enabled: canEdit, execute: () => reactFlow.fitView({ duration: 180, padding: 0.2 }) },
+  });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isBlockPropertiesOpen) {
+      if (isBlockPropertiesOpen || commandsDisabled) {
         return;
       }
 
-      const target = event.target as HTMLElement | null;
-      const isTextInputTarget =
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable === true;
-      if (isTextInputTarget) {
-        return;
-      }
-
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
-        const nodeIds = getTargetNodeIds();
-        if (nodeIds.length === 0) {
+      if (isTextEditingTarget(event.target)) return;
+      if (event.metaKey || event.ctrlKey) {
+        const key = event.key.toLowerCase();
+        const command = key === 'c' ? 'copy' : key === 'v' ? 'paste' : key === 'x' ? 'cut' : key === 'a' ? 'selectAll' : null;
+        if (command) {
+          if (!hasDesktopMenus()) {
+            event.preventDefault();
+            executeStudioCommand(command);
+          }
           return;
         }
-        event.preventDefault();
-        copyNodesToClipboard(nodeIds);
-        return;
-      }
-
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') {
-        const pasted = pasteClipboard();
-        if (!pasted) {
-          return;
-        }
-        pendingPasteSelectionRef.current = pasted.nodeIds;
-        event.preventDefault();
-        return;
-      }
-
-      const idsToRemove = getTargetNodeIds();
-      if (idsToRemove.length === 0) {
-        return;
       }
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
-        setFlowNodes((current) => current.filter((node) => !idsToRemove.includes(node.id)));
-        applyFlowNodeChanges(idsToRemove.map((id) => ({ id, type: 'remove' } as NodeChange)));
+        if (!hasDesktopMenus() || event.key === 'Backspace') executeStudioCommand('delete');
         return;
       }
+
+      const idsToRemove = getTargetNodeIds();
+      if (idsToRemove.length === 0) return;
 
       const key = event.key.toLowerCase();
       if (key === 'arrowleft' || key === 'arrowright') {
@@ -742,6 +763,7 @@ export function GraphEditorPanel({
     getTargetNodeIds,
     isBypassableNodeId,
     isBlockPropertiesOpen,
+    commandsDisabled,
     pasteClipboard,
     selectedFlowNodeIds,
     selectedNodeId,
@@ -764,6 +786,7 @@ export function GraphEditorPanel({
       )}
 
       <ReactFlow
+        deleteKeyCode={null}
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={nodeTypes}

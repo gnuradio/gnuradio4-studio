@@ -27,15 +27,16 @@ type FileSystemWindow = Window & {
 
 export function detectDocumentPersistenceCapabilities(win: Window = window): DocumentPersistenceCapabilities {
   const typedWindow = win as FileSystemWindow;
+  const nativeFiles = Boolean(win.gr4StudioShell?.capabilities?.nativeFiles && win.gr4StudioShell.documents);
   const canUseFileSystemAccessApi =
     typeof typedWindow.showOpenFilePicker === 'function' &&
     typeof typedWindow.showSaveFilePicker === 'function';
 
   return {
     canUseFileSystemAccessApi,
-    canSaveInPlace: canUseFileSystemAccessApi,
-    canPromptForSaveLocation: canUseFileSystemAccessApi,
-    usesDownloadFallback: !canUseFileSystemAccessApi,
-    canOpenWithPicker: canUseFileSystemAccessApi,
+    canSaveInPlace: nativeFiles || canUseFileSystemAccessApi,
+    canPromptForSaveLocation: nativeFiles || canUseFileSystemAccessApi,
+    usesDownloadFallback: !nativeFiles && !canUseFileSystemAccessApi,
+    canOpenWithPicker: nativeFiles || canUseFileSystemAccessApi,
   };
 }

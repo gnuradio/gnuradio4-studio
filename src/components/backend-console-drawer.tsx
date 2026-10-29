@@ -1,3 +1,6 @@
+import { executeStudioCommand } from '../lib/commands/studio-commands';
+import type { ReactNode } from 'react';
+import { useStudioCommands } from '../lib/commands/use-studio-commands';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { appendBoundedConsoleText } from '../lib/backend-console';
 
@@ -38,7 +41,7 @@ export function applyOutputEvent(
   };
 }
 
-export function BackendConsoleDrawer() {
+export function BackendConsoleDrawer({ statusContent }: { statusContent?: ReactNode }) {
   const [snapshot, setSnapshot] = useState<ConsoleSnapshot | null>(null);
   const [minimized, setMinimized] = useState(true);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -123,8 +126,19 @@ export function BackendConsoleDrawer() {
     return lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
   }, [snapshot]);
 
+  useStudioCommands({ console: { enabled: Boolean(snapshot?.available), checked: !minimized, execute: () => setMinimized((value) => !value) } });
+
+  const statusBar = statusContent ? (
+    <footer className="flex h-8 shrink-0 items-center gap-3 border-t border-slate-700 bg-slate-950 px-3 text-xs text-slate-300" aria-label="Studio status">
+      {statusContent}
+      <button type="button" disabled={!snapshot?.available} aria-expanded={!minimized} onClick={() => executeStudioCommand('console')} className="rounded px-2 py-1 hover:bg-slate-800 disabled:opacity-40" title={snapshot?.available ? 'Toggle backend console' : 'Console is available with a managed local backend'}>
+        Console{hasUnreadOutput ? ' •' : ''}
+      </button>
+    </footer>
+  ) : null;
+
   if (!window.gr4StudioShell?.getControlPlaneConsole || !snapshot?.available) {
-    return null;
+    return statusBar;
   }
 
   const refresh = async () => {
@@ -158,10 +172,11 @@ export function BackendConsoleDrawer() {
   };
 
   if (minimized) {
+    if (statusBar) return statusBar;
     return (
       <button
         type="button"
-        onClick={() => setMinimized(false)}
+        onClick={() => executeStudioCommand('console')}
         className="flex h-8 shrink-0 items-center justify-between border-t border-slate-700 bg-slate-950 px-4 text-xs text-slate-300 hover:bg-slate-900"
         aria-label="Open backend console"
         title="Expand backend console"
@@ -180,6 +195,7 @@ export function BackendConsoleDrawer() {
   }
 
   return (
+    <>
     <section className="flex h-64 shrink-0 flex-col border-t border-slate-700 bg-slate-950 shadow-[0_-10px_30px_rgba(0,0,0,0.25)]">
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-slate-800 px-3">
         <div className="flex min-w-0 items-center gap-2 text-xs">
@@ -219,7 +235,7 @@ export function BackendConsoleDrawer() {
           </button>
           <button
             type="button"
-            onClick={() => setMinimized(true)}
+            onClick={() => executeStudioCommand('console')}
             className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-sm leading-none text-slate-200 hover:bg-slate-800"
             aria-label="Minimize backend console"
             title="Minimize backend console"
@@ -239,5 +255,7 @@ export function BackendConsoleDrawer() {
         <span>{actionMessage}</span>
       </div>
     </section>
+    {statusBar}
+    </>
   );
 }

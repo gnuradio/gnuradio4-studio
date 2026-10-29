@@ -16,6 +16,13 @@ interface Window {
     readonly backendMode?: 'local' | 'remote' | 'unknown';
   };
   gr4StudioShell?: {
+    readonly capabilities?: { readonly nativeMenus: boolean; readonly nativeFiles?: boolean };
+    readonly documents?: {
+      open: () => Promise<{ token: string; name: string; content: string } | null>;
+      saveAs: (input: { name: string; content: string }) => Promise<{ token: string; name: string } | null>;
+      save: (input: { token: string; content: string }) => Promise<{ token: string; name: string }>;
+    };
+    readonly setMenuState?: (state: { commands: import('./lib/commands/studio-commands').StudioCommandState; editingText: boolean }) => void;
     readonly getBootStatus?: () => Promise<{
       phase: 'starting' | 'waiting-backend' | 'ready' | 'error';
       message: string;
@@ -38,7 +45,7 @@ interface Window {
         currentSessionRouting: 'app-api';
       }) => void,
     ) => () => void;
-    readonly onMenuCommand?: (callback: (command: 'new' | 'open' | 'save' | 'saveAs' | 'rename') => void) => () => void;
+    readonly onMenuCommand?: (callback: (command: import('./lib/commands/studio-commands').StudioCommandId) => void) => () => void;
     readonly getControlPlaneDiagnostics?: () => Promise<
       | {
           available: true;

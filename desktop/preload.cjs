@@ -11,6 +11,15 @@ contextBridge.exposeInMainWorld('gr4StudioRuntime', {
 });
 
 contextBridge.exposeInMainWorld('gr4StudioShell', {
+  capabilities: { nativeMenus: true, nativeFiles: true },
+  documents: {
+    open: () => ipcRenderer.invoke('gr4-studio:document:open'),
+    saveAs: (input) => ipcRenderer.invoke('gr4-studio:document:saveAs', input),
+    save: (input) => ipcRenderer.invoke('gr4-studio:document:save', input),
+  },
+  setMenuState(state) {
+    ipcRenderer.send('gr4-studio:menu-state', state);
+  },
   getBootStatus() {
     return ipcRenderer.invoke('gr4-studio:boot-status:get');
   },

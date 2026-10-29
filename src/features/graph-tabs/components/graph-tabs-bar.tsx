@@ -7,7 +7,8 @@ type GraphTabsBarProps = {
   onSelectTab: (tabId: string) => void;
   onCreateTab: () => void;
   onCloseTab: (tabId: string) => void;
-  onOpenSessions: () => void;
+  onOpenSessions?: () => void;
+  canCreate?: boolean;
 };
 
 export function GraphTabsBar({
@@ -18,6 +19,7 @@ export function GraphTabsBar({
   onCreateTab,
   onCloseTab,
   onOpenSessions,
+  canCreate = true,
 }: GraphTabsBarProps) {
   return (
     <div className="h-10 shrink-0 border-b border-border bg-slate-950/80 px-2 flex items-center gap-2 overflow-x-auto">
@@ -69,6 +71,7 @@ export function GraphTabsBar({
       <button
         type="button"
         onClick={onCreateTab}
+        disabled={!canCreate}
         className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
       >
         + New Tab
@@ -76,13 +79,13 @@ export function GraphTabsBar({
 
       <div className="ml-auto" />
 
-      <button
+      {onOpenSessions && <button
         type="button"
         onClick={onOpenSessions}
         className="rounded border border-indigo-700/70 bg-indigo-900/30 px-2 py-1 text-xs text-indigo-200 hover:bg-indigo-800/40"
       >
         Sessions
-      </button>
+      </button>}
     </div>
   );
 }

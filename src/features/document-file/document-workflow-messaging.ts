@@ -24,7 +24,7 @@ export function buildCapabilityIndicatorText(
   capabilities: DocumentPersistenceCapabilities,
   currentDocument: DocumentIdentityState,
 ): string {
-  if (!capabilities.canUseFileSystemAccessApi) {
+  if (!capabilities.canSaveInPlace) {
     return 'Browser file picker unsupported; saves will download files.';
   }
 
@@ -36,7 +36,7 @@ export function buildCapabilityIndicatorText(
 }
 
 export function buildOpenTooltip(capabilities: DocumentPersistenceCapabilities): string {
-  if (!capabilities.canUseFileSystemAccessApi) {
+  if (!capabilities.canOpenWithPicker) {
     return 'Opens via file upload import because this browser does not support direct file handles.';
   }
   return 'Open a file from disk and retain a writable backing handle.';

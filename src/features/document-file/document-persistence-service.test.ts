@@ -703,3 +703,33 @@ describe('document persistence service', () => {
     }
   });
 });
+
+describe('native document persistence', () => {
+  it('uses desktop dialogs and an opaque token instead of browser pickers', async () => {
+    const save = vi.fn().mockResolvedValue({ token: 'native-1', name: 'flow.gr4s' });
+    const saveAs = vi.fn().mockResolvedValue({ token: 'native-1', name: 'flow.gr4s' });
+    const browserPicker = vi.fn();
+    const service = createDocumentPersistenceService({ win: {
+      gr4StudioShell: { capabilities: { nativeFiles: true }, documents: { saveAs, save } },
+      showSaveFilePicker: browserPicker,
+    } as unknown as Window });
+    const saved = await service.saveCurrentDocumentAs(createIdentity(), createSnapshot(), createCapabilities());
+    expect(saved.kind).toBe('success');
+    if (saved.kind !== 'success') return;
+    expect(saved.value.documentIdentity.nativeFileToken).toBe('native-1');
+    const next = await service.saveCurrentDocument(saved.value.documentIdentity, createSnapshot('Changed'), createCapabilities());
+    expect(next.kind).toBe('success');
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ token: 'native-1' }));
+    expect(saveAs).toHaveBeenCalledOnce();
+    expect(browserPicker).not.toHaveBeenCalled();
+  });
+  it('does not clear dirty state when a native save fails', async () => {
+    const service = createDocumentPersistenceService({ win: {
+      gr4StudioShell: { capabilities: { nativeFiles: true }, documents: { save: vi.fn().mockRejectedValue(Error('disk full')) } },
+    } as unknown as Window });
+    const identity = createIdentity({ nativeFileToken: 'native-1', hasWritableBacking: true });
+    const result = await service.saveCurrentDocument(identity, createSnapshot(), createCapabilities());
+    expect(result.kind).toBe('failed_io');
+    expect(identity.isDirty).toBe(true);
+  });
+});

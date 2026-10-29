@@ -101,6 +101,33 @@ Remove the profile with
 `gr4-studio-sandbox-setup --remove`. Do not make `--no-sandbox` part of a normal
 launcher configuration; Electron documents that option as testing-only.
 
+### Desktop menus and workspace
+
+Electron uses native File, Edit, View, Run, Window, and Help menus. The document
+name and unsaved indicator appear in the native window title; graph tabs and the
+workspace toolbar sit directly below the menus. Connection status, Sessions,
+and the managed backend Console share a compact bottom bar. The browser keeps
+its header, File menu, and file upload/download fallback.
+
+Native menus, toolbar controls, and shortcuts use the same command handlers and
+availability checks. File operations use native dialogs in Electron. The renderer
+receives opaque file handles rather than filesystem paths. Save writes to the
+selected file; Save As selects a new backing file. Closing a dirty tab prompts
+to save; cancelling an application close keeps the backend running.
+
+- `Ctrl/Cmd+N`, `O`, `S`, and `Shift+S`: new, open, save, and save as.
+- `Ctrl/Cmd+W`: close the active tab when more than one is open.
+- `Ctrl/Cmd+1` through `4`: graph, variables, layout, and in-app display.
+- `F5` / `Shift+F5`: run/resume and stop.
+- `Ctrl/Cmd+J`: toggle the local backend console.
+- `Ctrl/Cmd+0`: fit the graph; `Ctrl/Cmd+=` / `-`: canvas zoom.
+
+Edit commands operate on graph selections when editing the canvas and retain
+native text behavior inside input fields. Graph undo/redo is not implemented;
+those menu entries are disabled outside text fields. Display windows have native
+text editing and window controls, with editor commands disabled. The Window menu
+switches between editor and display windows.
+
 For local desktop development, use:
 
 ```bash

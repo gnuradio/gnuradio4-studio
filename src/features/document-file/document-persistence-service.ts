@@ -50,6 +50,7 @@ export type DocumentIdentityState = {
   documentFormat: string;
   sourceKind: SourceKind;
   fileHandle: FileSystemFileHandle | null;
+  nativeFileToken?: string;
   filePathHint: string | null;
   hasWritableBacking: boolean;
   isDirty: boolean;
@@ -247,6 +248,7 @@ export function createUntitledDocumentIdentity(capabilities: DocumentPersistence
 export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
   const win = deps.win ?? window;
   const typedWindow = win as FileSystemWindow;
+  const nativeFiles = win.gr4StudioShell?.capabilities?.nativeFiles ? win.gr4StudioShell.documents : undefined;
   const now = deps.now ?? nowIso;
   const nextDocumentId = deps.nextDocumentId ?? createDocumentId;
 
@@ -255,6 +257,28 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
   ): Promise<PersistenceResult<OpenDocumentSuccess>> => {
     void capabilities;
     try {
+      if (nativeFiles) {
+        const file = await nativeFiles.open();
+        if (!file) return { kind: 'canceled', message: 'Open canceled.' };
+        const serialized = deserializeDocumentText(file.content);
+        return { kind: 'success', value: {
+          replacement: editorGraphFromDocument(serialized.document),
+          documentIdentity: {
+            ...createUntitledDocumentIdentity(capabilities),
+            internalDocumentId: nextDocumentId(),
+            displayName: file.name,
+            documentFormat: serialized.documentFormat,
+            sourceKind: 'file_handle',
+            nativeFileToken: file.token,
+            filePathHint: file.name,
+            hasWritableBacking: true,
+            isUntitled: false,
+            lastLoadedAt: now(),
+            lastPersistenceMethod: 'import_only',
+            lastPersistedContentHash: serialized.contentHash,
+          },
+        } };
+      }
       if (typeof typedWindow.showOpenFilePicker === 'function') {
         const [handle] = await typedWindow.showOpenFilePicker({
           multiple: false,
@@ -362,6 +386,25 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
     const saveTime = now();
 
     try {
+      if (nativeFiles) {
+        const file = await nativeFiles.saveAs({ name: suggestedName, content: serialized.content });
+        if (!file) return { kind: 'canceled', message: 'Save As canceled.' };
+        return { kind: 'success', value: { serialized, documentIdentity: {
+          ...documentIdentity,
+          displayName: file.name,
+          documentFormat: serialized.documentFormat,
+          sourceKind: 'file_handle',
+          fileHandle: null,
+          nativeFileToken: file.token,
+          filePathHint: file.name,
+          hasWritableBacking: true,
+          isDirty: false,
+          isUntitled: false,
+          lastSavedAt: saveTime,
+          lastPersistenceMethod: 'save_as_picker',
+          lastPersistedContentHash: serialized.contentHash,
+        } } };
+      }
       if (typeof typedWindow.showSaveFilePicker === 'function') {
         let handle: FileSystemFileHandle | null = null;
         try {
@@ -498,6 +541,21 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
   ): Promise<PersistenceResult<SaveDocumentSuccess>> => {
     const serialized = serializeEditorSnapshot(snapshot);
 
+    if (nativeFiles && documentIdentity.hasWritableBacking && documentIdentity.nativeFileToken) {
+      try {
+        await nativeFiles.save({ token: documentIdentity.nativeFileToken, content: serialized.content });
+        return { kind: 'success', value: { serialized, documentIdentity: {
+          ...documentIdentity,
+          documentFormat: serialized.documentFormat,
+          isDirty: false,
+          lastSavedAt: now(),
+          lastPersistenceMethod: 'save_in_place',
+          lastPersistedContentHash: serialized.contentHash,
+        } } };
+      } catch (error) {
+        return { kind: 'failed_io', message: toSaveIoErrorMessage(error), reason: 'io_error' };
+      }
+    }
     if (documentIdentity.hasWritableBacking && documentIdentity.fileHandle) {
       try {
         await writeFileHandle(documentIdentity.fileHandle, serialized.content);
