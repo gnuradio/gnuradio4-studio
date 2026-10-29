@@ -88,7 +88,16 @@ install prefix:
 ```
 
 The command uses `sudo` to install and load a narrowly scoped profile for the
-installed Electron executable. Remove it with
+installed Electron executable. Check the exact executable and profile with
+`gr4-studio-sandbox-setup --status`. The launcher checks the installed policy
+instead of trusting an installation marker, and checks loaded policy when
+AppArmor exposes it to the current user. If loaded policy is not readable, it
+reports that limitation and lets Electron attempt sandbox startup. Re-running
+the setup command reloads the profile. Reinstall Studio after moving its prefix
+to regenerate the path-specific profile. AppArmor and its system-wide
+user-namespace restriction can remain enabled.
+
+Remove the profile with
 `gr4-studio-sandbox-setup --remove`. Do not make `--no-sandbox` part of a normal
 launcher configuration; Electron documents that option as testing-only.
 

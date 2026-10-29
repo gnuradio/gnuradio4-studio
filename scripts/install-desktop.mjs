@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises';
-import crypto from 'node:crypto';
+import { sandboxProfile, sandboxSetupScript } from './desktop-sandbox.mjs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -147,11 +147,13 @@ async function ensureElectronRuntime(projectRoot, electronDistDir, relativeBinar
 }
 
 async function main() {
-  const prefix = parsePrefix(process.argv.slice(2));
-  if (!prefix) {
+  const requestedPrefix = parsePrefix(process.argv.slice(2));
+  if (!requestedPrefix) {
     throw new Error('Missing prefix. Pass --prefix <path> or set PREFIX.');
   }
 
+  await fs.mkdir(path.resolve(requestedPrefix), { recursive: true });
+  const prefix = await fs.realpath(path.resolve(requestedPrefix));
   const projectRoot = process.cwd();
   const distDir = path.join(projectRoot, 'dist');
   const appDir = path.join(prefix, 'share', 'gr4-studio');
@@ -211,7 +213,6 @@ async function main() {
     'PREFIX="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"',
     'APP_DIR="$PREFIX/share/gr4-studio"',
     `BUNDLED_ELECTRON="$PREFIX/${path.relative(prefix, electronBinary)}"`,
-    'SANDBOX_MARKER="$PREFIX/var/lib/gr4-studio/apparmor-profile-installed"',
     '',
     'export PATH="$PREFIX/bin:${PATH:-}"',
     'export CMAKE_PREFIX_PATH="$PREFIX${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}"',
@@ -265,13 +266,8 @@ async function main() {
     '    return 126',
     '  fi',
     '',
-    '  if [ "$(uname -s)" = "Linux" ] &&',
-    '     [ -r /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] &&',
-    '     [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = "1" ] &&',
-    '     [ ! -f "$SANDBOX_MARKER" ]; then',
-    '    echo "Electron sandbox access has not been configured for this prefix." >&2',
-    '    echo "Run: $PREFIX/bin/gr4-studio-sandbox-setup" >&2',
-    '    return 78',
+    '  if [ "$(uname -s)" = "Linux" ]; then',
+    '    "$PREFIX/bin/gr4-studio-sandbox-setup" --check || return $?',
     '  fi',
     '',
     '  return 0',
@@ -292,78 +288,11 @@ async function main() {
   await fs.chmod(launcherPath, 0o755);
 
   if (process.platform === 'linux') {
-    const profileId = crypto.createHash('sha256').update(electronBinary).digest('hex').slice(0, 12);
-    const profileName = `gr4-studio-${profileId}`;
+    const { name: profileName, content: profile } = sandboxProfile(electronBinary);
     const profileDir = path.join(appDir, 'sandbox');
-    const profilePath = path.join(profileDir, profileName);
-    const quotedElectronBinary = electronBinary.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
-    const profile = [
-      '# This narrowly scoped unconfined profile permits Electron to create the',
-      '# unprivileged user namespaces required by the Chromium sandbox.',
-      '',
-      'abi <abi/4.0>,',
-      'include <tunables/global>',
-      '',
-      `profile ${profileName} "${quotedElectronBinary}" flags=(unconfined) {`,
-      '  userns,',
-      '  @{exec_path} mr,',
-      '}',
-      '',
-    ].join('\n');
     await fs.mkdir(profileDir, { recursive: true });
-    await fs.writeFile(profilePath, profile, 'utf8');
-
-    const sandboxSetup = [
-      '#!/bin/sh',
-      'set -eu',
-      '',
-      'PREFIX="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"',
-      `PROFILE_NAME="${profileName}"`,
-      'PROFILE_SOURCE="$PREFIX/share/gr4-studio/sandbox/$PROFILE_NAME"',
-      'PROFILE_DEST="/etc/apparmor.d/$PROFILE_NAME"',
-      'MARKER="$PREFIX/var/lib/gr4-studio/apparmor-profile-installed"',
-      '',
-      'run_as_root() {',
-      '  if [ "$(id -u)" -eq 0 ]; then',
-      '    "$@"',
-      '  elif command -v sudo >/dev/null 2>&1; then',
-      '    sudo "$@"',
-      '  else',
-      '    echo "This operation requires root privileges and sudo was not found." >&2',
-      '    exit 1',
-      '  fi',
-      '}',
-      '',
-      'if ! command -v apparmor_parser >/dev/null 2>&1; then',
-      '  echo "apparmor_parser was not found; this setup is only needed on AppArmor systems." >&2',
-      '  exit 1',
-      'fi',
-      '',
-      'case "${1:---install}" in',
-      '  --install)',
-      '    run_as_root install -o root -g root -m 0644 "$PROFILE_SOURCE" "$PROFILE_DEST"',
-      '    run_as_root apparmor_parser -r "$PROFILE_DEST"',
-      '    mkdir -p "$(dirname -- "$MARKER")"',
-      '    touch "$MARKER"',
-      '    echo "Installed and loaded AppArmor profile $PROFILE_NAME"',
-      '    ;;',
-      '  --remove)',
-      '    if [ -f "$PROFILE_DEST" ]; then',
-      '      run_as_root apparmor_parser -R "$PROFILE_DEST"',
-      '      run_as_root rm -f "$PROFILE_DEST"',
-      '      echo "Removed AppArmor profile $PROFILE_NAME"',
-      '    else',
-      '      echo "AppArmor profile $PROFILE_NAME is not installed"',
-      '    fi',
-      '    rm -f "$MARKER"',
-      '    ;;',
-      '  *)',
-      '    echo "Usage: gr4-studio-sandbox-setup [--install|--remove]" >&2',
-      '    exit 2',
-      '    ;;',
-      'esac',
-      '',
-    ].join('\n');
+    await fs.writeFile(path.join(profileDir, profileName), profile, 'utf8');
+    const sandboxSetup = sandboxSetupScript(electronBinary);
     const sandboxSetupPath = path.join(binDir, 'gr4-studio-sandbox-setup');
     await fs.writeFile(sandboxSetupPath, sandboxSetup, 'utf8');
     await fs.chmod(sandboxSetupPath, 0o755);
