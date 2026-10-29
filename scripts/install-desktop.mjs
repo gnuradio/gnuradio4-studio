@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { desktopEntry } from './desktop-entry.mjs';
 import { sandboxProfile, sandboxSetupScript } from './desktop-sandbox.mjs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -191,6 +192,7 @@ async function main() {
       {
         name: 'gr4-studio',
         productName: 'gr4-studio',
+        desktopName: 'gr4-studio.desktop',
         private: true,
         type: 'module',
         main: 'desktop/main.mjs',
@@ -288,6 +290,14 @@ async function main() {
   await fs.chmod(launcherPath, 0o755);
 
   if (process.platform === 'linux') {
+    const applicationsDir = path.join(prefix, 'share', 'applications');
+    await fs.mkdir(applicationsDir, { recursive: true });
+    await fs.writeFile(path.join(applicationsDir, 'gr4-studio.desktop'), desktopEntry(prefix), 'utf8');
+    const desktopSetupPath = path.join(binDir, 'gr4-studio-desktop-setup');
+    await fs.copyFile(path.join(projectRoot, 'scripts', 'desktop-setup.sh'), desktopSetupPath);
+    await fs.chmod(desktopSetupPath, 0o755);
+    console.log('Register the app menu and dock icon with: ' + desktopSetupPath);
+
     const { name: profileName, content: profile } = sandboxProfile(electronBinary);
     const profileDir = path.join(appDir, 'sandbox');
     await fs.mkdir(profileDir, { recursive: true });
