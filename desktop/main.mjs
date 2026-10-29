@@ -125,7 +125,10 @@ function updateApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-const desktopDocuments = createDesktopDocuments({ dialog, getWindow: () => mainWindow });
+const desktopDocuments = createDesktopDocuments({
+  dialog, getWindow: () => mainWindow,
+  getRecentPath: () => path.join(app.getPath('userData'), 'state', 'recent-documents.json'),
+});
 const desktopThemes = createDesktopThemes({ getUserData: () => app.getPath('userData') });
 for (const action of ['load', 'put', 'delete', 'readSelected', 'writeSelected']) {
   ipcMain.handle(`gr4-studio:theme:${action}`, (event, input) => {
@@ -137,7 +140,7 @@ for (const action of ['load', 'put', 'delete', 'readSelected', 'writeSelected'])
     return desktopThemes[action](input);
   });
 }
-for (const action of ['open', 'saveAs', 'save']) {
+for (const action of ['open', 'saveAs', 'save', 'listRecent', 'rememberRecent', 'openRecent', 'removeRecent', 'clearRecent']) {
   ipcMain.handle(`gr4-studio:document:${action}`, (event, input) => {
     if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
       throw new Error('Document access is limited to the Studio editor.');
