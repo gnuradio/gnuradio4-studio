@@ -21,6 +21,11 @@ interface Window {
       open: () => Promise<{ token: string; name: string; content: string } | null>;
       saveAs: (input: { name: string; content: string }) => Promise<{ token: string; name: string } | null>;
       save: (input: { token: string; content: string }) => Promise<{ token: string; name: string }>;
+      listRecent: () => Promise<import('./features/document-file/recent-documents').RecentDocument[]>;
+      rememberRecent: (input: { token: string; replaceId?: string }) => Promise<void>;
+      openRecent: (input: { id: string }) => Promise<{ token: string; name: string; content: string }>;
+      removeRecent: (input: { id: string }) => Promise<void>;
+      clearRecent: () => Promise<void>;
     };
     readonly setMenuState?: (state: { commands: import('./lib/commands/studio-commands').StudioCommandState; editingText: boolean }) => void;
     readonly getBootStatus?: () => Promise<{

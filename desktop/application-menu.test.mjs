@@ -4,6 +4,15 @@ import { buildMenuTemplate, sanitizeMenuState } from './application-menu.mjs';
 const items = (options) => buildMenuTemplate({ platform: 'linux', ...options }).flatMap((menu) => menu.submenu ?? []);
 
 describe('desktop menu routing', () => {
+  it('routes Open Recent through the editor command and disables it outside the editor', () => {
+    const dispatch = vi.fn();
+    const state = { openRecent: { enabled: true } };
+    const item = items({ editor: true, dispatch, state }).find((entry) => entry.id === 'openRecent');
+    expect(item.enabled).toBe(true);
+    item.click();
+    expect(dispatch).toHaveBeenCalledWith('openRecent');
+    expect(items({ editor: false, state }).find((entry) => entry.id === 'openRecent').enabled).toBe(false);
+  });
   it('disables document and graph commands in display windows', () => {
     const menu = items({ editor: false, state: { save: { enabled: true }, run: { enabled: true } } });
     expect(menu.find((item) => item.id === 'save').enabled).toBe(false);

@@ -127,9 +127,25 @@ its header, File menu, and file upload/download fallback.
 
 Native menus, toolbar controls, and shortcuts use the same command handlers and
 availability checks. File operations use native dialogs in Electron. The renderer
-receives opaque file handles rather than filesystem paths. Save writes to the
+uses opaque file handles for file access. Save writes to the
 selected file; Save As selects a new backing file. Closing a dirty tab prompts
 to save; cancelling an application close keeps the backend running.
+
+**File → Open Recent** is available in both Electron and the browser. It keeps
+the last 10 successfully opened or saved-as documents, newest first. Files open
+in a new tab and existing unsaved tabs stay open. Use **Locate** to select a moved
+file, **Remove** to forget one entry, or **Clear Recent** to forget the list;
+these actions never delete document files.
+
+Electron stores paths in `state/recent-documents.json` under its per-user
+application-data directory (normally `~/.config/gr4-studio` on Linux), shared
+across backend connections. Browser history lives in IndexedDB for the current
+site address and browser profile. Supported browsers retain file handles and may
+ask for permission again when reopening. Upload-only browsers remember file
+metadata and show **Select file again…**. Downloads are not added until opened,
+because the browser cannot confirm their saved location. History stores no
+document snapshots; clearing browser site data clears browser history. If browser
+storage is unavailable, Studio reports that history is limited to the page session.
 
 - `Ctrl/Cmd+N`, `O`, `S`, and `Shift+S`: new, open, save, and save as.
 - `Ctrl/Cmd+W`: close the active tab when more than one is open.

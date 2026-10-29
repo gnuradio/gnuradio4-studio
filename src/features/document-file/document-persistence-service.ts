@@ -7,6 +7,7 @@ import {
   type SerializedStudioDocument,
 } from './document-serialization';
 import type { DocumentPersistenceCapabilities } from './document-persistence-capabilities';
+import type { RecentDocument } from './recent-documents';
 
 const ACCEPT_TYPES = [
   {
@@ -51,6 +52,7 @@ export type DocumentIdentityState = {
   sourceKind: SourceKind;
   fileHandle: FileSystemFileHandle | null;
   nativeFileToken?: string;
+  fileFingerprint?: string;
   filePathHint: string | null;
   hasWritableBacking: boolean;
   isDirty: boolean;
@@ -159,7 +161,7 @@ async function ensureWritePermission(fileHandle: FileSystemFileHandle): Promise<
 
   if (typeof queryPermission === 'function') {
     try {
-      const state = await queryPermission(descriptor);
+      const state = await queryPermission.call(fileHandle, descriptor);
       if (state === 'denied') {
         throw new PermissionRevokedError();
       }
@@ -176,7 +178,7 @@ async function ensureWritePermission(fileHandle: FileSystemFileHandle): Promise<
 
   if (typeof requestPermission === 'function') {
     try {
-      const state = await requestPermission(descriptor);
+      const state = await requestPermission.call(fileHandle, descriptor);
       if (state !== 'granted') {
         throw new PermissionRevokedError();
       }
@@ -254,11 +256,12 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
 
   const openDocument = async (
     capabilities: DocumentPersistenceCapabilities,
+    recent?: RecentDocument,
   ): Promise<PersistenceResult<OpenDocumentSuccess>> => {
     void capabilities;
     try {
       if (nativeFiles) {
-        const file = await nativeFiles.open();
+        const file = recent ? await nativeFiles.openRecent({ id: recent.id }) : await nativeFiles.open();
         if (!file) return { kind: 'canceled', message: 'Open canceled.' };
         const serialized = deserializeDocumentText(file.content);
         return { kind: 'success', value: {
@@ -279,12 +282,12 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
           },
         } };
       }
-      if (typeof typedWindow.showOpenFilePicker === 'function') {
-        const [handle] = await typedWindow.showOpenFilePicker({
+      if (recent?.fileHandle || typeof typedWindow.showOpenFilePicker === 'function') {
+        const handle = recent?.fileHandle ?? (await typedWindow.showOpenFilePicker!({
           multiple: false,
           excludeAcceptAllOption: false,
           types: ACCEPT_TYPES,
-        });
+        }))[0];
 
         if (!handle) {
           return {
@@ -293,6 +296,15 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
           };
         }
 
+        if (recent?.fileHandle) {
+          const permissionHandle = handle as FileSystemFileHandle & {
+            requestPermission?: (descriptor: { mode: 'read' }) => Promise<PermissionState>;
+          };
+          // Called from the recent-file button before an IndexedDB read can consume user activation.
+          if (permissionHandle.requestPermission && await permissionHandle.requestPermission({ mode: 'read' }) !== 'granted') {
+            return { kind: 'failed_io', message: 'Access to this file was not granted. Try again or select the file again.', reason: 'permission_revoked' };
+          }
+        }
         const file = await handle.getFile();
         const serialized = deserializeDocumentText(await file.text());
         return {
@@ -337,6 +349,7 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
             documentFormat: serialized.documentFormat,
             sourceKind: 'imported_file',
             fileHandle: null,
+            fileFingerprint: JSON.stringify([uploadedFile.name, uploadedFile.size, uploadedFile.lastModified]),
             filePathHint: uploadedFile.name,
             hasWritableBacking: false,
             isDirty: false,

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDocumentPersistenceService, type DocumentIdentityState } from './document-persistence-service';
 import type { DocumentPersistenceCapabilities } from './document-persistence-capabilities';
 import type { EditorSnapshot } from '../graph-tabs/store/graphTabsStore';
+import { serializeEditorSnapshot } from './document-serialization';
 
 function createSnapshot(name = 'Example'): EditorSnapshot {
   return {
@@ -705,6 +706,18 @@ describe('document persistence service', () => {
 });
 
 describe('native document persistence', () => {
+  it('reopens a recent file through its stored ID and retains a fresh writable token', async () => {
+    const openRecent = vi.fn().mockResolvedValue({ token: 'fresh', name: 'recent.gr4s', content: serializeEditorSnapshot(createSnapshot()).content });
+    const open = vi.fn();
+    const service = createDocumentPersistenceService({ win: {
+      gr4StudioShell: { capabilities: { nativeFiles: true }, documents: { openRecent, open } },
+    } as unknown as Window });
+    const result = await service.openDocument(createCapabilities(), { id: 'stored-id', name: 'recent.gr4s', lastOpenedAt: '' });
+    expect(result.kind).toBe('success');
+    if (result.kind === 'success') expect(result.value.documentIdentity).toMatchObject({ nativeFileToken: 'fresh', hasWritableBacking: true });
+    expect(openRecent).toHaveBeenCalledWith({ id: 'stored-id' });
+    expect(open).not.toHaveBeenCalled();
+  });
   it('uses desktop dialogs and an opaque token instead of browser pickers', async () => {
     const save = vi.fn().mockResolvedValue({ token: 'native-1', name: 'flow.gr4s' });
     const saveAs = vi.fn().mockResolvedValue({ token: 'native-1', name: 'flow.gr4s' });
@@ -731,5 +744,49 @@ describe('native document persistence', () => {
     const result = await service.saveCurrentDocument(identity, createSnapshot(), createCapabilities());
     expect(result.kind).toBe('failed_io');
     expect(identity.isDirty).toBe(true);
+  });
+});
+
+describe('reopening browser file handles', () => {
+  it('requests read permission from the click, reads current contents and preserves the handle for Save', async () => {
+    const handle = {
+      name: 'recent.gr4s',
+      requestPermission: vi.fn(async function (this: unknown) { expect(this).toBe(handle); return 'granted'; }),
+      getFile: vi.fn(async () => ({ name: 'recent.gr4s', text: async () => serializeEditorSnapshot(createSnapshot('Updated on disk')).content })),
+    };
+    const picker = vi.fn();
+    const service = createDocumentPersistenceService({ win: { showOpenFilePicker: picker } as unknown as Window });
+    const resultPromise = service.openDocument(createCapabilities(), {
+      id: 'recent', name: handle.name, lastOpenedAt: '', fileHandle: handle as unknown as FileSystemFileHandle,
+    });
+    expect(handle.requestPermission).toHaveBeenCalledWith({ mode: 'read' });
+    const result = await resultPromise;
+    expect(result.kind).toBe('success');
+    if (result.kind === 'success') {
+      expect(result.value.replacement.metadata.name).toBe('Updated on disk');
+      expect(result.value.documentIdentity.fileHandle).toBe(handle);
+      expect(result.value.documentIdentity.hasWritableBacking).toBe(true);
+    }
+    expect(picker).not.toHaveBeenCalled();
+  });
+  it('leaves the document untouched when read permission is denied', async () => {
+    const getFile = vi.fn();
+    const handle = { requestPermission: vi.fn().mockResolvedValue('denied'), getFile } as unknown as FileSystemFileHandle;
+    const service = createDocumentPersistenceService({ win: {} as Window });
+    const result = await service.openDocument(createCapabilities(), { id: 'recent', name: 'recent.gr4s', lastOpenedAt: '', fileHandle: handle });
+    expect(result).toMatchObject({ kind: 'failed_io', reason: 'permission_revoked' });
+    expect(getFile).not.toHaveBeenCalled();
+  });
+  it('keeps permission methods bound to the handle when saving a reopened file', async () => {
+    const write = vi.fn();
+    const handle = {
+      queryPermission: async function () { expect(this).toBe(handle); return 'prompt'; },
+      requestPermission: async function () { expect(this).toBe(handle); return 'granted'; },
+      createWritable: async () => ({ write, close: vi.fn() }),
+    };
+    const service = createDocumentPersistenceService({ win: {} as Window });
+    const result = await service.saveCurrentDocument(createIdentity({ fileHandle: handle as unknown as FileSystemFileHandle, hasWritableBacking: true }), createSnapshot(), createCapabilities());
+    expect(result.kind).toBe('success');
+    expect(write).toHaveBeenCalledOnce();
   });
 });
