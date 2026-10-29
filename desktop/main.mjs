@@ -1,4 +1,6 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
+import { createDesktopDocuments } from './documents.mjs';
+import { buildMenuTemplate, sanitizeMenuState } from './application-menu.mjs';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -88,66 +90,79 @@ async function resolveAppIconPath() {
   return null;
 }
 
-function sendMenuCommand(command) {
-  const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
-  if (!targetWindow) {
-    return;
+let editorMenuState = { commands: {}, editingText: false };
+
+function updateApplicationMenu() {
+  const focused = BrowserWindow.getFocusedWindow();
+  const editor = Boolean(mainWindow && focused === mainWindow);
+  const windows = [mainWindow, ...displayApplicationWindows].filter((win) => win && !win.isDestroyed());
+  const menu = Menu.buildFromTemplate(buildMenuTemplate({
+    platform: process.platform,
+    editor,
+    state: editorMenuState.commands,
+    editingText: editorMenuState.editingText,
+    dispatch: (command) => {
+      // A display window must never send editing commands to an invisible editor.
+      if (BrowserWindow.getFocusedWindow() === mainWindow && editorMenuState.commands[command]?.enabled) {
+        mainWindow.webContents.send('gr4-studio:menu-command', command);
+      }
+    },
+    windows: windows.map((win) => ({ id: win.id, title: win.getTitle(), focused: win === focused })),
+    focusWindow: (id) => {
+      const win = BrowserWindow.fromId(id);
+      if (!win) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    },
+    canShowLog: Boolean(resolveLocalBackendLogPath()),
+    showLog: () => {
+      const logPath = resolveLocalBackendLogPath();
+      if (logPath) shell.showItemInFolder(logPath);
+    },
+  }));
+  Menu.setApplicationMenu(menu);
+}
+
+const desktopDocuments = createDesktopDocuments({ dialog, getWindow: () => mainWindow });
+for (const action of ['open', 'saveAs', 'save']) {
+  ipcMain.handle(`gr4-studio:document:${action}`, (event, input) => {
+    if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
+      throw new Error('Document access is limited to the Studio editor.');
+    }
+    return desktopDocuments[action](input);
+  });
+}
+
+function attachWindowMenu(win) {
+  win.on('focus', updateApplicationMenu);
+  win.on('closed', () => queueMicrotask(updateApplicationMenu));
+  win.on('page-title-updated', () => queueMicrotask(updateApplicationMenu));
+}
+
+function updateMenuCommandState() {
+  const editor = Boolean(mainWindow && BrowserWindow.getFocusedWindow() === mainWindow);
+  const menu = Menu.getApplicationMenu();
+  if (!menu) return;
+  for (const group of menu.items) {
+    for (const item of group.submenu?.items ?? []) {
+      if (!item.id) continue;
+      const state = editorMenuState.commands[item.id];
+      item.enabled = editor && state?.enabled === true;
+      if (item.type === 'checkbox') item.checked = state?.checked === true;
+    }
   }
-
-  targetWindow.webContents.send('gr4-studio:menu-command', command);
 }
 
-function buildApplicationMenu() {
-  return Menu.buildFromTemplate([
-    {
-      label: APP_NAME,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' },
-      ],
-    },
-    {
-      label: 'File',
-      submenu: [
-        {
-          label: 'New',
-          accelerator: 'CmdOrCtrl+N',
-          click: () => sendMenuCommand('new'),
-        },
-        {
-          label: 'Open...',
-          accelerator: 'CmdOrCtrl+O',
-          click: () => sendMenuCommand('open'),
-        },
-        { type: 'separator' },
-        {
-          label: 'Save',
-          accelerator: 'CmdOrCtrl+S',
-          click: () => sendMenuCommand('save'),
-        },
-        {
-          label: 'Save As...',
-          accelerator: 'Shift+CmdOrCtrl+S',
-          click: () => sendMenuCommand('saveAs'),
-        },
-        {
-          label: 'Rename...',
-          accelerator: 'CmdOrCtrl+R',
-          click: () => sendMenuCommand('rename'),
-        },
-      ],
-    },
-    {
-      label: 'Edit',
-      submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'delete' }, { role: 'selectAll' }],
-    },
-  ]);
-}
+ipcMain.on('gr4-studio:menu-state', (event, value) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) return;
+  const previousTextEditing = editorMenuState.editingText;
+  editorMenuState = sanitizeMenuState(value);
+  // Rebuild only when roles/structure change. Updating native items in place keeps
+  // open menus and checkmarks stable during renderer state changes.
+  if (previousTextEditing !== editorMenuState.editingText) updateApplicationMenu();
+  else updateMenuCommandState();
+});
 
 function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
   const options = recentEndpoints
@@ -246,6 +261,7 @@ function openRemotePicker(recentEndpoints) {
         preload: path.join(app.getAppPath(), 'desktop', 'remote-picker-preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
       },
     });
 
@@ -639,10 +655,12 @@ ipcMain.handle('gr4-studio:display-application:open', async (_event, input) => {
         preload: path.join(app.getAppPath(), 'desktop', 'preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
       },
     });
 
     displayApplicationWindows.add(displayWindow);
+    attachWindowMenu(displayWindow);
     displayWindow.on('closed', () => {
       displayApplicationWindows.delete(displayWindow);
     });
@@ -695,10 +713,31 @@ async function createWindow(startUrl, runtimeConfig) {
       preload: path.join(app.getAppPath(), 'desktop', 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
 
+  attachWindowMenu(mainWindow);
+  mainWindow.webContents.on('did-start-loading', () => {
+    desktopDocuments.clear();
+    editorMenuState = { commands: {}, editingText: false };
+    updateApplicationMenu();
+  });
+  mainWindow.webContents.on('will-prevent-unload', (event) => {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: 'warning',
+      title: 'Unsaved Studio documents',
+      message: 'Close Studio and discard unsaved changes?',
+      detail: 'Choose Cancel to return to your documents and save them.',
+      buttons: ['Cancel', 'Discard Changes'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    if (choice === 1) event.preventDefault();
+  });
   mainWindow.on('closed', () => {
+    desktopDocuments.clear();
     mainWindow = null;
   });
 
@@ -788,7 +827,7 @@ async function bootstrap() {
   app.on('window-all-closed', () => {
     app.quit();
   });
-  app.on('before-quit', (event) => {
+  app.on('will-quit', (event) => {
     if (!shutdownComplete) {
       event.preventDefault();
       void shutdownAndQuit();
@@ -806,7 +845,7 @@ async function bootstrap() {
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_NAME);
   }
-  Menu.setApplicationMenu(buildApplicationMenu());
+  updateApplicationMenu();
 
   const appIconPath = await resolveAppIconPath();
   if (appIconPath && process.platform === 'darwin' && app.dock) {

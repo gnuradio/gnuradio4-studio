@@ -1,3 +1,7 @@
+import { executeStudioCommand, hasDesktopMenus } from '../lib/commands/studio-commands';
+import { useDesktopCommands, useStudioCommands } from '../lib/commands/use-studio-commands';
+import { DesktopStatusBarContent } from '../components/desktop-status-bar';
+import { ControlPlaneDiagnostics } from '../components/control-plane-diagnostics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { StatusPill } from '../components/status-pill';
@@ -194,6 +198,9 @@ function isPristineUntitledTab(tab: ReturnType<typeof useGraphTabsStore.getState
 }
 
 export function StudioPage() {
+  const desktopMenus = hasDesktopMenus();
+  const [renameDocument, setRenameDocument] = useState<{ tabId: string; name: string } | null>(null);
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const persistenceService = useMemo(() => createDocumentPersistenceService(), []);
   const blockCatalogQuery = useBlockCatalogQuery();
   const connectionStatus = getConnectionStatus(blockCatalogQuery);
@@ -911,41 +918,26 @@ export function StudioPage() {
       inPlaceSaveSupported: capabilityDiagnostics.inPlaceSaveSupported,
       savePickerSupported: capabilityDiagnostics.savePickerSupported,
       currentDocumentHasWritableBacking: capabilityDiagnostics.currentDocumentHasWritableBacking,
-      activePath: capabilityDiagnostics.fileSystemAccessSupported ? 'file-system-access' : 'upload-download-fallback',
+      activePath: window.gr4StudioShell?.capabilities?.nativeFiles ? 'native-files' : capabilityDiagnostics.fileSystemAccessSupported ? 'file-system-access' : 'upload-download-fallback',
       tabs: tabs.length,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    // Electron owns its accelerators. Registering them here too can execute twice.
+    if (desktopMenus) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      handleDocumentShortcutKeydown(
-        event,
-        {
-          onSave: () => {
-            void handleSaveCurrentDocument();
-          },
-          onSaveAs: () => {
-            void handleSaveAsCurrentDocument();
-          },
-          onOpen: () => {
-            void handleOpenCommand();
-          },
-          onNew: () => {
-            void handleNewCommand();
-          },
-        },
-        {
-          disabled: busy || Boolean(pendingDestructiveAction),
-        },
-      );
+      handleDocumentShortcutKeydown(event, {
+        onSave: () => executeStudioCommand('save'),
+        onSaveAs: () => executeStudioCommand('saveAs'),
+        onOpen: () => executeStudioCommand('open'),
+        onNew: () => executeStudioCommand('new'),
+      });
     };
-
     window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  });
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [desktopMenus]);
 
   const setActiveCenterView = (view: CenterViewMode) => {
     if (!activeTabId) {
@@ -1064,19 +1056,19 @@ export function StudioPage() {
       return;
     }
 
-    const nextName = window.prompt('Rename document', activeTab.document.displayName);
-    if (nextName === null) {
-      return;
-    }
-    const trimmed = nextName.trim();
-    if (!trimmed) {
-      return;
-    }
+    setRenameDocument({ tabId: activeTabId, name: activeTab.document.displayName });
+  };
 
-    renameTabDocument(activeTabId, trimmed);
-    const nextSnapshot = withUpdatedSnapshotName(currentSnapshot, trimmed);
-    updateActiveSnapshot(nextSnapshot, { dirty: activeTab.document.isDirty });
-    replaceEditorFromTabSnapshot(activeTabId, nextSnapshot);
+  const applyRename = () => {
+    const trimmed = renameDocument?.name.trim();
+    if (!renameDocument || !trimmed) return;
+    const tab = tabs.find((entry) => entry.id === renameDocument.tabId);
+    if (!tab) return;
+    renameTabDocument(tab.id, trimmed);
+    const nextSnapshot = withUpdatedSnapshotName(tab.snapshot, trimmed);
+    updateTabSnapshot(tab.id, nextSnapshot, { dirty: true });
+    if (activeTabId === tab.id) replaceEditorFromTabSnapshot(tab.id, nextSnapshot);
+    setRenameDocument(null);
   };
 
   const handleCreateTab = () => {
@@ -1095,10 +1087,6 @@ export function StudioPage() {
     setRuntimeActiveTab(tab.id);
     replaceEditorFromTabSnapshot(tab.id, tab.snapshot);
     setLastStatusMessage(`New tab: ${tab.document.displayName}`);
-  };
-
-  const handleNewCommand = () => {
-    handleCreateTab();
   };
 
   const handleOpenCommand = async () => {
@@ -1136,35 +1124,6 @@ export function StudioPage() {
       setOpening(false);
     }
   };
-
-  useEffect(() => {
-    const onMenuCommand = window.gr4StudioShell?.onMenuCommand;
-    if (!onMenuCommand) {
-      return;
-    }
-
-    return onMenuCommand((command) => {
-      if (command === 'new') {
-        handleCreateTab();
-        return;
-      }
-      if (command === 'open') {
-        void handleOpenCommand();
-        return;
-      }
-      if (command === 'save') {
-        void handleSaveCurrentDocument();
-        return;
-      }
-      if (command === 'saveAs') {
-        void handleSaveAsCurrentDocument();
-        return;
-      }
-      if (command === 'rename') {
-        handleRenameCurrentDocument();
-      }
-    });
-  }, [handleCreateTab, handleOpenCommand, handleRenameCurrentDocument, handleSaveAsCurrentDocument, handleSaveCurrentDocument]);
 
   const performCloseTab = (tabId: string) => {
     const result = closeTab(tabId);
@@ -1424,9 +1383,37 @@ export function StudioPage() {
     setStudioPanels(nextPanels);
   };
 
+  const commandsAvailable = !busy && !pendingDestructiveAction && !editingBlockId && !plotStyleEditorPanelId && !isDiagnosticsOpen && !renameDocument;
+  const runtimeAvailable = commandsAvailable && Boolean(activeTabId) && !activeRuntimeContext?.busy;
+  const canRun = runtimeAvailable && Boolean(runtimeView) && runtimeView?.executionState !== 'running';
+  const canStop = runtimeAvailable && Boolean(activeRuntimeContext?.sessionId) && runtimeView?.executionState === 'running';
+  const canOpenDisplay = runtimeAvailable && Boolean(activeRuntimeContext?.session) && runtimeView?.executionState === 'running' && applicationMode !== 'in_app';
+  const canDeleteSession = runtimeAvailable && Boolean(activeRuntimeContext?.sessionId);
+  useStudioCommands({
+    new: { enabled: commandsAvailable, execute: handleCreateTab },
+    open: { enabled: commandsAvailable, execute: handleOpenCommand },
+    save: { enabled: commandsAvailable && saveEnabled, execute: handleSaveCurrentDocument },
+    saveAs: { enabled: commandsAvailable && Boolean(activeTabId), execute: handleSaveAsCurrentDocument },
+    rename: { enabled: commandsAvailable && Boolean(activeTabId), execute: handleRenameCurrentDocument },
+    closeTab: { enabled: commandsAvailable && tabs.length > 1, execute: () => activeTabId && handleCloseTab(activeTabId) },
+    graph: { enabled: commandsAvailable, checked: activeCenterView === 'graph', execute: () => setActiveCenterView('graph') },
+    variables: { enabled: commandsAvailable, checked: activeCenterView === 'variables', execute: () => setActiveCenterView('variables') },
+    workspace: { enabled: commandsAvailable, checked: activeCenterView === 'workspace', execute: () => setActiveCenterView('workspace') },
+    application: { enabled: commandsAvailable && applicationMode === 'in_app', checked: activeCenterView === 'application', execute: () => setActiveCenterView('application') },
+    catalog: { enabled: commandsAvailable, checked: !isLeftPanelCollapsed, execute: () => setIsLeftPanelCollapsed((value) => !value) },
+    inspector: { enabled: commandsAvailable, checked: !isRightPanelCollapsed, execute: () => setIsRightPanelCollapsed((value) => !value) },
+    sessions: { enabled: commandsAvailable, checked: isSessionsDrawerOpen, execute: () => setIsSessionsDrawerOpen((value) => !value) },
+    run: { enabled: canRun, execute: runActiveTab },
+    stop: { enabled: canStop, execute: () => activeTabId && stopSessionForTab(activeTabId) },
+    openDisplay: { enabled: canOpenDisplay, execute: openActiveDisplayApplication },
+    deleteSession: { enabled: canDeleteSession, execute: () => activeTabId && deleteSessionAndShowGraph(activeTabId) },
+    diagnostics: { enabled: commandsAvailable, execute: () => setIsDiagnosticsOpen(true) },
+  });
+  useDesktopCommands((error) => setLastError(error instanceof Error ? error.message : String(error)));
+
   return (
     <div className="h-screen overflow-hidden bg-slate-900 text-slate-100 flex flex-col">
-      <header className="h-16 shrink-0 border-b border-cyan-950/70 bg-slate-950/92 px-4 flex items-center justify-between gap-4 shadow-[0_10px_40px_rgba(2,132,199,0.06)]">
+      {!desktopMenus && <header className="h-16 shrink-0 border-b border-cyan-950/70 bg-slate-950/92 px-4 flex items-center justify-between gap-4 shadow-[0_10px_40px_rgba(2,132,199,0.06)]">
         <div className="min-w-0 flex items-center gap-3">
           <StudioMark className="h-9 w-9 shrink-0" />
           <div className="min-w-0">
@@ -1441,7 +1428,7 @@ export function StudioPage() {
             <div className="absolute right-0 z-40 mt-1 w-52 rounded border border-slate-700 bg-slate-900 p-1 shadow-lg">
               <button
                 type="button"
-                onClick={handleCreateTab}
+                onClick={() => executeStudioCommand('new')}
                 disabled={busy}
                 className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
@@ -1449,7 +1436,7 @@ export function StudioPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void handleOpenCommand()}
+                onClick={() => executeStudioCommand('open')}
                 disabled={busy}
                 title={openTooltip}
                 className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
@@ -1458,7 +1445,7 @@ export function StudioPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void handleSaveCurrentDocument()}
+                onClick={() => executeStudioCommand('save')}
                 disabled={busy || !saveEnabled}
                 title={saveTooltip}
                 className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
@@ -1467,7 +1454,7 @@ export function StudioPage() {
               </button>
               <button
                 type="button"
-                onClick={() => void handleSaveAsCurrentDocument()}
+                onClick={() => executeStudioCommand('saveAs')}
                 disabled={busy || !activeTabId}
                 title={saveAsTooltip}
                 className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
@@ -1476,7 +1463,7 @@ export function StudioPage() {
               </button>
               <button
                 type="button"
-                onClick={handleRenameCurrentDocument}
+                onClick={() => executeStudioCommand('rename')}
                 disabled={busy || !activeTabId}
                 className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
@@ -1490,7 +1477,7 @@ export function StudioPage() {
 
           <button
             type="button"
-            onClick={() => void handleOpenCommand()}
+            onClick={() => executeStudioCommand('open')}
             disabled={busy}
             title={openTooltip}
             className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 disabled:opacity-50"
@@ -1499,7 +1486,7 @@ export function StudioPage() {
           </button>
           <button
             type="button"
-            onClick={() => void handleSaveCurrentDocument()}
+            onClick={() => executeStudioCommand('save')}
             disabled={busy || !saveEnabled}
             title={saveTooltip}
             className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 disabled:opacity-50"
@@ -1508,7 +1495,7 @@ export function StudioPage() {
           </button>
           <button
             type="button"
-            onClick={() => void handleSaveAsCurrentDocument()}
+            onClick={() => executeStudioCommand('saveAs')}
             disabled={busy || !activeTabId}
             title={saveAsTooltip}
             className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 disabled:opacity-50"
@@ -1527,16 +1514,17 @@ export function StudioPage() {
           )}
           <StatusBadge status={connectionStatus} />
         </div>
-      </header>
+      </header>}
 
       <GraphTabsBar
         tabs={tabs}
         activeTabId={activeTabId}
         sessionByTabId={sessionByTabId}
         onSelectTab={setActiveTab}
-        onCreateTab={handleCreateTab}
+        onCreateTab={() => executeStudioCommand('new')}
         onCloseTab={handleCloseTab}
-        onOpenSessions={() => setIsSessionsDrawerOpen(true)}
+        onOpenSessions={desktopMenus ? undefined : () => executeStudioCommand('sessions')}
+        canCreate={commandsAvailable}
       />
 
       {documentError && (
@@ -1549,7 +1537,7 @@ export function StudioPage() {
           {documentStatusMessage}
         </div>
       )}
-      {showUnsupportedNotice && !capabilities.canUseFileSystemAccessApi && (
+      {showUnsupportedNotice && !capabilities.canSaveInPlace && (
         <div className="shrink-0 border-b border-amber-900 bg-amber-950/30 px-4 py-2 text-xs text-amber-200 flex items-center justify-between gap-2">
           <span>
             This browser does not support direct file save/open. gr4-studio will use upload/download fallback. For desktop-style file save behavior, use a Chromium-based browser.
@@ -1592,7 +1580,7 @@ export function StudioPage() {
           <div className="h-10 shrink-0 border-b border-border bg-slate-950/80 px-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setActiveCenterView('graph')}
+              onClick={() => executeStudioCommand('graph')}
               className={`rounded border px-2 py-1 text-xs ${
                 activeCenterView === 'graph'
                   ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
@@ -1603,7 +1591,7 @@ export function StudioPage() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveCenterView('variables')}
+              onClick={() => executeStudioCommand('variables')}
               className={`rounded border px-2 py-1 text-xs ${
                 activeCenterView === 'variables'
                   ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
@@ -1614,7 +1602,7 @@ export function StudioPage() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveCenterView('workspace')}
+              onClick={() => executeStudioCommand('workspace')}
               className={`rounded border px-2 py-1 text-xs ${
                 activeCenterView === 'workspace'
                   ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
@@ -1626,7 +1614,7 @@ export function StudioPage() {
             {applicationMode === 'in_app' ? (
               <button
                 type="button"
-                onClick={() => setActiveCenterView('application')}
+                onClick={() => executeStudioCommand('application')}
                 className={`rounded border px-2 py-1 text-xs ${
                   activeCenterView === 'application'
                     ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
@@ -1642,8 +1630,8 @@ export function StudioPage() {
                   <StatusPill status={runtimeView.executionState} />
                   <button
                     type="button"
-                    onClick={() => void runActiveTab()}
-                    disabled={busy || Boolean(activeRuntimeContext?.busy) || runtimeView.executionState === 'running'}
+                    onClick={() => executeStudioCommand('run')}
+                    disabled={!canRun}
                     title={runButtonTitle(runtimeView.runIntent)}
                     className="h-6 w-6 rounded border border-emerald-700/70 bg-emerald-900/35 text-emerald-200 hover:bg-emerald-800/45 disabled:opacity-50"
                   >
@@ -1654,12 +1642,8 @@ export function StudioPage() {
                   {applicationMode !== 'in_app' && (
                     <button
                       type="button"
-                      onClick={openActiveDisplayApplication}
-                      disabled={
-                        Boolean(activeRuntimeContext?.busy) ||
-                        !activeRuntimeContext?.session ||
-                        runtimeView.executionState !== 'running'
-                      }
+                      onClick={() => executeStudioCommand('openDisplay')}
+                      disabled={!canOpenDisplay}
                       title="Open display"
                       className="h-6 w-6 rounded border border-cyan-700/70 bg-cyan-900/35 text-cyan-200 hover:bg-cyan-800/45 disabled:opacity-50"
                     >
@@ -1670,8 +1654,8 @@ export function StudioPage() {
                   )}
                   <button
                     type="button"
-                    onClick={() => void stopSessionForTab(activeTabId)}
-                    disabled={Boolean(activeRuntimeContext?.busy) || !activeRuntimeContext?.sessionId || runtimeView.executionState !== 'running'}
+                    onClick={() => executeStudioCommand('stop')}
+                    disabled={!canStop}
                     title="Stop"
                     className="h-6 w-6 rounded border border-amber-700/70 bg-amber-900/35 text-amber-200 hover:bg-amber-800/45 disabled:opacity-50"
                   >
@@ -1681,9 +1665,10 @@ export function StudioPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void deleteSessionAndShowGraph(activeTabId)}
-                    disabled={Boolean(activeRuntimeContext?.busy) || !activeRuntimeContext?.sessionId}
+                    onClick={() => executeStudioCommand('deleteSession')}
+                    disabled={!canDeleteSession}
                     title="Delete session"
+                    aria-label="Delete session"
                     className="h-6 w-6 rounded border border-rose-700/70 bg-rose-900/35 text-rose-200 hover:bg-rose-800/45 disabled:opacity-50"
                   >
                     <svg viewBox="0 0 16 16" className="mx-auto h-3.5 w-3.5 fill-current" aria-hidden="true">
@@ -1701,6 +1686,7 @@ export function StudioPage() {
                 key={`${activeTabId ?? 'no-active-tab'}:${activeTab?.document.internalDocumentId ?? 'no-document'}`}
                 onOpenBlockProperties={setEditingBlockId}
                 isBlockPropertiesOpen={Boolean(editingBlockId)}
+                commandsDisabled={!commandsAvailable || isSessionsDrawerOpen}
               />
             ) : activeCenterView === 'workspace' ? (
               <WorkspaceView
@@ -1767,7 +1753,29 @@ export function StudioPage() {
         </aside>
       </main>
 
-      <BackendConsoleDrawer />
+      <BackendConsoleDrawer statusContent={desktopMenus ? (
+        <DesktopStatusBarContent backendMode={config.backendMode} controlPlaneBaseUrl={config.controlPlaneBaseUrl} connectionStatus={connectionStatus} />
+      ) : undefined} />
+      {renameDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70" role="dialog" aria-modal="true" aria-label="Rename document">
+          <form className="w-96 rounded border border-slate-700 bg-slate-900 p-4" onSubmit={(event) => { event.preventDefault(); applyRename(); }} onKeyDown={(event) => { if (event.key === 'Escape') setRenameDocument(null); }}>
+            <label className="block text-sm" htmlFor="document-name">Document name</label>
+            <input id="document-name" autoFocus value={renameDocument.name} onChange={(event) => setRenameDocument({ ...renameDocument, name: event.target.value })} className="mt-2 w-full rounded border border-slate-600 bg-slate-950 p-2 text-sm" />
+            <div className="mt-4 flex justify-end gap-2 text-sm">
+              <button type="button" onClick={() => setRenameDocument(null)} className="rounded border border-slate-600 px-3 py-1">Cancel</button>
+              <button type="submit" disabled={!renameDocument.name.trim()} className="rounded border border-emerald-600 px-3 py-1 disabled:opacity-50">Rename</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {isDiagnosticsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70" role="dialog" aria-modal="true" aria-label="Control plane diagnostics">
+          <div className="w-[48rem] max-w-[95vw] rounded border border-slate-700 bg-slate-900 p-4">
+            <button type="button" autoFocus onClick={() => setIsDiagnosticsOpen(false)} onKeyDown={(event) => { if (event.key === 'Escape') setIsDiagnosticsOpen(false); }} className="rounded border border-slate-600 px-3 py-1 text-sm">Close diagnostics</button>
+            <ControlPlaneDiagnostics defaultOpen showUnavailable />
+          </div>
+        </div>
+      )}
 
       <GlobalSessionsDrawer
         open={isSessionsDrawerOpen}
