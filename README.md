@@ -101,6 +101,22 @@ Remove the profile with
 `gr4-studio-sandbox-setup --remove`. Do not make `--no-sandbox` part of a normal
 launcher configuration; Electron documents that option as testing-only.
 
+### Linux application icon
+
+The installer writes `share/applications/gr4-studio.desktop` with the GR4 logo
+and an identity matching Electron's windows. For a custom install prefix,
+register it with your desktop session (no sudo needed):
+
+```sh
+/path/to/prefix/bin/gr4-studio-desktop-setup
+```
+
+Restart Studio, launch **GNU Radio 4 Studio** from the applications menu, and
+pin that entry to the dock. Remove an old generic Electron favorite if one was
+previously pinned. The registration remains valid across rebuilds at the same
+prefix; rerun it after moving or switching prefixes. Use
+`gr4-studio-desktop-setup --remove` to remove this prefix's user registration.
+
 ### Desktop menus and workspace
 
 Electron uses native File, Edit, View, Run, Window, and Help menus. The document
