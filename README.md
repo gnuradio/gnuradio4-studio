@@ -8,6 +8,9 @@ Studio is currently built around three main workflows:
 - Arrange live plots, controls, and displays into an application workspace.
 - Run the graph and interact with live block parameters and graph variables.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and the required
+DCO signoff.
+
 ## What You Can Do
 
 - Browse reflected GR4 blocks and place them on a graph canvas.
