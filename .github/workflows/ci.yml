@@ -1,0 +1,43 @@
+name: pull-request CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+  packages: read
+
+jobs:
+  dco:
+    name: DCO
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check commit signoffs
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+
+            const missing = commits.filter(({ commit }) => !/^Signed-off-by:\s.+$/im.test(commit.message));
+
+            for (const { sha } of missing) {
+              core.error(`Commit ${sha} is missing a Signed-off-by line`);
+            }
+
+            if (missing.length > 0) {
+              core.setFailed(`${missing.length} commit(s) missing DCO signoff`);
+            }
+
+  test:
+    needs: dco
+    uses: ./.github/workflows/npm-test.yml
+
+  wasm:
+    needs: dco
+    uses: ./.github/workflows/wasm-build.yml
