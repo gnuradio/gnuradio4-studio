@@ -2,6 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { createStudioCommands } from './studio-commands';
 
 describe('shared Studio commands', () => {
+  it('blocks native and keyboard graph commands while a modal dialog owns input', async () => {
+    const commands = createStudioCommands();
+    const execute = vi.fn();
+    commands.register('canvas', { delete: { enabled: true, execute } });
+    vi.stubGlobal('document', { querySelector: () => ({ open: true }) });
+    try {
+      expect(commands.state().delete?.enabled).toBe(false);
+      expect(await commands.execute('delete')).toBe(false);
+      expect(execute).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); }
+    expect(await commands.execute('delete')).toBe(true);
+  });
   it('uses current availability and handlers for every dispatch source', async () => {
     const commands = createStudioCommands();
     const first = vi.fn();

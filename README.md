@@ -104,6 +104,22 @@ Remove the profile with
 `gr4-studio-sandbox-setup --remove`. Do not make `--no-sandbox` part of a normal
 launcher configuration; Electron documents that option as testing-only.
 
+### Linux application icon
+
+The installer writes `share/applications/gr4-studio.desktop` with the GR4 logo
+and an identity matching Electron's windows. For a custom install prefix,
+register it with your desktop session (no sudo needed):
+
+```sh
+/path/to/prefix/bin/gr4-studio-desktop-setup
+```
+
+Restart Studio, launch **GNU Radio 4 Studio** from the applications menu, and
+pin that entry to the dock. Remove an old generic Electron favorite if one was
+previously pinned. The registration remains valid across rebuilds at the same
+prefix; rerun it after moving or switching prefixes. Use
+`gr4-studio-desktop-setup --remove` to remove this prefix's user registration.
+
 ### Desktop menus and workspace
 
 Electron uses native File, Edit, View, Run, Window, and Help menus. The document
@@ -114,9 +130,25 @@ its header, File menu, and file upload/download fallback.
 
 Native menus, toolbar controls, and shortcuts use the same command handlers and
 availability checks. File operations use native dialogs in Electron. The renderer
-receives opaque file handles rather than filesystem paths. Save writes to the
+uses opaque file handles for file access. Save writes to the
 selected file; Save As selects a new backing file. Closing a dirty tab prompts
 to save; cancelling an application close keeps the backend running.
+
+**File → Open Recent** is available in both Electron and the browser. It keeps
+the last 10 successfully opened or saved-as documents, newest first. Files open
+in a new tab and existing unsaved tabs stay open. Use **Locate** to select a moved
+file, **Remove** to forget one entry, or **Clear Recent** to forget the list;
+these actions never delete document files.
+
+Electron stores paths in `state/recent-documents.json` under its per-user
+application-data directory (normally `~/.config/gr4-studio` on Linux), shared
+across backend connections. Browser history lives in IndexedDB for the current
+site address and browser profile. Supported browsers retain file handles and may
+ask for permission again when reopening. Upload-only browsers remember file
+metadata and show **Select file again…**. Downloads are not added until opened,
+because the browser cannot confirm their saved location. History stores no
+document snapshots; clearing browser site data clears browser history. If browser
+storage is unavailable, Studio reports that history is limited to the page session.
 
 - `Ctrl/Cmd+N`, `O`, `S`, and `Shift+S`: new, open, save, and save as.
 - `Ctrl/Cmd+W`: close the active tab when more than one is open.

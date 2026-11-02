@@ -124,8 +124,11 @@ function updateApplicationMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-const desktopDocuments = createDesktopDocuments({ dialog, getWindow: () => mainWindow });
-for (const action of ['open', 'saveAs', 'save']) {
+const desktopDocuments = createDesktopDocuments({
+  dialog, getWindow: () => mainWindow,
+  getRecentPath: () => path.join(app.getPath('userData'), 'state', 'recent-documents.json'),
+});
+for (const action of ['open', 'saveAs', 'save', 'listRecent', 'rememberRecent', 'openRecent', 'removeRecent', 'clearRecent']) {
   ipcMain.handle(`gr4-studio:document:${action}`, (event, input) => {
     if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
       throw new Error('Document access is limited to the Studio editor.');
@@ -247,12 +250,14 @@ function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
 </html>`;
 }
 
-function openRemotePicker(recentEndpoints) {
+async function openRemotePicker(recentEndpoints) {
+  const appIconPath = await resolveAppIconPath();
   return new Promise((resolve, reject) => {
     remotePickerWindow = new BrowserWindow({
       width: 620,
       height: 420,
       resizable: false,
+      icon: appIconPath ?? undefined,
       modal: true,
       show: false,
       title: `Connect to ${APP_NAME}`,
@@ -841,6 +846,12 @@ async function bootstrap() {
   });
 
   app.setName(APP_NAME);
+  if (process.platform === 'linux') {
+    // Electron 35 needs Chromium's identity switches for X11/Wayland matching.
+    app.commandLine.appendSwitch('class', APP_NAME);
+    app.commandLine.appendSwitch('name', APP_NAME);
+    process.env.CHROME_DESKTOP = 'gr4-studio.desktop';
+  }
   await app.whenReady();
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_NAME);

@@ -1,5 +1,5 @@
 export type StudioCommandId =
-  | 'new' | 'open' | 'save' | 'saveAs' | 'rename' | 'closeTab'
+  | 'new' | 'open' | 'openRecent' | 'save' | 'saveAs' | 'rename' | 'closeTab'
   | 'cut' | 'copy' | 'paste' | 'delete' | 'selectAll'
   | 'graph' | 'variables' | 'workspace' | 'application'
   | 'catalog' | 'inspector' | 'zoomIn' | 'zoomOut' | 'fitView'
@@ -10,6 +10,10 @@ export type CommandState = { enabled: boolean; checked?: boolean };
 export type StudioCommand = CommandState & { execute: () => unknown };
 export type StudioCommands = Partial<Record<StudioCommandId, StudioCommand>>;
 export type StudioCommandState = Partial<Record<StudioCommandId, CommandState>>;
+
+function hasModalDialog(): boolean {
+  return typeof document !== 'undefined' && document.querySelector('dialog[open]') !== null;
+}
 
 // Each renderer owns its commands. Graph commands exist only while its canvas is mounted.
 export function createStudioCommands() {
@@ -38,13 +42,13 @@ export function createStudioCommands() {
     },
     state(): StudioCommandState {
       return Object.fromEntries(Object.entries(all()).map(([id, command]) => [id, {
-        enabled: command.enabled && !inFlight,
+        enabled: command.enabled && !inFlight && !hasModalDialog(),
         ...(command.checked === undefined ? {} : { checked: command.checked }),
       }]));
     },
     async execute(id: StudioCommandId) {
       const command = all()[id];
-      if (!command?.enabled || inFlight) return false;
+      if (!command?.enabled || inFlight || hasModalDialog()) return false;
       inFlight = true;
       notify();
       try {

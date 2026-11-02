@@ -16,7 +16,8 @@ export function buildMenuTemplate({ platform, editor = false, state = {}, editin
   return [
     ...appMenu,
     { label: 'File', submenu: [
-      command('new', 'New', 'CmdOrCtrl+N'), command('open', 'Open…', 'CmdOrCtrl+O'), separator,
+      command('new', 'New', 'CmdOrCtrl+N'), command('open', 'Open…', 'CmdOrCtrl+O'),
+      command('openRecent', 'Open Recent…'), separator,
       command('save', 'Save', 'CmdOrCtrl+S'), command('saveAs', 'Save As…', 'Shift+CmdOrCtrl+S'),
       command('rename', 'Rename…'), separator,
       editor ? command('closeTab', 'Close Tab', 'CmdOrCtrl+W') : { role: 'close' },
