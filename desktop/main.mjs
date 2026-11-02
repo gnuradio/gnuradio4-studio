@@ -247,12 +247,14 @@ function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
 </html>`;
 }
 
-function openRemotePicker(recentEndpoints) {
+async function openRemotePicker(recentEndpoints) {
+  const appIconPath = await resolveAppIconPath();
   return new Promise((resolve, reject) => {
     remotePickerWindow = new BrowserWindow({
       width: 620,
       height: 420,
       resizable: false,
+      icon: appIconPath ?? undefined,
       modal: true,
       show: false,
       title: `Connect to ${APP_NAME}`,
@@ -841,6 +843,12 @@ async function bootstrap() {
   });
 
   app.setName(APP_NAME);
+  if (process.platform === 'linux') {
+    // Electron 35 needs Chromium's identity switches for X11/Wayland matching.
+    app.commandLine.appendSwitch('class', APP_NAME);
+    app.commandLine.appendSwitch('name', APP_NAME);
+    process.env.CHROME_DESKTOP = 'gr4-studio.desktop';
+  }
   await app.whenReady();
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_NAME);
