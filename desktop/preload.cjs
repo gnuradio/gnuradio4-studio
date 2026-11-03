@@ -12,6 +12,13 @@ contextBridge.exposeInMainWorld('gr4StudioRuntime', {
 
 contextBridge.exposeInMainWorld('gr4StudioShell', {
   capabilities: { nativeMenus: true, nativeFiles: true },
+  themes: {
+    load: () => ipcRenderer.invoke('gr4-studio:theme:load'),
+    put: (theme) => ipcRenderer.invoke('gr4-studio:theme:put', theme),
+    delete: (id) => ipcRenderer.invoke('gr4-studio:theme:delete', id),
+    readSelected: () => ipcRenderer.invoke('gr4-studio:theme:readSelected'),
+    writeSelected: (id) => ipcRenderer.invoke('gr4-studio:theme:writeSelected', id),
+  },
   documents: {
     open: () => ipcRenderer.invoke('gr4-studio:document:open'),
     saveAs: (input) => ipcRenderer.invoke('gr4-studio:document:saveAs', input),

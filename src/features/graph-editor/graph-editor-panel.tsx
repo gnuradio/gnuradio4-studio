@@ -49,7 +49,7 @@ type FlowGraphNode = Node<FlowNodeData>;
 function GraphCanvasControls() {
 
   return (
-    <div className="absolute bottom-3 left-3 z-20 overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 p-0.5 shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur">
+    <div className="absolute bottom-3 left-3 z-20 overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 p-0.5 shadow-xl backdrop-blur">
       <div className="flex flex-col gap-1">
         <button
           type="button"
@@ -266,10 +266,11 @@ function toStyledFlowEdge(
     }),
     style: isMismatched
       ? {
-          stroke: '#ff2d2d',
+          stroke: 'var(--theme-connection-invalid)',
           strokeWidth: 3,
         }
       : undefined,
+    className: isMismatched ? 'theme-invalid' : undefined,
     animated: isMismatched,
   };
 }
@@ -817,7 +818,7 @@ export function GraphEditorPanel({
         onSelectionChange={onSelectionChange}
         selectionMode={SelectionMode.Partial}
       >
-        <Background gap={16} size={1} color="#334155" />
+        <Background gap={16} size={1} color="var(--theme-canvas-grid)" />
         <GraphCanvasControls />
       </ReactFlow>
     </div>

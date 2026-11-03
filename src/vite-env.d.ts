@@ -16,6 +16,7 @@ interface Window {
     readonly backendMode?: 'local' | 'remote' | 'unknown';
   };
   gr4StudioShell?: {
+    readonly themes?: import('./features/themes/persistence').ThemePersistence;
     readonly capabilities?: { readonly nativeMenus: boolean; readonly nativeFiles?: boolean };
     readonly documents?: {
       open: () => Promise<{ token: string; name: string; content: string } | null>;

@@ -196,7 +196,7 @@ export function BackendConsoleDrawer({ statusContent }: { statusContent?: ReactN
 
   return (
     <>
-    <section className="flex h-64 shrink-0 flex-col border-t border-slate-700 bg-slate-950 shadow-[0_-10px_30px_rgba(0,0,0,0.25)]">
+    <section className="flex h-64 shrink-0 flex-col border-t border-slate-700 bg-slate-950 shadow-sm">
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-slate-800 px-3">
         <div className="flex min-w-0 items-center gap-2 text-xs">
           <span className={`h-2 w-2 rounded-full ${snapshot.running ? 'bg-emerald-400' : 'bg-rose-400'}`} />

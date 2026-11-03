@@ -163,7 +163,7 @@ function LayoutEditorPane({
   return (
     <article
       className={`h-full rounded-lg border bg-slate-900/45 min-h-[10rem] flex flex-col ${
-        isActive ? 'border-emerald-500/60 shadow-[0_0_0_1px_rgba(16,185,129,0.2)]' : 'border-slate-700'
+        isActive ? 'border-emerald-500/60 shadow-sm' : 'border-slate-700'
       }`}
     >
       <header
@@ -282,7 +282,7 @@ function DropTarget({
   const activeClass = active
     ? `z-30 border text-emerald-100 opacity-100 ${
         isOver
-          ? 'border-emerald-300/90 bg-emerald-500/45 shadow-[0_0_0_1px_rgba(52,211,153,0.55)]'
+          ? 'border-emerald-300/90 bg-emerald-500/45 shadow-sm'
           : 'border-emerald-400/65 bg-emerald-500/22'
       }`
     : 'pointer-events-none opacity-0';

@@ -9,6 +9,7 @@ import { config } from './lib/config';
 import { installWasmApiTransport } from './lib/wasm/wasm-api-transport';
 import { installWasmSinkTransport } from './lib/wasm/wasm-sink-transport';
 import './styles/index.css';
+import { themeManager } from './features/themes/theme-store';
 
 if (import.meta.env.VITE_CONTROL_PLANE_TRANSPORT === 'wasm') {
   installWasmApiTransport(import.meta.env.VITE_CONTROL_PLANE_WASM_URL);
@@ -249,15 +250,21 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('[gr4-studio] Unhandled renderer promise rejection', event.reason);
 });
 
-try {
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <RootErrorBoundary>
-        <AppBootstrap />
-      </RootErrorBoundary>
-    </React.StrictMode>,
-  );
-} catch (error) {
-  console.error('[gr4-studio] Renderer bootstrap failed', error);
-  renderFatalAppError(error);
+async function startStudio() {
+  await themeManager.initialize();
+  document.documentElement.dataset.themeReady = 'true';
+  try {
+    ReactDOM.createRoot(document.getElementById('root')!).render(
+      <React.StrictMode>
+        <RootErrorBoundary>
+          <AppBootstrap />
+        </RootErrorBoundary>
+      </React.StrictMode>,
+    );
+  } catch (error) {
+    console.error('[gr4-studio] Renderer bootstrap failed', error);
+    renderFatalAppError(error);
+  }
 }
+
+void startStudio();

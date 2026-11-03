@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "example.midnight",
+  "name": "Midnight",
+  "author": "GNU Radio 4 Studio",
+  "extends": "builtin.dark",
+  "tokens": {
+    "app.background": "#141020",
+    "app.surface": "#1D182D",
+    "app.control": "#2B2440",
+    "app.hover": "#3B3155",
+    "app.text": "#F4EFFA",
+    "app.textSecondary": "#C8BEDA",
+    "app.border": "#77688E",
+    "app.borderStrong": "#A694BF",
+    "app.accent": "#D6B5FF",
+    "app.accentSurface": "#37264D",
+    "app.selected": "#44305D",
+    "app.focus": "#E1C7FF",
+    "canvas.background": "#191326",
+    "canvas.grid": "#372C4B",
+    "canvas.selection": "#D6B5FF",
+    "block.background": "#292038",
+    "block.header": "#362A49",
+    "block.border": "#A694BF",
+    "block.text": "#F4EFFA",
+    "block.selected": "#D6B5FF",
+    "block.note": "#352E25",
+    "connection.default": "#C0AED6",
+    "connection.selected": "#D6B5FF",
+    "connection.highlighted": "#E1C7FF"
+  }
+}

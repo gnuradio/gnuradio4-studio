@@ -1,3 +1,5 @@
+import { darkTokens } from '../../../themes/tokens';
+import { useTheme } from '../../../themes/theme-store';
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
@@ -15,9 +17,6 @@ import {
   updatePhosphorSpectrumBuffer,
 } from './phosphor-spectrum-rendering';
 
-const AXIS_STROKE = '#94a3b8';
-const GRID_STROKE = '#334155';
-const TRACE_STROKE = '#cbd5e1';
 const PHOSPHOR_BUFFER_HEIGHT = 128;
 
 function toNumberArray(values: number[] | Float32Array | Float64Array): number[] {
@@ -126,6 +125,7 @@ export function drawPhosphorSpectrumRaster(params: {
   ctx: CanvasRenderingContext2D;
   bbox: uPlot.BBox;
   raster: PhosphorSpectrumRaster | null;
+  background?: string;
   offscreenCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
 }): void {
   const { ctx, bbox, raster, offscreenCanvasRef } = params;
@@ -133,7 +133,7 @@ export function drawPhosphorSpectrumRaster(params: {
   ctx.beginPath();
   ctx.rect(bbox.left, bbox.top, bbox.width, bbox.height);
   ctx.clip();
-  ctx.fillStyle = '#020617';
+  ctx.fillStyle = params.background ?? darkTokens['canvas.background'];
   ctx.fillRect(bbox.left, bbox.top, bbox.width, bbox.height);
 
   if (raster && raster.width > 0 && raster.height > 0) {
@@ -163,6 +163,7 @@ export function drawPhosphorSpectrumRaster(params: {
 }
 
 export function PhosphorSpectrumUplotAdapter({ spec, frame, width, height }: PlotAdapterProps) {
+  const theme = useTheme();
   const minWidth = 180;
   const minHeight = 120;
   const canRender = width >= minWidth && height >= minHeight;
@@ -198,14 +199,14 @@ export function PhosphorSpectrumUplotAdapter({ spec, frame, width, height }: Plo
         seriesLabelSignature.length > 0 ? seriesLabelSignature.split('|') : ['Phosphor Spectrum']
       ).map((label) => ({
         label,
-        stroke: TRACE_STROKE,
+        stroke: theme.tokens['app.text'],
         width: 1,
         points: {
           show: false,
         },
       })),
     ],
-    [seriesLabelSignature],
+    [seriesLabelSignature, theme],
   );
 
   useEffect(() => {
@@ -300,17 +301,17 @@ export function PhosphorSpectrumUplotAdapter({ spec, frame, width, height }: Plo
         axes: [
           {
             label: spec.xLabel ?? 'Frequency',
-            stroke: AXIS_STROKE,
+            stroke: theme.tokens['app.textSecondary'],
             grid: {
-              stroke: GRID_STROKE,
+              stroke: theme.tokens['canvas.grid'],
               width: 1,
             },
           },
           {
             label: spec.yLabel ?? 'Power',
-            stroke: AXIS_STROKE,
+            stroke: theme.tokens['app.textSecondary'],
             grid: {
-              stroke: GRID_STROKE,
+              stroke: theme.tokens['canvas.grid'],
               width: 1,
             },
           },
@@ -323,6 +324,7 @@ export function PhosphorSpectrumUplotAdapter({ spec, frame, width, height }: Plo
                 bbox: self.bbox,
                 raster: rasterRef.current,
                 offscreenCanvasRef,
+                background: theme.tokens['canvas.background'],
               });
             },
           ],
@@ -340,6 +342,7 @@ export function PhosphorSpectrumUplotAdapter({ spec, frame, width, height }: Plo
       chartRef.current = null;
     };
   }, [
+    theme,
     canRender,
     minHeight,
     minWidth,

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
 import { createDesktopDocuments } from './documents.mjs';
+import { createDesktopThemes } from './themes.mjs';
 import { buildMenuTemplate, sanitizeMenuState } from './application-menu.mjs';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -125,6 +126,17 @@ function updateApplicationMenu() {
 }
 
 const desktopDocuments = createDesktopDocuments({ dialog, getWindow: () => mainWindow });
+const desktopThemes = createDesktopThemes({ getUserData: () => app.getPath('userData') });
+for (const action of ['load', 'put', 'delete', 'readSelected', 'writeSelected']) {
+  ipcMain.handle(`gr4-studio:theme:${action}`, (event, input) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window || (window !== mainWindow && !displayApplicationWindows.has(window))
+      || event.senderFrame !== window.webContents.mainFrame) {
+      throw new Error('Theme access is limited to Studio windows.');
+    }
+    return desktopThemes[action](input);
+  });
+}
 for (const action of ['open', 'saveAs', 'save']) {
   ipcMain.handle(`gr4-studio:document:${action}`, (event, input) => {
     if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {

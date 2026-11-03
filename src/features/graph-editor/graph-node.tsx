@@ -369,33 +369,14 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
       )}
 
       <div
-        className={`relative z-10 h-full border shadow-sm transition ${
+        className={`studio-block relative z-10 h-full border shadow-sm transition ${
           isVirtualRouting ? 'rounded-2xl px-2.5 py-1.5' : isNote ? 'rounded-lg px-3 py-2.5' : 'rounded-md px-3 py-2'
-        } ${
-          executionMode === 'disabled'
-            ? selected
-              ? 'border-slate-500 bg-slate-900 ring-1 ring-slate-400/55'
-              : 'border-slate-700 bg-slate-900'
-            : executionMode === 'bypassed'
-              ? selected
-                ? 'border-amber-300 bg-slate-800 ring-1 ring-amber-200/70 shadow-[0_0_0_1px_rgba(245,158,11,0.55),0_0_18px_rgba(245,158,11,0.35)]'
-                : 'border-amber-700 bg-slate-900 shadow-[0_0_0_1px_rgba(180,83,9,0.35)]'
-              : isVirtualRouting
-                ? selected
-                  ? 'border-sky-300 bg-slate-800 ring-1 ring-sky-200/70 shadow-[0_0_0_1px_rgba(14,165,233,0.55),0_0_18px_rgba(14,165,233,0.35)]'
-                  : 'border-sky-700 bg-slate-900 shadow-[0_0_0_1px_rgba(14,165,233,0.30)]'
-              : isNote
-                ? selected
-                  ? 'border-yellow-200 bg-yellow-950/35 ring-1 ring-yellow-200/65 shadow-[0_0_0_1px_rgba(250,204,21,0.45),0_0_18px_rgba(250,204,21,0.20)]'
-                  : 'border-yellow-600/80 bg-yellow-950/25 shadow-[0_0_0_1px_rgba(250,204,21,0.20)]'
-              : data.missingFromCatalog
-                ? selected
-                  ? 'border-rose-300 bg-slate-800 ring-1 ring-rose-300/70 shadow-[0_0_0_1px_rgba(244,63,94,0.65),0_0_18px_rgba(244,63,94,0.45)]'
-                  : 'border-rose-600 bg-slate-900 shadow-[0_0_0_1px_rgba(225,29,72,0.35)]'
-                : selected
-                  ? 'border-emerald-300 bg-slate-800 ring-1 ring-emerald-200/70 shadow-[0_0_0_1px_rgba(16,185,129,0.55),0_0_18px_rgba(16,185,129,0.45)]'
-                  : 'border-slate-700 bg-slate-900'
         }`}
+        data-selected={selected}
+        data-mode={executionMode}
+        data-note={isNote}
+        data-virtual={isVirtualRouting}
+        data-error={data.missingFromCatalog}
         style={{ minHeight: `${requiredHeightPx}px` }}
         title={`${data.displayName}\n${data.blockTypeId}${executionMode === 'active' ? '' : `\nMode: ${executionMode}`}`}
       >
@@ -404,7 +385,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             className="pointer-events-none absolute inset-0 rounded-md opacity-35"
             style={{
               backgroundImage:
-                'repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.38) 0, rgba(148, 163, 184, 0.38) 3px, transparent 3px, transparent 10px)',
+                'repeating-linear-gradient(135deg, color-mix(in srgb, var(--theme-block-disabled) 38%, transparent) 0, color-mix(in srgb, var(--theme-block-disabled) 38%, transparent) 3px, transparent 3px, transparent 10px)',
             }}
             aria-hidden="true"
           />
@@ -421,7 +402,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
               Virtual
             </div>
             <div
-              className="max-w-full rounded-full border border-sky-500/70 bg-sky-950/80 px-3 py-1 text-center text-[11px] font-semibold text-sky-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+              className="max-w-full rounded-full border border-sky-500/70 bg-sky-950/80 px-3 py-1 text-center text-[11px] font-semibold text-sky-100"
               title={streamId}
             >
               <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
@@ -444,7 +425,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             </button>
           )}
 
-          <div className="text-sm font-medium text-slate-100">{data.shortDisplayName}</div>
+          <div className="studio-block-header text-sm font-medium">{data.shortDisplayName}</div>
           {isVirtualRouting && (
             <div className="mt-1 inline-flex rounded border border-sky-700 bg-sky-950/45 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-200">
               Virtual

@@ -1,4 +1,5 @@
 import type { GraphTab } from '../store/graphTabsStore';
+import { ThemeManager } from '../../themes/theme-manager';
 
 type GraphTabsBarProps = {
   tabs: GraphTab[];
@@ -32,7 +33,7 @@ export function GraphTabsBar({
               key={tab.id}
               className={`group flex items-center gap-2 rounded border px-2 py-1 text-xs ${
                 isActive
-                  ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
+                  ? 'border-accent bg-selected text-slate-100'
                   : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
               }`}
             >
@@ -78,6 +79,8 @@ export function GraphTabsBar({
       </button>
 
       <div className="ml-auto" />
+
+      <ThemeManager />
 
       {onOpenSessions && <button
         type="button"
