@@ -870,10 +870,11 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
             <button
               key={tab.id}
               type="button"
+              aria-pressed={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`rounded px-2 py-1 text-xs transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-slate-700 text-slate-100'
+                  ? 'bg-selected text-slate-100 ring-1 ring-inset ring-accent'
                   : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >

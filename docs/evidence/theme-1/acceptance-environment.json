@@ -1,0 +1,24 @@
+{
+  "status": "CONDITIONAL",
+  "date": "2026-11-03",
+  "unitTests": { "passed": 544, "files": 84, "newThemeTests": 49, "desktopPersistenceRegressionTests": 9, "command": "TMPDIR=/private/tmp npm test" },
+  "productionWebBuild": "PASS",
+  "desktopBuild": "PASS",
+  "lint": { "errors": 0, "warnings": 25 },
+  "visualAcceptance": {
+    "status": "BLOCKED_BY_ENVIRONMENT",
+    "screenshotsCaptured": 0,
+    "runner": "scripts/theme-browser-acceptance.mjs",
+    "attempts": [
+      "System Chrome headless launch: SIGABRT before DevTools startup; installed signature verification also fails.",
+      "Repository Electron: SIGABRT before UI startup.",
+      "Temporary copied and ad hoc signed Electron: signature verifies, but GUI startup still aborts.",
+      "LLDB backtrace: abort -> HIServices ___RegisterApplication_block_invoke -> _RegisterApplication -> AppKit NSApplication init.",
+      "Launch in current GUI user context: launchctl reports Failed to get user context: 141: Reentrancy avoided.",
+      "Temporary browser download unavailable: Could not resolve host: registry.npmjs.org."
+    ]
+  },
+  "liveRuntimeExecution": "NOT_RUN; existing runtime/submission/editing unit tests pass",
+  "installedBrowserOrDependenciesModified": false,
+  "committedOrPushed": false
+}

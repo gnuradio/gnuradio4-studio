@@ -1,3 +1,4 @@
+import { useTheme } from '../../../themes/theme-store';
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import type { PlotAdapterProps } from '../model/types';
 import type { WaterfallRaster } from './waterfall-rendering';
@@ -75,6 +76,7 @@ export function resolveWaterfallHoverSample(params: {
 }
 
 export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapterProps) {
+  const theme = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
   const [hover, setHover] = useState<HoverSample | null>(null);
@@ -116,7 +118,7 @@ export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapt
     context.save();
     context.scale(dpr, dpr);
     context.clearRect(0, 0, width, height);
-    context.fillStyle = '#020617';
+    context.fillStyle = theme.tokens['canvas.background'];
     context.fillRect(0, 0, width, height);
 
     if (raster.width > 0 && raster.height > 0) {
@@ -139,7 +141,7 @@ export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapt
     }
 
     context.restore();
-  }, [height, raster, width]);
+  }, [height, raster, width, theme]);
 
   useEffect(() => {
     setHover(null);
@@ -169,7 +171,7 @@ export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapt
   const maxValue = image?.maxValue ?? raster?.maxValue;
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded border border-slate-800 bg-slate-950 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.65)]">
+    <div className="relative h-full w-full overflow-hidden rounded border border-slate-800 bg-slate-950 shadow-sm">
       <canvas
         ref={canvasRef}
         className="block h-full w-full"

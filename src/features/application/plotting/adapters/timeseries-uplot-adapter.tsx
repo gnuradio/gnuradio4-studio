@@ -1,3 +1,4 @@
+import { useTheme } from '../../../themes/theme-store';
 import { useEffect, useMemo, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
@@ -6,8 +7,6 @@ import { buildPlotXAxis, buildPlotYLabel } from './plot-axis-format';
 import { STUDIO_BUILTIN_PLOT_PALETTES } from '../model/plot-style';
 import { buildPlotTagMarkers, type PlotTagMarker } from './timeseries-tag-markers';
 
-const AXIS_STROKE = '#94a3b8';
-const GRID_STROKE = '#334155';
 const X_SCALE_KEY = 'x';
 const Y_SCALE_KEY = 'y';
 
@@ -391,7 +390,7 @@ function deriveWheelZoomRanges(chart: uPlot, event: WheelEvent, mode: PlotAxisMo
 
 function createZoomSelectionElement(): HTMLDivElement {
   const element = document.createElement('div');
-  element.className = 'absolute z-20 border border-cyan-300/90 bg-cyan-400/20 shadow-[0_0_0_1px_rgba(8,47,73,0.65)]';
+  element.className = 'absolute z-20 border border-cyan-300/90 bg-cyan-400/20 shadow-sm';
   element.style.pointerEvents = 'none';
   element.style.display = 'none';
   return element;
@@ -491,6 +490,7 @@ function applyViewRanges(chart: uPlot, ranges: ViewRanges): void {
 }
 
 export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 'x', viewResetKey = 0 }: PlotAdapterProps) {
+  const theme = useTheme();
   const minWidth = 180;
   const minHeight = 120;
   const canRender = width >= minWidth && height >= minHeight;
@@ -582,17 +582,17 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 
         axes: [
           {
             ...buildPlotXAxis(spec, frame.meta?.axisMetadata),
-            stroke: AXIS_STROKE,
+            stroke: theme.tokens['app.textSecondary'],
             grid: {
-              stroke: GRID_STROKE,
+              stroke: theme.tokens['canvas.grid'],
               width: 1,
             },
           },
           {
             label: buildPlotYLabel(spec, frame.meta?.axisMetadata),
-            stroke: AXIS_STROKE,
+            stroke: theme.tokens['app.textSecondary'],
             grid: {
-              stroke: GRID_STROKE,
+              stroke: theme.tokens['canvas.grid'],
               width: 1,
             },
           },
@@ -801,6 +801,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 
       }
     };
   }, [
+    theme,
     canRender,
     frame.meta?.axisMetadata?.axisName,
     frame.meta?.axisMetadata?.axisUnit,

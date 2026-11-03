@@ -3,9 +3,73 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
   font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  background: var(--theme-app-background, #0b1120);
+  color: var(--theme-app-text, #f1f5f9);
 }
+
+/* Restoration happens before mounting, so a stored custom theme never flashes. */
+html:not([data-theme-ready]) #root { visibility: hidden; }
+
+:focus-visible {
+  outline: 2px solid var(--theme-app-focus);
+  outline-offset: 2px;
+}
+
+::selection { background: var(--theme-app-selected); color: var(--theme-app-text); }
+[data-runtime-status='running'] { color: var(--theme-state-running); }
+[data-runtime-status='stopped'] { color: var(--theme-state-stopped); }
+
+button:disabled, select:disabled { cursor: not-allowed; }
+input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-accent); }
+[class~='hover:bg-slate-700']:hover,
+[class~='hover:bg-slate-800']:hover { background-color: var(--theme-app-hover); }
+[class*='shadow-'] {
+  --tw-shadow-color: color-mix(in srgb, var(--theme-app-shadow) 15%, transparent);
+  --tw-shadow: var(--tw-shadow-colored);
+}
+
+/* React Flow's own defaults and SVG renderers share the application tokens. */
+.react-flow.react-flow {
+  --xy-background-color: var(--theme-canvas-background);
+  --xy-background-pattern-dots-color: var(--theme-canvas-grid);
+  --xy-edge-stroke: var(--theme-connection-default);
+  --xy-edge-stroke-selected: var(--theme-connection-selected);
+  --xy-connectionline-stroke: var(--theme-connection-highlighted);
+  --xy-selection-border: 1px dashed var(--theme-canvas-selection);
+  --xy-selection-background-color: color-mix(in srgb, var(--theme-canvas-selection) 15%, transparent);
+  --xy-attribution-background-color: var(--theme-app-surface);
+  --xy-node-boxshadow-selected: 0 0 0 1px var(--theme-block-selected);
+}
+
+.react-flow__edge:hover .react-flow__edge-path { stroke: var(--theme-connection-highlighted); }
+.react-flow__edge.selected .react-flow__edge-path { stroke: var(--theme-connection-selected); stroke-width: 3; }
+.react-flow__edge.theme-invalid .react-flow__edge-path {
+  stroke: var(--theme-connection-invalid);
+  stroke-dasharray: 6 4;
+}
+
+.react-flow .studio-block {
+  color: var(--theme-block-text);
+  background: var(--theme-block-background);
+  border-color: var(--theme-block-border);
+}
+.studio-block-header { color: var(--theme-block-text); background: var(--theme-block-header); }
+.studio-block [class*='text-slate-1'] { color: var(--theme-block-text); }
+.studio-block[data-note='true'] { background: var(--theme-block-note); }
+.studio-block[data-virtual='true'] { border-color: var(--theme-block-virtual); }
+.studio-block[data-error='true'] { border-color: var(--theme-block-error); border-style: dashed; }
+.studio-block[data-mode='disabled'] { border-color: var(--theme-block-disabled); border-style: dashed; }
+.studio-block[data-mode='bypassed'] { border-color: var(--theme-state-warning); border-style: double; }
+.studio-block[data-selected='true'] {
+  border-color: var(--theme-block-selected);
+  outline: 2px solid var(--theme-block-selected);
+  outline-offset: 2px;
+}
+
+[data-theme-base='builtin.high-contrast'] :is(button, input, select, summary) { border-color: var(--theme-app-border); }
+[data-theme-base='builtin.high-contrast'] :disabled { opacity: 0.7; }
+[data-theme-base='builtin.high-contrast'] .react-flow__edge-path { stroke-width: 2; }
 
 html,
 body,

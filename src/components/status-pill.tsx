@@ -4,7 +4,7 @@ export function StatusPill({ status, label }: { status?: string | null; label?: 
   const tone = formatStatus(status);
   const text = label ?? (status?.trim() ? status : tone);
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusToneClass(tone)}`}>
+    <span data-runtime-status={tone} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusToneClass(tone)}`}>
       {text}
     </span>
   );

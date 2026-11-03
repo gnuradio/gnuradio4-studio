@@ -1413,7 +1413,7 @@ export function StudioPage() {
 
   return (
     <div className="h-screen overflow-hidden bg-slate-900 text-slate-100 flex flex-col">
-      {!desktopMenus && <header className="h-16 shrink-0 border-b border-cyan-950/70 bg-slate-950/92 px-4 flex items-center justify-between gap-4 shadow-[0_10px_40px_rgba(2,132,199,0.06)]">
+      {!desktopMenus && <header className="h-16 shrink-0 border-b border-cyan-950/70 bg-slate-950/92 px-4 flex items-center justify-between gap-4 shadow-sm">
         <div className="min-w-0 flex items-center gap-3">
           <StudioMark className="h-9 w-9 shrink-0" />
           <div className="min-w-0">

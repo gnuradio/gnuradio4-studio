@@ -183,7 +183,7 @@ export function SeriesLiveRenderer({ liveContext }: SeriesLiveRendererProps) {
             channels {snapshot.channelCount} · samples {snapshot.samplesPerChannel}
           </div>
           <svg viewBox="0 0 320 96" className="w-full h-24 rounded border border-slate-700 bg-slate-950">
-            <line x1="0" y1="48" x2="320" y2="48" stroke="#334155" strokeWidth="1" />
+            <line x1="0" y1="48" x2="320" y2="48" stroke="var(--theme-canvas-grid)" strokeWidth="1" />
             {snapshot.seriesByChannel.map((series, index) => (
               <polyline
                 key={`series-${index}`}

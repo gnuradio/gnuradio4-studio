@@ -209,7 +209,7 @@ export function HttpTimeSeriesPopout({
                 </span>
               </div>
               <svg viewBox="0 0 320 140" className="w-full h-36 rounded border border-slate-700 bg-slate-950">
-                <line x1="0" y1="70" x2="320" y2="70" stroke="#334155" strokeWidth="1" />
+                <line x1="0" y1="70" x2="320" y2="70" stroke="var(--theme-canvas-grid)" strokeWidth="1" />
                 {snapshot.seriesByChannel.map((series, index) => (
                   <polyline
                     key={`series-${index}`}
