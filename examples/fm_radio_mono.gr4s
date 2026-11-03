@@ -796,7 +796,7 @@
       },
       {
         "id": "gr__blocks__filter__DesignedFilter_complex_float32___16",
-        "blockType": "gr::blocks::filter::DesignedFilter<complex<float32>>",
+        "blockType": "gr::blocks::filter::DesignedFilter<complex<float32>, float32>",
         "title": "DesignedFilter<complex<float32>>",
         "executionMode": "active",
         "rotation": 0,

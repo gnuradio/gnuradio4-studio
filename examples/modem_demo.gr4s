@@ -302,7 +302,7 @@
       },
       {
         "id": "gr__blocks__filter__DesignedFilter_complex_float32___6",
-        "blockType": "gr::blocks::filter::DesignedFilter<complex<float32>>",
+        "blockType": "gr::blocks::filter::DesignedFilter<complex<float32>, float32>",
         "title": "RRC Matched Filter",
         "executionMode": "active",
         "rotation": 0,
