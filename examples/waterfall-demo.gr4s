@@ -2,7 +2,7 @@
   "format": "gr4-studio.graph",
   "version": 1,
   "metadata": {
-    "name": "Waterfall Demo.gr4s",
+    "name": "waterfall-demo.gr4s",
     "description": "Minimal demo graph for validating StudioWaterfallSink live rendering."
   },
   "graph": {
@@ -11,6 +11,8 @@
         "id": "src0",
         "blockType": "gr::blocks::basic::SignalGenerator<float32>",
         "title": "SignalGenerator",
+        "executionMode": "active",
+        "rotation": 0,
         "position": {
           "x": 120,
           "y": 120
@@ -22,31 +24,63 @@
           },
           "sample_rate": {
             "kind": "literal",
-            "value": 1000
+            "value": "100000"
           },
           "chunk_size": {
             "kind": "literal",
-            "value": 256
+            "value": "256"
           },
           "signal_type": {
             "kind": "literal",
             "value": "Sin"
           },
-          "frequency": {
+          "tone_frequency": {
             "kind": "literal",
-            "value": 25
+            "value": "2500"
           },
           "amplitude": {
             "kind": "literal",
-            "value": 1
+            "value": "1"
           },
           "offset": {
             "kind": "literal",
-            "value": 0
+            "value": "0"
           },
           "phase": {
             "kind": "literal",
-            "value": 0
+            "value": "0"
+          },
+          "compute_domain": {
+            "kind": "literal",
+            "value": "default_io"
+          },
+          "disconnect_on_done": {
+            "kind": "literal",
+            "value": true
+          },
+          "input_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "output_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "stride": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "ui_constraints": {
+            "kind": "literal",
+            "value": ""
+          },
+          "unique_name": {
+            "kind": "literal",
+            "value": "gr::blocks::basic::SignalGenerator<float32>#0"
           }
         }
       },
@@ -54,6 +88,8 @@
         "id": "sink0",
         "blockType": "gr::studio::StudioWaterfallSink<float32>",
         "title": "Waterfall",
+        "executionMode": "active",
+        "rotation": 0,
         "position": {
           "x": 420,
           "y": 96
@@ -65,27 +101,27 @@
           },
           "transport": {
             "kind": "literal",
-            "value": "http_poll"
+            "value": "websocket"
           },
           "endpoint": {
             "kind": "literal",
             "value": "http://127.0.0.1:18085/snapshot"
           },
-          "poll_ms": {
+          "update_ms": {
             "kind": "literal",
-            "value": 250
+            "value": "100"
           },
           "fft_size": {
             "kind": "literal",
-            "value": 256
+            "value": "256"
           },
           "num_averages": {
             "kind": "literal",
-            "value": 4
+            "value": "4"
           },
           "time_span": {
             "kind": "literal",
-            "value": 49.152
+            "value": "49.152"
           },
           "window": {
             "kind": "literal",
@@ -93,7 +129,7 @@
           },
           "sample_rate": {
             "kind": "literal",
-            "value": 1000
+            "value": "10000"
           },
           "output_in_db": {
             "kind": "literal",
@@ -118,6 +154,62 @@
           "autoscale": {
             "kind": "literal",
             "value": true
+          },
+          "compute_domain": {
+            "kind": "literal",
+            "value": "default_io"
+          },
+          "disconnect_on_done": {
+            "kind": "literal",
+            "value": true
+          },
+          "input_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "output_chunk_size": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "stride": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "topic": {
+            "kind": "literal",
+            "value": ""
+          },
+          "ui_constraints": {
+            "kind": "literal",
+            "value": ""
+          },
+          "unique_name": {
+            "kind": "literal",
+            "value": "gr::studio::StudioWaterfallSink<float32>#0"
+          },
+          "x_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "x_min": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "z_max": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "z_min": {
+            "kind": "literal",
+            "value": "0"
           }
         }
       }

@@ -208,7 +208,11 @@ For manual waterfall validation, the repo also ships canonical fixture payloads 
 - `waterfall-spectrum-json-v1.normal.json`
 - `waterfall-spectrum-json-v1.smallest.json`
 - `waterfall-spectrum-json-v1.malformed.json`
-- `public/demo/phosphor-spectrum-demo.gr4s`
+
+Demo graphs live in `examples/`:
+
+- `examples/waterfall-demo.gr4s`
+- `examples/phosphor-spectrum-demo.gr4s`
 
 Payload details live in:
 

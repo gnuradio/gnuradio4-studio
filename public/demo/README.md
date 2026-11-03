@@ -1,10 +1,10 @@
 # Demo Assets
 
-This folder holds small, manual-validation assets for Studio features.
+This folder holds payload fixtures for manual validation of Studio features. Demo graphs live in `examples/`.
 
 ## Waterfall demo graph
 
-- `waterfall-demo.gr4s`
+- [`examples/waterfall-demo.gr4s`](../../examples/waterfall-demo.gr4s)
 
 What it demonstrates:
 
@@ -15,7 +15,7 @@ What it demonstrates:
 
 ## Phosphor spectrum demo graph
 
-- `phosphor-spectrum-demo.gr4s`
+- [`examples/phosphor-spectrum-demo.gr4s`](../../examples/phosphor-spectrum-demo.gr4s)
 
 What it demonstrates:
 
@@ -40,7 +40,7 @@ Phosphor spectrum uses the same dataset XY contract as the power spectrum sink, 
 ## Quickest validation path
 
 1. Start Studio with `npm run dev`.
-2. Open `public/demo/phosphor-spectrum-demo.gr4s` for the phosphor spectrum view or `public/demo/waterfall-demo.gr4s` for the waterfall view.
+2. Open `examples/phosphor-spectrum-demo.gr4s` for the phosphor spectrum view or `examples/waterfall-demo.gr4s` for the waterfall view.
 3. Run the graph.
 4. Confirm the panel appears and responds to hover.
 5. For the phosphor spectrum, check that the current line stays crisp while old energy glows behind it.
