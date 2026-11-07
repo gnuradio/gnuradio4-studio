@@ -129,7 +129,8 @@ void testFloatSpectrum() {
     assert(json.find("\"x_max\"") == std::string::npos);
     assert(json.find("\"y_min\":-1.5") != std::string::npos);
     assert(json.find("\"y_max\":1.5") != std::string::npos);
-    assert(json.find("[100,0.25]") != std::string::npos);
+    // Upstream amplitude calibration uses 1/N at DC; only mirrored real bins use 2/N.
+    assert(json.find("[100,0.0625]") != std::string::npos);
     assert(json.find("[102,0.25]") != std::string::npos);
 }
 
@@ -143,7 +144,7 @@ void testPowerSpectrumComputationIsThrottledByUpdateMs() {
     block.processSamples(std::span<const float>(zeros));
 
     std::string json = block.snapshotJson();
-    assert(json.find("[100,0.25]") != std::string::npos);
+    assert(json.find("[100,0.0625]") != std::string::npos);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
     const std::array<float, 8UZ> consecutiveFrames{
@@ -159,7 +160,7 @@ void testPowerSpectrumComputationIsThrottledByUpdateMs() {
     block.processSamples(std::span<const float>(consecutiveFrames));
 
     json = block.snapshotJson();
-    assert(json.find("[100,0.125]") != std::string::npos);
+    assert(json.find("[100,0.03125]") != std::string::npos);
 }
 
 void testDbFloorIsFinite() {
@@ -195,8 +196,8 @@ void testComplexSpectrum() {
     const std::string json = block.snapshotJson();
     assert(json.find("\"payload_format\":\"dataset-xy-json-v1\"") != std::string::npos);
     assert(json.find("\"points\":4") != std::string::npos);
-    assert(json.find("[96,0.25]") != std::string::npos);
-    assert(json.find("[102,0.25]") != std::string::npos);
+    assert(json.find("[96,0.0625]") != std::string::npos);
+    assert(json.find("[102,0.0625]") != std::string::npos);
 }
 
 } // namespace
