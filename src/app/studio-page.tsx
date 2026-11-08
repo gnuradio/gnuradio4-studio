@@ -913,14 +913,14 @@ export function StudioPage() {
       return;
     }
 
-    console.info('[gr4-studio:file-workflow]', {
+    console.info('[gr4-studio:file-workflow]', JSON.stringify({
       fileSystemAccessSupported: capabilityDiagnostics.fileSystemAccessSupported,
       inPlaceSaveSupported: capabilityDiagnostics.inPlaceSaveSupported,
       savePickerSupported: capabilityDiagnostics.savePickerSupported,
       currentDocumentHasWritableBacking: capabilityDiagnostics.currentDocumentHasWritableBacking,
       activePath: window.gr4StudioShell?.capabilities?.nativeFiles ? 'native-files' : capabilityDiagnostics.fileSystemAccessSupported ? 'file-system-access' : 'upload-download-fallback',
       tabs: tabs.length,
-    });
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

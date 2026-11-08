@@ -434,9 +434,9 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
                 };
               }
               if (retryError instanceof TypeError) {
-                console.warn('[gr4-studio:file-workflow] save picker rejected options; falling back to download', {
+                console.warn('[gr4-studio:file-workflow] save picker rejected options; falling back to download', JSON.stringify({
                   suggestedName,
-                });
+                }));
               } else {
                 throw retryError;
               }
@@ -500,9 +500,9 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
         };
       }
       if (error instanceof TypeError) {
-        console.warn('[gr4-studio:file-workflow] save write failed with TypeError; falling back to download', {
+        console.warn('[gr4-studio:file-workflow] save write failed with TypeError; falling back to download', JSON.stringify({
           suggestedName,
-        });
+        }));
         triggerDownload(win, suggestedName, serialized.content);
         return {
           kind: 'success',

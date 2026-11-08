@@ -504,12 +504,12 @@ function attachRendererDiagnostics(window, label) {
   window.webContents.on('console-message', (...args) => {
     const maybeDetails = args.find((arg) => arg && typeof arg === 'object' && 'message' in arg);
     if (maybeDetails) {
-      const severity = ['debug', 'info', 'warn', 'error'][maybeDetails.level] ?? 'log';
+      const severity = maybeDetails.level === 'warning' ? 'warn' : maybeDetails.level ?? 'log';
       const message = [
         maybeDetails.message,
         ...(Array.isArray(maybeDetails.args) ? maybeDetails.args.map(formatConsoleValue) : []),
       ].join(' ');
-      console.info(`[gr4-studio][${label}:${severity}] ${message} (${maybeDetails.sourceId}:${maybeDetails.line})`);
+      console.info(`[gr4-studio][${label}:${severity}] ${message} (${maybeDetails.sourceId}:${maybeDetails.lineNumber})`);
       return;
     }
 
