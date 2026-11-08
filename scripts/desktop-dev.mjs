@@ -46,7 +46,9 @@ async function main() {
   const backendUrl =
     process.env.GR4_STUDIO_CONTROL_PLANE_BASE_URL || process.env.GR4_CONTROL_PLANE_URL || DEFAULT_BACKEND_URL;
 
-  const vite = spawnDetached('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '5173']);
+  const vite = spawnDetached('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '5173'], {
+    GR4_STUDIO_DEV_SERVER_URL: DEV_SERVER_URL,
+  });
   await waitForUrl(DEV_SERVER_URL);
   console.info(`[desktop:dev] Using backend ${backendUrl}`);
 

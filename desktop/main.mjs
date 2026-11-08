@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
 import { createDesktopDocuments } from './documents.mjs';
 import { createDesktopThemes } from './themes.mjs';
 import { buildMenuTemplate, sanitizeMenuState } from './application-menu.mjs';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -177,6 +177,7 @@ ipcMain.on('gr4-studio:menu-state', (event, value) => {
 });
 
 function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
+  const nonce = randomBytes(16).toString('base64');
   const options = recentEndpoints
     .map((endpoint) => `<option value="${escapeHtml(endpoint)}">${escapeHtml(endpoint)}</option>`)
     .join('');
@@ -189,9 +190,10 @@ function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src file:; base-uri 'none'; form-action 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Connect to gr4cp</title>
-    <style>
+    <style nonce="${nonce}">
       :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, #09111f, #0f172a 55%, #111827); color: #e5eefb; }
   .card { width: min(560px, calc(100vw - 48px)); border: 1px solid rgba(148,163,184,.24); border-radius: 18px; padding: 24px; background: rgba(15,23,42,.94); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
@@ -231,7 +233,7 @@ function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
         <button id="connect" class="primary" type="button">Connect</button>
       </div>
     </div>
-    <script>
+    <script nonce="${nonce}">
       const endpoint = document.getElementById('endpoint');
       const recent = document.getElementById('recent');
       const connect = document.getElementById('connect');
