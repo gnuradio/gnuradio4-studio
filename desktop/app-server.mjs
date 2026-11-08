@@ -2,6 +2,7 @@ import { createServer, request as httpRequest } from 'node:http';
 import fs from 'node:fs/promises';
 import { request as httpsRequest } from 'node:https';
 import path from 'node:path';
+import { DESKTOP_CONTENT_SECURITY_POLICY } from './content-security-policy.mjs';
 
 const APP_API_BASE_PATH = '/api';
 
@@ -260,6 +261,7 @@ function proxyWebSocketUpgrade(req, socket, head, backendBaseUrl) {
 }
 
 async function serveStaticAsset(req, res, staticRoot) {
+  res.setHeader('Content-Security-Policy', DESKTOP_CONTENT_SECURITY_POLICY);
   const requestUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
   const pathname = decodeURIComponent(requestUrl.pathname);
   const relativePath = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');

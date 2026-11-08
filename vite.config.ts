@@ -3,6 +3,10 @@ import { extname, join, normalize, resolve as resolvePath } from 'node:path';
 
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import {
+  DESKTOP_CONTENT_SECURITY_POLICY,
+  DESKTOP_DEV_CONTENT_SECURITY_POLICY,
+} from './desktop/content-security-policy.mjs';
 
 const DEFAULT_GRCTRL_BASE_URL = 'http://127.0.0.1:8080';
 const APP_API_BASE_PATH = '/api';
@@ -30,6 +34,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const proxyTarget = env.VITE_CONTROL_PLANE_BASE_URL || DEFAULT_GRCTRL_BASE_URL;
   const useWasmControlPlane = env.VITE_CONTROL_PLANE_TRANSPORT === 'wasm';
+  const isDesktopRenderer = mode === 'desktop' || Boolean(env.GR4_STUDIO_DEV_SERVER_URL);
   const crossOriginIsolationHeaders = {
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Embedder-Policy': 'require-corp',
@@ -124,7 +129,10 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       host: true,
-      headers: useWasmControlPlane ? crossOriginIsolationHeaders : undefined,
+      headers: {
+        ...(useWasmControlPlane ? crossOriginIsolationHeaders : {}),
+        ...(isDesktopRenderer ? { 'Content-Security-Policy': DESKTOP_DEV_CONTENT_SECURITY_POLICY } : {}),
+      },
       proxy: useWasmControlPlane
         ? undefined
         : {
@@ -155,7 +163,10 @@ export default defineConfig(({ mode }) => {
           },
     },
     preview: {
-      headers: useWasmControlPlane ? crossOriginIsolationHeaders : undefined,
+      headers: {
+        ...(useWasmControlPlane ? crossOriginIsolationHeaders : {}),
+        ...(isDesktopRenderer ? { 'Content-Security-Policy': DESKTOP_CONTENT_SECURITY_POLICY } : {}),
+      },
     },
   };
 });
