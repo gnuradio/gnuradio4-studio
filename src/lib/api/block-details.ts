@@ -27,6 +27,10 @@ export type BlockParameterMeta = {
   isCollectionLike?: boolean;
 };
 
+export function isCollectionParameter(parameter: Pick<BlockParameterMeta, 'valueType' | 'isCollectionLike'>): boolean {
+  return Boolean(parameter.isCollectionLike || /(?:vector|tensor|collection|array|list)/i.test(parameter.valueType ?? ''));
+}
+
 export type BlockPortMeta = {
   name: string;
   direction: 'input' | 'output' | 'unknown';
@@ -61,7 +65,7 @@ function toText(value: string | number | boolean | null | undefined): string | u
 function normalizeParameter(param: ParameterMetaDto): BlockParameterMeta {
   const readOnly = isReadOnlyRuntimeMutability(param.runtime_mutability);
   const valueType = param.type;
-  const isCollectionLike = Boolean(valueType && /(?:vector|tensor|collection|array|list)/i.test(valueType));
+  const isCollectionLike = isCollectionParameter({ valueType });
 
   return {
     name: param.name,

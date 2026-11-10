@@ -3,6 +3,7 @@ import { ApiClientError, jsonRequest } from './client';
 export type RuntimeSettingsScalar = string | number | boolean | null;
 export type RuntimeSettingsValue =
   | RuntimeSettingsScalar
+  | RuntimeSettingsValue[]
   | { [key: string]: RuntimeSettingsValue };
 
 export type RuntimeSettingsObject = { [key: string]: RuntimeSettingsValue };
@@ -15,16 +16,24 @@ export type SetBlockSettingsResult = {
   accepted: boolean;
 };
 
-function isRuntimeSettingsValue(value: unknown): value is RuntimeSettingsValue {
+export function isRuntimeSettingsValue(value: unknown): value is RuntimeSettingsValue {
   if (value === null) {
     return true;
   }
 
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+
+  if (typeof value === 'string' || typeof value === 'boolean') {
     return true;
   }
 
-  if (Array.isArray(value) || typeof value !== 'object') {
+  if (Array.isArray(value)) {
+    return value.every(isRuntimeSettingsValue);
+  }
+
+  if (typeof value !== 'object') {
     return false;
   }
 

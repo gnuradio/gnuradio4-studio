@@ -236,3 +236,16 @@ describe('control panel authoring', () => {
     expect(getCompatibleControlWidgetInputKinds(makeParameter({ valueType: 'float' }))).toEqual(['text', 'number', 'slider']);
   });
 });
+
+describe('collection control widgets', () => {
+  it.each(['float64_vector', 'bool_vector', 'std::vector<double>', 'gr::Tensor<float>'])
+    ('uses list text rather than scalar controls for %s', (valueType) => {
+      const parameter = makeParameter({ valueType, uiHint: 'slider' });
+      expect(inferControlWidgetInputKind(parameter)).toBe('text');
+      expect(getCompatibleControlWidgetInputKinds(parameter)).toEqual(['text']);
+    });
+
+  it('honors an explicit collection flag', () => {
+    expect(inferControlWidgetInputKind(makeParameter({ isCollectionLike: true }))).toBe('text');
+  });
+});

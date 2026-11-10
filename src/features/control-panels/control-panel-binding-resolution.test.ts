@@ -272,3 +272,16 @@ describe('resolveControlPanelWidgetBindings', () => {
     expect(result[0]?.reason).toContain('Variable center_freq was not found');
   });
 });
+
+describe('collection widget compatibility', () => {
+  it.each(['number', 'slider', 'boolean', 'text'] as const)
+    ('checks saved %s widgets against collection metadata', (inputKind) => {
+      const result = resolveControlPanelWidgetBindings({
+        panel: makePanel({ inputKind }),
+        nodeById: new Map([['node-a', makeNode()]]),
+        blockDetailsByType: new Map([['gr4.example.Sink', makeBlockDetails({ valueType: 'float64_vector' })]]),
+        runtime: makeRuntime(),
+      });
+      expectState(result, inputKind === 'text' ? 'ready' : 'incompatible_widget');
+    });
+});

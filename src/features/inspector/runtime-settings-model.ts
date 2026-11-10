@@ -1,3 +1,4 @@
+import { isRuntimeSettingsValue, type RuntimeSettingsValue } from '../../lib/api/block-settings';
 import { ApiClientError } from '../../lib/api/client';
 import type { SessionRecord } from '../../lib/api/sessionsApi';
 import type { GraphDriftState } from '../runtime-session/store/runtimeSessionStore';
@@ -92,7 +93,7 @@ export function toRuntimeSettingsErrorMessage(error: unknown): string {
     if (error.status === 400) {
       const details = `${error.details ?? ''} ${error.message}`.toLowerCase();
       if (details.includes('array')) {
-        return 'Runtime settings do not support array values in this path.';
+        return error.details || error.message;
       }
       if (details.includes('payload') || details.includes('json') || details.includes('shape')) {
         return 'Runtime settings payload was rejected by the backend.';
@@ -126,4 +127,29 @@ export function toRuntimeSettingsErrorMessage(error: unknown): string {
   }
 
   return 'Unknown runtime settings error.';
+}
+
+export function parseRuntimeSettingsArray(text: string): RuntimeSettingsValue[] {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error('Enter a JSON list, for example [107000000, 108000000].');
+  }
+  if (!Array.isArray(value) || !isRuntimeSettingsValue(value)) {
+    throw new Error('Enter a JSON list with valid finite values.');
+  }
+  return value;
+}
+
+// Graph literals still store collection syntax as text. Objects and nested lists
+// need a richer graph value contract before they can be copied without loss.
+export function runtimeSettingToGraphLiteral(value: RuntimeSettingsValue): string | undefined {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value) && value.every((element) => element !== null && typeof element !== 'object')) {
+    return JSON.stringify(value);
+  }
+  return undefined;
 }
