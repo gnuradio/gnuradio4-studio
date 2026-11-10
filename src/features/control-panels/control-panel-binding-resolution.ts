@@ -1,4 +1,4 @@
-import type { BlockDetails, BlockParameterMeta } from '../../lib/api/block-details';
+import { isCollectionParameter, type BlockDetails, type BlockParameterMeta } from '../../lib/api/block-details';
 import type { EditorGraphNode } from '../graph-editor/model/types';
 import type {
   StudioControlPanelSpec,
@@ -68,6 +68,10 @@ function isCompatibleWidget(widget: StudioControlWidgetSpec, parameterMeta?: Blo
 
   if (widget.inputKind === 'text') {
     return true;
+  }
+
+  if (isCollectionParameter(parameterMeta)) {
+    return false;
   }
 
   if (widget.inputKind === 'enum') {

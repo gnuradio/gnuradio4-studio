@@ -2,7 +2,8 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { RuntimeSettingsValue } from '../../lib/api/block-settings';
 import { useRuntimeBlockSettings } from '../inspector/hooks/use-runtime-block-settings';
-import { toRuntimeSettingsErrorMessage } from '../inspector/runtime-settings-model';
+import { isCollectionParameter } from '../../lib/api/block-details';
+import { parseRuntimeSettingsArray, toRuntimeSettingsErrorMessage } from '../inspector/runtime-settings-model';
 import { getCompatibleControlWidgetInputKinds, getControlWidgetTargetLabel } from './control-panel-authoring';
 import type { ResolvedControlWidget } from './control-panel-binding-resolution';
 import type { ExpressionBinding } from '../variables/model/types';
@@ -711,7 +712,13 @@ function ControlWidgetField({
           if (draftText === committedText) {
             return;
           }
-          void savePatch(draftText);
+          try {
+            const isCollection = Array.isArray(committedValue) ||
+              (widget.parameterMeta && isCollectionParameter(widget.parameterMeta));
+            void savePatch(isCollection ? parseRuntimeSettingsArray(draftText) : draftText);
+          } catch (error) {
+            setValidationError(toRuntimeSettingsErrorMessage(error));
+          }
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {

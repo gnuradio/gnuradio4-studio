@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ApiClientError } from '../../lib/api/client';
 import {
+  parseRuntimeSettingsArray,
+  runtimeSettingToGraphLiteral,
   resolveRuntimeSettingsAvailability,
   shouldApplyRuntimeSettingImmediately,
   shouldPropagateResolvedRuntimeSetting,
@@ -137,7 +139,7 @@ describe('runtime-settings-model', () => {
       toRuntimeSettingsErrorMessage(
         new ApiClientError('Request failed', 'HTTP', 400, 'unsupported array values'),
       ),
-    ).toBe('Runtime settings do not support array values in this path.');
+    ).toBe('unsupported array values');
 
     expect(
       toRuntimeSettingsErrorMessage(
@@ -167,5 +169,28 @@ describe('runtime-settings-model', () => {
     expect(shouldPropagateResolvedRuntimeSetting({ name: 'alpha', bindingKind: 'expression' })).toBe(true);
     expect(shouldPropagateResolvedRuntimeSetting({ name: 'sample_rate', bindingKind: 'literal' })).toBe(false);
     expect(shouldPropagateResolvedRuntimeSetting({ name: 'poll_ms', bindingKind: 'literal' })).toBe(true);
+  });
+});
+
+describe('runtime collection values', () => {
+  it('parses frequency lists, empty lists, and recursive JSON settings', () => {
+    expect(parseRuntimeSettingsArray('[107e6, 108000000]')).toEqual([107000000, 108000000]);
+    expect(parseRuntimeSettingsArray('[]')).toEqual([]);
+    expect(parseRuntimeSettingsArray('[true, "RX", null, {"real": 1, "imag": 2}, [3]]'))
+      .toEqual([true, 'RX', null, { real: 1, imag: 2 }, [3]]);
+  });
+
+  it.each(['107000000', '"[107000000]"', '{}', 'null', '[107000000,]', '[1e400]'])
+    ('refuses invalid list input %s before submission', (text) => {
+      expect(() => parseRuntimeSettingsArray(text)).toThrow(/JSON list/);
+    });
+
+  it('keeps flat lists intact when applying runtime settings to graph properties', () => {
+    expect(runtimeSettingToGraphLiteral([107000000, 108000000])).toBe('[107000000,108000000]');
+    expect(runtimeSettingToGraphLiteral(['RX', 'TX'])).toBe('["RX","TX"]');
+    expect(runtimeSettingToGraphLiteral([])).toBe('[]');
+    expect(runtimeSettingToGraphLiteral(42)).toBe('42');
+    expect(runtimeSettingToGraphLiteral({ real: 1, imag: 0 })).toBeUndefined();
+    expect(runtimeSettingToGraphLiteral([[1, 2]])).toBeUndefined();
   });
 });

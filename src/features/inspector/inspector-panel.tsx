@@ -10,6 +10,8 @@ import { useBlockDetailsQuery } from './hooks/use-block-details-query';
 import { useRuntimeBlockSettings } from './hooks/use-runtime-block-settings';
 import { useSchedulersQuery } from './hooks/use-schedulers-query';
 import {
+  parseRuntimeSettingsArray,
+  runtimeSettingToGraphLiteral,
   resolveRuntimeSettingsAvailability,
   toRuntimeSettingsErrorMessage,
 } from './runtime-settings-model';
@@ -167,6 +169,8 @@ function RuntimeSettingsCard({
     for (const [key, value] of Object.entries(query.data)) {
       if (typeof value === 'boolean') {
         nextDraft[key] = value;
+      } else if (Array.isArray(value)) {
+        nextDraft[key] = JSON.stringify(value);
       } else if (typeof value === 'string' || typeof value === 'number') {
         nextDraft[key] = String(value);
       }
@@ -251,8 +255,9 @@ function RuntimeSettingsCard({
       if (!parameterMeta || parameterMeta.readOnly || !parameterMeta.mutable) {
         continue;
       }
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        nextPatch[name] = String(value);
+      const literal = runtimeSettingToGraphLiteral(value);
+      if (literal !== undefined) {
+        nextPatch[name] = literal;
       }
     }
 
@@ -279,6 +284,43 @@ function RuntimeSettingsCard({
     const typeLabel = parameterMeta?.valueType ?? typeof value;
     const enumChoices = parameterMeta?.enumChoices ?? [];
     const hasEnumChoices = enumChoices.length > 0;
+
+    if (Array.isArray(value)) {
+      const draftValue = draftValues[name];
+      const text = typeof draftValue === 'string' ? draftValue : JSON.stringify(value);
+      const commitArray = async () => {
+        if (!editable || text === JSON.stringify(value)) {
+          return;
+        }
+        try {
+          const next = parseRuntimeSettingsArray(text);
+          await savePatch(name, next);
+        } catch (error) {
+          setSaveError(toRuntimeSettingsErrorMessage(error));
+        }
+      };
+      return (
+        <label key={name} className="block rounded border border-slate-700 p-2">
+          <p className="text-xs uppercase tracking-wide text-slate-400">{name}</p>
+          <p className="mb-2 text-[11px] text-slate-500">{typeLabel} · JSON list</p>
+          <input
+            type="text"
+            value={text}
+            disabled={!editable || mutation.isPending}
+            onChange={(event) => setDraftValues((current) => ({ ...current, [name]: event.target.value }))}
+            onBlur={() => {
+              void commitArray();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              }
+            }}
+            className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 disabled:opacity-70"
+          />
+        </label>
+      );
+    }
 
     if (typeof value === 'boolean') {
       const checked = Boolean(draftValues[name]);
