@@ -87,3 +87,27 @@ describe('block-settings api', () => {
     await expect(getBlockSettings('sess_1', 'sig0')).rejects.toBeInstanceOf(ApiClientError);
   });
 });
+
+describe('runtime settings collections', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('reads a Soapy settings response containing vectors without losing scalar settings', async () => {
+    const settings = {
+      frequency: [107000000, 108000000], sample_rate: 1000000,
+      rx_antennae: ['RX'], rx_gains: [], nested: { values: [true, { real: 1, imag: 2 }] },
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ settings }), { status: 200 }),
+    );
+    expect(await getBlockSettings('sess_1', 'soapy0')).toEqual(settings);
+  });
+
+  it('sends frequency lists as JSON arrays rather than strings', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ session_id: 'sess_1', block: 'soapy0', applied_via: 'staged_settings', accepted: true }), { status: 200 }),
+    );
+    await setBlockSettings('sess_1', 'soapy0', { frequency: [107000000, 108000000] });
+    expect(fetchMock).toHaveBeenCalledWith('/api/sessions/sess_1/blocks/soapy0/settings',
+      expect.objectContaining({ body: '{"frequency":[107000000,108000000]}' }));
+  });
+});
