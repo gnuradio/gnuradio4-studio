@@ -1,4 +1,4 @@
-import type { BlockParameterMeta } from '../../lib/api/block-details';
+import { isCollectionParameter, type BlockParameterMeta } from '../../lib/api/block-details';
 import type { JsonPrimitive } from '../variables/model/types';
 import type {
   StudioControlPanelSpec,
@@ -50,6 +50,10 @@ function inferVariableInputKind(value: JsonPrimitive | undefined): StudioControl
 }
 
 export function inferControlWidgetInputKind(parameter: BlockParameterMeta): StudioControlWidgetInputKind {
+  if (isCollectionParameter(parameter)) {
+    return 'text';
+  }
+
   if (parameter.valueKind === 'enum' || Boolean(parameter.enumChoices?.length)) {
     return 'enum';
   }
@@ -73,6 +77,9 @@ export function getCompatibleControlWidgetInputKinds(
   parameter: BlockParameterMeta,
 ): StudioControlWidgetInputKind[] {
   const kinds: StudioControlWidgetInputKind[] = ['text'];
+  if (isCollectionParameter(parameter)) {
+    return kinds;
+  }
 
   if (parameter.valueKind === 'enum' || Boolean(parameter.enumChoices?.length)) {
     kinds.push('enum');
