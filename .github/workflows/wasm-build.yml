@@ -123,3 +123,25 @@ jobs:
           name: gr4-studio-web
           path: dist
           if-no-files-found: error
+
+      - name: Check public bucket setup
+        id: checksetup
+        # sigh: github, you know this will come back to bite you, why don't you have a "check presence"
+        # function usable in "if:" ???
+        # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#example-using-secrets
+        run: >
+          [[ -n "${{ vars.PUB_BUCKET_NAME }}"
+          && -n "${{ vars.PUB_BUCKET_KEY_ID }}" ]]
+          && echo "hasthings=true" >> "${GITHUB_OUTPUT}"
+          || echo 'could not find bucket setup'
+      - name: Upload to public bucket
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        uses: backblaze-labs/b2-action@v1.2.0
+        with:
+          action: upload
+          application-key-id: ${{ vars.PUB_BUCKET_KEY_ID }}
+          application-key: ${{ secrets.PUB_BUCKET_KEY }}
+          bucket: ${{ vars.PUB_BUCKET_NAME }}
+          source: dist
+          destination: commit/${{ github.sha }}
+          exclude: 'serve.py'
