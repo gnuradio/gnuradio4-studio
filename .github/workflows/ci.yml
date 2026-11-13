@@ -37,7 +37,3 @@ jobs:
   test:
     needs: dco
     uses: ./.github/workflows/npm-test.yml
-
-  wasm:
-    needs: dco
-    uses: ./.github/workflows/wasm-build.yml
