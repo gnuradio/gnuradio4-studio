@@ -135,7 +135,7 @@ jobs:
           && -n "${{ vars.PUB_BUCKET_KEY_ID }}" ]]
           && echo "hasthings=true" >> "${GITHUB_OUTPUT}"
           || echo 'could not find bucket setup'
-      - name: Upload to public bucket
+      - name: Upload to public bucket (all but .js)
         if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
         uses: backblaze-labs/b2-action@v1.2.0
         with:
@@ -145,4 +145,43 @@ jobs:
           bucket: ${{ vars.PUB_BUCKET_NAME }}
           source: dist
           destination: commit/${{ github.sha }}
-          exclude: 'serve.py'
+          exclude: '**/*.js, serve.py'
+      - name: Gather .js files in staging directory
+        # the b2 action is extremely stupid: you can't change into a directory,
+        # and if you're using globs, you can't remove a leading directory
+        # components. the include: and exclude: filters just don't work the way
+        # the documentation says, as they're actually post-filters. Not that
+        # there's much documentation to speak of.
+        # so, globs in source: is a non-feature, and we need to stage the .js 
+        # files in a separate directory. Sigh.
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        id: gatherfiles
+        shell: bash
+        run: |
+          jsdir="${RUNNER_TEMP}/jsfiles"
+          mkdir -p "${jsdir}"
+          shopt -s dotglob globstar
+          (cd dist && cp -v --parents -- **/*.js "${jsdir}")
+          printf 'jsdir=%s\n' "${jsdir}" >> "${GITHUB_OUTPUT}"
+      - name: Upload to public bucket (.js files)
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        uses: backblaze-labs/b2-action@v1.2.0
+        with:
+          action: upload
+          application-key-id: ${{ vars.PUB_BUCKET_KEY_ID }}
+          application-key: ${{ secrets.PUB_BUCKET_KEY }}
+          bucket: ${{ vars.PUB_BUCKET_NAME }}
+          # Got to explicitly mark JavaScript as such, otherwise MIME type
+          # gets auto-assigned, and that'd be application/json, which makes
+          # browsers rejects an attempt to load it as script
+          content-type: application/javascript
+          source: ${{ steps.gatherfiles.outputs.jsdir }}
+          destination: commit/${{ github.sha }}
+      - name: Print URL
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        run: >
+          printf '::notice title="Artifact URL"::https://%s.backblazeb2.com/file/%s/commit/%s/index.html\n'
+          f004
+          ${{ vars.PUB_BUCKET_NAME }}
+          ${{ github.sha }}
+
