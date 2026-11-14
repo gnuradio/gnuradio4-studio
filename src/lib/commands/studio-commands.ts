@@ -1,6 +1,7 @@
 export type StudioCommandId =
   | 'new' | 'open' | 'save' | 'saveAs' | 'rename' | 'closeTab'
   | 'cut' | 'copy' | 'paste' | 'delete' | 'selectAll'
+  | 'rotateLeft' | 'rotateRight' | 'enable' | 'disable' | 'bypass' | 'properties'
   | 'graph' | 'variables' | 'workspace' | 'application'
   | 'catalog' | 'inspector' | 'zoomIn' | 'zoomOut' | 'fitView'
   | 'run' | 'stop' | 'openDisplay' | 'deleteSession'
