@@ -1683,6 +1683,7 @@ export function StudioPage() {
           <div className="relative min-h-0 flex-1 overflow-hidden">
             {activeCenterView === 'graph' ? (
               <GraphEditorPanel
+                graphId={activeTabId ?? 'no-active-tab'}
                 key={`${activeTabId ?? 'no-active-tab'}:${activeTab?.document.internalDocumentId ?? 'no-document'}`}
                 onOpenBlockProperties={setEditingBlockId}
                 isBlockPropertiesOpen={Boolean(editingBlockId)}

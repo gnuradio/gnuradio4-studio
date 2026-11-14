@@ -109,8 +109,8 @@ type EditorState = {
   addVariable: (input?: { name?: string; binding?: ExpressionBinding }) => string;
   updateVariable: (variableId: string, patch: Partial<Pick<StudioVariable, 'name' | 'binding'>>) => void;
   removeVariable: (variableId: string) => void;
-  copyNodesToClipboard: (nodeIds: readonly string[]) => void;
-  pasteClipboard: () => { nodeIds: string[] } | null;
+  copyNodesToClipboard: (nodeIds: readonly string[], sourceGraphId?: string) => void;
+  pasteClipboard: (targetPosition?: GraphPoint) => { nodeIds: string[] } | null;
 };
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -227,7 +227,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       studioPlotPalettes: metadata.studioPlotPalettes,
       application: metadata.application,
       clipboard: state.clipboard,
-      clipboardPasteSequence: state.clipboardPasteSequence,
+      clipboardPasteSequence: 0,
       selectedNodeId: null,
       nextNodeSequence: Math.max(maxSuffix + 1, nodes.length + 1, 1),
     }));
@@ -584,7 +584,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       studioVariables: (state.studioVariables ?? []).filter((variable) => variable.id !== variableId),
     }));
   },
-  copyNodesToClipboard: (nodeIds) => {
+  copyNodesToClipboard: (nodeIds, sourceGraphId) => {
     set((state) => {
       const clipboard = buildGraphClipboardPayload(state.nodes, state.edges, nodeIds);
       if (!clipboard) {
@@ -592,11 +592,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
 
       return {
-        clipboard,
+        clipboard: { ...clipboard, sourceGraphId },
+        clipboardPasteSequence: 0,
       };
     });
   },
-  pasteClipboard: () => {
+  pasteClipboard: (targetPosition) => {
     const state = get();
     if (!state.clipboard) {
       return null;
@@ -605,6 +606,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const pasted = pasteGraphClipboardPayload(state.clipboard, {
       existingNodeIds: state.nodes.map((node) => node.instanceId),
       pasteSequence: state.clipboardPasteSequence,
+      targetPosition,
     });
 
     if (pasted.nodes.length === 0) {
