@@ -135,7 +135,7 @@ jobs:
           && -n "${{ vars.PUB_BUCKET_KEY_ID }}" ]]
           && echo "hasthings=true" >> "${GITHUB_OUTPUT}"
           || echo 'could not find bucket setup'
-      - name: Upload to public bucket (all but .js)
+      - name: Upload to public bucket (all but .js, .mjs and .wasm)
         if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
         uses: backblaze-labs/b2-action@v1.2.0
         with:
@@ -145,8 +145,8 @@ jobs:
           bucket: ${{ vars.PUB_BUCKET_NAME }}
           source: dist
           destination: commit/${{ github.sha }}
-          exclude: '**/*.js, **/*.mjs, serve.py'
-      - name: Gather .js files in staging directory
+          exclude: '**/*.js, **/*.mjs, **/*.wasm, serve.py'
+      - name: Gather .js, .mjs and .wasm files in staging directory
         # the b2 action is extremely stupid: you can't change into a directory,
         # and if you're using globs, you can't remove a leading directory
         # components. the include: and exclude: filters just don't work the way
@@ -163,7 +163,11 @@ jobs:
           shopt -s dotglob globstar
           (cd dist && cp -v --parents -- **/*.js **/*.mjs "${jsdir}")
           printf 'jsdir=%s\n' "${jsdir}" >> "${GITHUB_OUTPUT}"
-      - name: Upload to public bucket (.js files)
+          wasmdir="${RUNNER_TEMP}/wasmfiles"
+          mkdir -p "${wasmdir}"
+          (cd dist && cp -v --parents -- **/*.wasm "${wasmdir}")
+          printf 'wasmdir=%s\n' "${wasmdir}" >> "${GITHUB_OUTPUT}"
+      - name: Upload to public bucket (.js and .mjs files)
         if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
         uses: backblaze-labs/b2-action@v1.2.0
         with:
@@ -176,6 +180,17 @@ jobs:
           # browsers rejects an attempt to load it as script
           content-type: application/javascript
           source: ${{ steps.gatherfiles.outputs.jsdir }}
+          destination: commit/${{ github.sha }}
+      - name: Upload to public bucket (.wasm files)
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        uses: backblaze-labs/b2-action@v1.2.0
+        with:
+          action: upload
+          application-key-id: ${{ vars.PUB_BUCKET_KEY_ID }}
+          application-key: ${{ secrets.PUB_BUCKET_KEY }}
+          bucket: ${{ vars.PUB_BUCKET_NAME }}
+          content-type: application/wasm
+          source: ${{ steps.gatherfiles.outputs.wasmdir }}
           destination: commit/${{ github.sha }}
       - name: Print URL
         if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
