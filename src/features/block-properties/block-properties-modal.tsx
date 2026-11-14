@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { lookupStudioKnownBlockBinding } from '../graph-editor/runtime/known-block-bindings';
+import { studioFftSummary, studioPropertyChoices, studioPropertyGroup, validateStudioProperties } from './studio-properties';
+import { Fragment, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import type { BlockDetails, BlockParameterMeta } from '../../lib/api/block-details';
 import { isAdvancedParameterName, isAdvancedUiHint } from '../../lib/utils/parameter-groups';
 import { useEditorStore } from '../graph-editor/store/editorStore';
@@ -188,15 +190,19 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
           !isDescriptorBindingHiddenParameter(block?.blockTypeId ?? '', parameter.name) &&
           !parameter.readOnly &&
           parameter.mutable,
-      ),
+      ).sort((left, right) => {
+        const groups = ['', 'Input', 'Display', 'Updates and connection'];
+        return groups.indexOf(studioPropertyGroup(block?.blockTypeId ?? '', left.name)) -
+          groups.indexOf(studioPropertyGroup(block?.blockTypeId ?? '', right.name));
+      }),
     [block?.blockTypeId, parameterRows],
   );
   const readOnlyParameters = useMemo(
     () =>
       parameterRows.filter(
-        (parameter) => parameter.readOnly || !parameter.mutable,
+        (parameter) => !isDescriptorBindingHiddenParameter(block?.blockTypeId ?? '', parameter.name) && (parameter.readOnly || !parameter.mutable),
       ),
-    [parameterRows],
+    [block?.blockTypeId, parameterRows],
   );
   const advancedParameters = useMemo(
     () =>
@@ -209,7 +215,12 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
       ),
     [block?.blockTypeId, parameterRows],
   );
-  const canCommit = isDraftInitialized && !blockDetailsQuery.isPending && !blockDetailsQuery.isError;
+  const propertyErrors = validateStudioProperties(block?.blockTypeId ?? '',
+    Object.fromEntries(Object.entries(draftValues).filter(([name]) =>
+      !isDescriptorBindingHiddenParameter(block?.blockTypeId ?? '', name))));
+  const fftSummary = studioFftSummary(block?.blockTypeId ?? '', draftValues);
+  const canCommit = isDraftInitialized && !blockDetailsQuery.isPending && !blockDetailsQuery.isError &&
+    Object.keys(propertyErrors).length === 0;
   const virtualRouteIssues = useMemo(() => {
     if (!block || !isVirtualRoutingBlock) {
       return [];
@@ -299,7 +310,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
     const bindingKind = draftValues[parameter.name]?.bindingKind ?? 'literal';
     const isLiteral = bindingKind === 'literal';
     const isBoolean = isBooleanBlockParameter(parameter);
-    const enumChoices = parameter.enumChoices ?? [];
+    const enumChoices = studioPropertyChoices(block?.blockTypeId ?? '', parameter.name) ?? parameter.enumChoices ?? [];
     const enumTypeLabel = getBlockParameterEnumTypeLabel(parameter);
     const hasEnumChoices = enumChoices.length > 0;
     const isNoteTextParameter = isNoteBlock && parameter.name === 'text';
@@ -337,6 +348,31 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
             </datalist>
           )}
         </>
+      );
+    }
+
+    const binding = lookupStudioKnownBlockBinding(block?.blockTypeId ?? '');
+    if (isLiteral && parameter.name === 'window_size' &&
+        binding?.family === 'series2d' && binding.payloadFormat === 'dataset-xy-json-v1' && !binding.parameters.sampleRate) {
+      return (
+        <div className="flex min-w-0 gap-2">
+          <select
+            aria-label="Point limit"
+            value={currentValue === '-1' ? 'all' : 'limit'}
+            disabled={disabled}
+            onChange={(event) => setDraftValue(parameter.name, event.target.value === 'all' ? '-1' : '1024')}
+            className="min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          >
+            <option value="all">All points</option>
+            <option value="limit">Limit points</option>
+          </select>
+          {currentValue !== '-1' && <input
+            aria-label="Maximum points"
+            type="number" min={1} step={1} value={currentValue} disabled={disabled}
+            onChange={(event) => setDraftValue(parameter.name, event.target.value)}
+            className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          />}
+        </div>
       );
     }
 
@@ -546,60 +582,75 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                   </div>
                 </div>
               )}
+              {fftSummary.length > 0 && (
+                <div className="rounded border border-slate-700 bg-slate-950/40 p-3 text-xs text-slate-300 space-y-1">
+                  {fftSummary.map((line) => <p key={line}>{line}</p>)}
+                </div>
+              )}
+              {Object.keys(propertyErrors).length > 0 && (
+                <div role="alert" className="space-y-1 text-xs text-rose-300">
+                  {Object.entries(propertyErrors).map(([name, message]) => <p key={name}>{message}</p>)}
+                </div>
+              )}
               {editableParameters.length === 0 ? (
                 <p className="text-sm text-slate-400">This block has no editable parameters in General.</p>
               ) : (
-                editableParameters.map((parameter) => {
+                editableParameters.map((parameter, index) => {
                   const binding = findControlWidgetBinding(parameter.name);
                   const enumTypeLabel = getBlockParameterEnumTypeLabel(parameter);
 
+                  const group = studioPropertyGroup(block.blockTypeId, parameter.name);
+                  const previousGroup = index > 0 ? studioPropertyGroup(block.blockTypeId, editableParameters[index - 1].name) : '';
                   return (
-                    <div
-                      key={parameter.name}
-                      className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-2"
-                    >
-                      <div className={PARAMETER_ROW_GRID}>
-                        <label
-                          title={getBlockParameterHoverTitle(parameter)}
-                          className="min-w-0 cursor-help truncate text-xs font-medium text-slate-200"
-                        >
-                          {getAuthoringParameterLabel(block.blockTypeId, parameter.name, parameter.label)}
-                        </label>
-                        <select
-                          value={draftValues[parameter.name]?.bindingKind ?? 'literal'}
-                          disabled={isVirtualRoutingBlock && parameter.name === 'stream_id'}
-                          onChange={(event) =>
-                            setDraftBindingKind(parameter.name, event.target.value as DraftValue['bindingKind'])
-                          }
-                          className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 disabled:opacity-60"
-                        >
-                          <option value="literal">Literal</option>
-                          <option value="expression">Expression</option>
-                        </select>
-                        <div className="min-w-0">
-                          {renderParameterValueInput(parameter, false)}
-                        </div>
-                        <span
-                          title={enumTypeLabel ? `enum_type: ${enumTypeLabel}` : getBlockParameterTypeLabel(parameter)}
-                          className="justify-self-end shrink-0 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-[9px] uppercase tracking-wide text-slate-200"
-                        >
-                          {getBlockParameterTypeLabel(parameter)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleControlAction(parameter)}
-                          disabled={!isControlWidgetParameterTarget(parameter)}
-                          title={binding ? 'Remove control' : 'Add control'}
-                          className={`justify-self-end inline-flex h-6 w-6 items-center justify-center rounded border text-sm leading-none ${
-                            binding
-                              ? 'border-rose-700/70 bg-rose-900/30 text-rose-100 hover:bg-rose-800/40'
-                              : 'border-emerald-700/70 bg-emerald-900/35 text-emerald-100 hover:bg-emerald-800/45'
-                          } disabled:cursor-not-allowed disabled:opacity-40`}
+                    <Fragment key={parameter.name}>
+                      {group && group !== previousGroup && <p className="pt-3 text-xs font-medium text-slate-400">{group}</p>}
+                      <div
+                        className="rounded border border-slate-700 bg-slate-800/60 px-1.5 py-2"
+                      >
+                        <div className={PARAMETER_ROW_GRID}>
+                          <label
+                            title={getBlockParameterHoverTitle(parameter)}
+                            className="min-w-0 cursor-help truncate text-xs font-medium text-slate-200"
+                          >
+                            {getAuthoringParameterLabel(block.blockTypeId, parameter.name, parameter.label)}
+                          </label>
+                          <select
+                            value={draftValues[parameter.name]?.bindingKind ?? 'literal'}
+                            disabled={isVirtualRoutingBlock && parameter.name === 'stream_id'}
+                            onChange={(event) =>
+                              setDraftBindingKind(parameter.name, event.target.value as DraftValue['bindingKind'])
+                            }
+                            className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 disabled:opacity-60"
+                          >
+                            <option value="literal">Literal</option>
+                            <option value="expression">Expression</option>
+                          </select>
+                          <div className="min-w-0">
+                            {renderParameterValueInput(parameter, false)}
+                          </div>
+                          <span
+                            title={enumTypeLabel ? `enum_type: ${enumTypeLabel}` : getBlockParameterTypeLabel(parameter)}
+                            className="justify-self-end shrink-0 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-[9px] uppercase tracking-wide text-slate-200"
+                          >
+                            {getBlockParameterTypeLabel(parameter)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleControlAction(parameter)}
+                            disabled={!isControlWidgetParameterTarget(parameter)}
+                            title={binding ? 'Remove control' : 'Add control'}
+                            className={`justify-self-end inline-flex h-6 w-6 items-center justify-center rounded border text-sm leading-none ${
+                              binding
+                                ? 'border-rose-700/70 bg-rose-900/30 text-rose-100 hover:bg-rose-800/40'
+                                : 'border-emerald-700/70 bg-emerald-900/35 text-emerald-100 hover:bg-emerald-800/45'
+                            } disabled:cursor-not-allowed disabled:opacity-40`}
                           >
                             {binding ? '−' : '+'}
                           </button>
+                        </div>
+                        {propertyErrors[parameter.name] && <p className="mt-1 text-xs text-rose-300">{propertyErrors[parameter.name]}</p>}
                       </div>
-                    </div>
+                    </Fragment>
                   );
                 })
               )}

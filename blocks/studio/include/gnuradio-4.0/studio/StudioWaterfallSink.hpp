@@ -83,7 +83,7 @@ public:
         }
     }
 
-    void configure(std::size_t fft_size, std::size_t num_averages, float time_span, float sample_rate, gr::algorithm::window::Type window, bool output_in_db) {
+    void configure(std::size_t fft_size, std::size_t num_averages, float time_span, float sample_rate, gr::algorithm::window::Type window, bool output_in_db, float center_freq = 0.0F) {
         std::lock_guard lock(_mutex);
         _fftSize = std::max<std::size_t>(1UZ, fft_size);
         _numAverages = std::max<std::size_t>(1UZ, num_averages);
@@ -92,6 +92,7 @@ public:
         _timeSpanSamples = quantizedSamples;
         _historyRows = std::max<std::size_t>(1UZ, quantizedSamples / _fftSize);
         _sampleRate = sample_rate > 0.0F ? sample_rate : 1.0F;
+        _centerFreq = center_freq;
         _windowType = window;
         _windowName = std::string(magic_enum::enum_name(window));
         _outputInDb = output_in_db;
@@ -330,11 +331,11 @@ private:
         if constexpr (gr::meta::complex_like<T>) {
             const value_type freqOffset = static_cast<value_type>(bins / 2UZ) * freqWidth;
             for (std::size_t index = 0UZ; index < bins; ++index) {
-                _frequencies[index] = static_cast<value_type>(index) * freqWidth - freqOffset;
+                _frequencies[index] = static_cast<value_type>(index) * freqWidth - freqOffset + _centerFreq;
             }
         } else {
             for (std::size_t index = 0UZ; index < bins; ++index) {
-                _frequencies[index] = static_cast<value_type>(index) * freqWidth;
+                _frequencies[index] = static_cast<value_type>(index) * freqWidth + _centerFreq;
             }
         }
     }
@@ -420,6 +421,7 @@ private:
     std::size_t _timeSpanSamples = 262144UZ;
     std::size_t _historyRows = 256UZ;
     float _sampleRate = 1.0F;
+    float _centerFreq = 0.0F;
     value_type _timeSpan = 256.0F;
     std::string _windowName = std::string(magic_enum::enum_name(gr::algorithm::window::Type::BlackmanHarris));
     bool _outputInDb = true;
@@ -584,27 +586,28 @@ struct StudioWaterfallSink : Block<StudioWaterfallSink<T>> {
 
     PortIn<T> in;
 
-    Annotated<detail::WaterfallTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = detail::WaterfallTransport::websocket;
+    Annotated<detail::WaterfallTransport, "transport", Doc<"Connection method">, Visible> transport = detail::WaterfallTransport::websocket;
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18085/snapshot";
-    Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 10U;
+    Annotated<std::uint32_t, "update_ms", Doc<"Display update interval in milliseconds; independent of the input sample rate">, Visible> update_ms = 50U;
     Annotated<gr::Size_t, "fft_size", Doc<"FFT size used for each spectrum frame">, Visible> fft_size = 1024UZ;
-    Annotated<gr::Size_t, "num_averages", Doc<"Number of FFT frames averaged into each history row">, Visible> num_averages = 8UZ;
-    Annotated<float, "time_span", Doc<"Total waterfall history span in seconds (quantized to fft_size using sample_rate)">, Visible> time_span = 256.0F;
+    Annotated<gr::Size_t, "num_averages", Doc<"Sliding average length in FFT frames; one history row is added per FFT frame">, Visible> num_averages = 8UZ;
+    Annotated<float, "time_span", Doc<"History duration in seconds, rounded up to whole FFT frames">, Visible> time_span = 5.0F;
     Annotated<gr::algorithm::window::Type, "window", Doc<"FFT window function">, Visible> window = gr::algorithm::window::Type::BlackmanHarris;
-    Annotated<float, "sample_rate", Doc<"Input sample rate in Hz">, Visible> sample_rate = 1.0F;
+    Annotated<float, "sample_rate", Doc<"Input sample rate in Hz">, Visible> sample_rate = 48000.0F;
+    Annotated<float, "center_freq", Doc<"Center frequency in Hz added to the frequency axis">, Visible> center_freq = 0.0F;
     Annotated<bool, "output_in_db", Doc<"Render the waterfall history in dB">, Visible> output_in_db = true;
     Annotated<bool, "autoscale", Doc<"Automatically derive the waterfall colormap range from live data">, Visible> autoscale = true;
-    Annotated<float, "z_min", Doc<"Manual waterfall colormap minimum when autoscale is disabled">, Visible> z_min = 0.0F;
-    Annotated<float, "z_max", Doc<"Manual waterfall colormap maximum when autoscale is disabled">, Visible> z_max = 1.0F;
-    Annotated<std::string, "plot_title", Doc<"Optional semantic plot title for Studio Application">, Visible> plot_title = "Waterfall";
-    Annotated<std::string, "x_label", Doc<"Optional semantic x-axis label for Studio Application">, Visible> x_label = "Frequency";
-    Annotated<std::string, "y_label", Doc<"Optional semantic y-axis label for Studio Application">, Visible> y_label = "Power";
-    Annotated<std::string, "series_labels", Doc<"Optional comma-separated series labels for Studio Application">, Visible> series_labels = "Waterfall";
-    Annotated<float, "x_min", Doc<"Optional x-axis minimum when autoscale is disabled">, Visible> x_min = 0.0F;
-    Annotated<float, "x_max", Doc<"Optional x-axis maximum when autoscale is disabled">, Visible> x_max = 0.0F;
-    Annotated<float, "y_min", Doc<"Optional y-axis minimum when autoscale is disabled">, Visible> y_min = 0.0F;
-    Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<float, "z_min", Doc<"Minimum color intensity with automatic scaling off">, Visible> z_min = -140.0F;
+    Annotated<float, "z_max", Doc<"Maximum color intensity with automatic scaling off">, Visible> z_max = 10.0F;
+    Annotated<std::string, "plot_title", Doc<"Plot title">, Visible> plot_title = "Waterfall";
+    Annotated<std::string, "x_label", Doc<"Horizontal axis label">, Visible> x_label = "Frequency";
+    Annotated<std::string, "y_label", Doc<"Vertical axis label">, Visible> y_label = "Time";
+    Annotated<std::string, "series_labels", Doc<"Series labels in input order, separated by commas">, Visible> series_labels = "Waterfall";
+    Annotated<float, "x_min", Doc<"Horizontal axis minimum with automatic scaling off">> x_min = 0.0F;
+    Annotated<float, "x_max", Doc<"Horizontal axis maximum with automatic scaling off">> x_max = 0.0F;
+    Annotated<float, "y_min", Doc<"Vertical axis minimum with automatic scaling off">> y_min = 0.0F;
+    Annotated<float, "y_max", Doc<"Vertical axis maximum with automatic scaling off">> y_max = 0.0F;
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(
         StudioWaterfallSink,
@@ -617,6 +620,7 @@ struct StudioWaterfallSink : Block<StudioWaterfallSink<T>> {
         time_span,
         window,
         sample_rate,
+        center_freq,
         output_in_db,
         autoscale,
         z_min,
@@ -640,7 +644,8 @@ struct StudioWaterfallSink : Block<StudioWaterfallSink<T>> {
             time_span,
             sample_rate,
             window.value,
-            output_in_db);
+            output_in_db,
+            center_freq);
         _window.configureColorScale(autoscale, z_min, z_max);
         syncInputPortConstraints();
         startTransport();
@@ -658,6 +663,7 @@ struct StudioWaterfallSink : Block<StudioWaterfallSink<T>> {
             new_settings.contains("time_span") ||
             new_settings.contains("window") ||
             new_settings.contains("sample_rate") ||
+            new_settings.contains("center_freq") ||
             new_settings.contains("output_in_db") ||
             new_settings.contains("autoscale") ||
             new_settings.contains("z_min") ||
@@ -668,7 +674,8 @@ struct StudioWaterfallSink : Block<StudioWaterfallSink<T>> {
                 time_span,
                 sample_rate,
                 window.value,
-                output_in_db);
+                output_in_db,
+                center_freq);
             _window.configureColorScale(autoscale, z_min, z_max);
             syncInputPortConstraints();
         }

@@ -55,9 +55,9 @@ void testSeriesRegistered() {
 
 void testDefaultTransportAndCadence() {
     gr::studio::StudioSeriesSink<float> block{};
-    assert(block.transport.value == gr::studio::detail::SeriesTransport::http_poll);
+    assert(block.transport.value == gr::studio::detail::SeriesTransport::websocket);
     assert(block.window_mode.value == gr::studio::detail::SeriesWindowMode::rolling);
-    assert(block.update_ms == 250U);
+    assert(block.update_ms == 50U);
     assert(block.n_inputs == 1UZ);
     assert(block.in.size() == 1UZ);
 }

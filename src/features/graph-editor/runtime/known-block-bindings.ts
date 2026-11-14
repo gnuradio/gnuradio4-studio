@@ -56,13 +56,18 @@ export type StudioBindingView = {
   reason?: string;
 };
 
+function parseSampleRate(value: string | undefined): number | undefined {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 function parseInteger(value: string | undefined): number | undefined {
   if (!value) {
     return undefined;
   }
 
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
 
 function normalizeString(value: string | undefined): string {
@@ -529,7 +534,7 @@ export function resolveStudioBindingFromParameters(
     ? parseInteger(parameterValues[cadenceParameter])
     : undefined;
   const sampleRate = binding.parameters.sampleRate
-    ? parseInteger(parameterValues[binding.parameters.sampleRate])
+    ? parseSampleRate(parameterValues[binding.parameters.sampleRate])
     : undefined;
   const channels = binding.parameters.channels
     ? parseInteger(parameterValues[binding.parameters.channels])

@@ -101,6 +101,9 @@ export function parseHttpVectorSnapshot(payload: unknown): HttpVectorSnapshot {
 }
 
 export function parseHttpDatasetXySnapshot(payload: unknown): HttpVectorSnapshot {
+  if (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string') {
+    throw new Error(payload.error);
+  }
   const parsed = parseHttpVectorSnapshot(payload);
   const record = payload as Record<string, unknown>;
   if (record.payload_format !== 'dataset-xy-json-v1') {

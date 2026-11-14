@@ -217,6 +217,12 @@ public:
         std::string axis_unit;
 
         if (has_data) {
+            if (signal_index >= copy.size()) {
+                return R"({"payload_format":"dataset-xy-json-v1","layout":"pairs_xy","points":0,"data":[],"error":"Signal index is outside the latest DataSet."})";
+            }
+            if (axis_index >= copy.axis_values.size() && (axis_index != 0UZ || !copy.axis_values.empty())) {
+                return R"({"payload_format":"dataset-xy-json-v1","layout":"pairs_xy","points":0,"data":[],"error":"Axis index is outside the latest DataSet."})";
+            }
             try {
                 auto y_span = copy.signalValues(signal_index);
                 y_values.assign(y_span.begin(), y_span.end());
@@ -307,26 +313,26 @@ GR_REGISTER_BLOCK("gr::studio::StudioDataSetSink", gr::studio::StudioDataSetSink
 
 template<typename T>
 struct StudioDataSetSink : Block<StudioDataSetSink<T>> {
-    using Description = Doc<"@brief Studio DataSet sink with explicit transport configuration and dataset-xy-json-v1 payloads.">;
+    using Description = Doc<"@brief Displays a selected signal and axis from the latest DataSet.">;
 
     PortIn<DataSet<T>> in;
 
-    Annotated<std::string, "transport", Doc<"Data-plane transport mode">, Visible> transport = "http_poll";
+    Annotated<std::string, "transport", Doc<"Connection method">, Visible> transport = "http_poll";
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18084/snapshot";
-    Annotated<std::uint32_t, "poll_ms", Doc<"Suggested poll interval in milliseconds for poll transports">, Visible> poll_ms = 250U;
+    Annotated<std::uint32_t, "poll_ms", Doc<"Display polling interval in milliseconds">, Visible> poll_ms = 50U;
     Annotated<std::int64_t, "window_size",
         Doc<"Maximum XY points in snapshot; -1 includes the complete "
             "latest DataSet">,
         Visible>
                                                                                                       window_size  = -1;
-    Annotated<gr::Size_t, "signal_index", Doc<"Selected DataSet signal index">, Visible> signal_index = 0UZ;
-    Annotated<gr::Size_t, "axis_index", Doc<"Selected DataSet axis index">, Visible> axis_index = 0UZ;
-    Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
-    Annotated<float, "x_min", Doc<"Optional x-axis minimum when autoscale is disabled">, Visible> x_min = 0.0F;
-    Annotated<float, "x_max", Doc<"Optional x-axis maximum when autoscale is disabled">, Visible> x_max = 0.0F;
-    Annotated<float, "y_min", Doc<"Optional y-axis minimum when autoscale is disabled">, Visible> y_min = 0.0F;
-    Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<gr::Size_t, "signal_index", Doc<"Signal to display (zero-based index)">, Visible> signal_index = 0UZ;
+    Annotated<gr::Size_t, "axis_index", Doc<"Horizontal axis to display (zero-based index)">, Visible> axis_index = 0UZ;
+    Annotated<bool, "autoscale", Doc<"Scale the plotted values automatically">, Visible> autoscale = true;
+    Annotated<float, "x_min", Doc<"Horizontal axis minimum with automatic scaling off">, Visible> x_min = -1.0F;
+    Annotated<float, "x_max", Doc<"Horizontal axis maximum with automatic scaling off">, Visible> x_max = 1.0F;
+    Annotated<float, "y_min", Doc<"Vertical axis minimum with automatic scaling off">, Visible> y_min = -1.0F;
+    Annotated<float, "y_max", Doc<"Vertical axis maximum with automatic scaling off">, Visible> y_max = 1.0F;
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(StudioDataSetSink, in, transport, endpoint, poll_ms, window_size, signal_index, axis_index, autoscale, x_min, x_max, y_min, y_max, topic);
 

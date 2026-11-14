@@ -221,14 +221,14 @@ struct StudioScalarSink : Block<StudioScalarSink<T>> {
 
     PortIn<T> in;
 
-    Annotated<detail::ScalarStatusTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = detail::ScalarStatusTransport::http_poll;
+    Annotated<detail::ScalarStatusTransport, "transport", Doc<"Connection method">, Visible> transport = detail::ScalarStatusTransport::websocket;
     Annotated<std::string, "endpoint", Doc<"Runtime-managed stream endpoint URL/path">> endpoint = "http://127.0.0.1:18080/scalars";
-    Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 250U;
+    Annotated<std::uint32_t, "update_ms", Doc<"Display update interval in milliseconds; independent of the input sample rate">, Visible> update_ms = 50U;
     Annotated<gr::Size_t, "channels", Doc<"Interleaved input channel count">, Visible> channels = 1UZ;
-    Annotated<std::string, "labels", Doc<"Comma-separated channel labels">, Visible> labels = "";
-    Annotated<std::string, "units", Doc<"Comma-separated channel units">, Visible> units = "";
-    Annotated<std::string, "title", Doc<"Optional semantic panel title for Studio Application">, Visible> title = "";
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<std::string, "labels", Doc<"Channel labels in interleaved input order, separated by commas">, Visible> labels = "";
+    Annotated<std::string, "units", Doc<"Units in interleaved input order, separated by commas">, Visible> units = "";
+    Annotated<std::string, "title", Doc<"Panel title">, Visible> title = "";
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(StudioScalarSink, in, transport, endpoint, update_ms, channels, labels, units, title, topic);
 
@@ -316,14 +316,14 @@ struct StudioStatusSink : Block<StudioStatusSink<T>> {
 
     PortIn<T> in;
 
-    Annotated<detail::ScalarStatusTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = detail::ScalarStatusTransport::http_poll;
+    Annotated<detail::ScalarStatusTransport, "transport", Doc<"Connection method">, Visible> transport = detail::ScalarStatusTransport::websocket;
     Annotated<std::string, "endpoint", Doc<"Runtime-managed stream endpoint URL/path">> endpoint = "http://127.0.0.1:18080/status";
-    Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 250U;
+    Annotated<std::uint32_t, "update_ms", Doc<"Display update interval in milliseconds; independent of the input sample rate">, Visible> update_ms = 50U;
     Annotated<gr::Size_t, "channels", Doc<"Interleaved input channel count">, Visible> channels = 1UZ;
-    Annotated<std::string, "labels", Doc<"Comma-separated channel labels">, Visible> labels = "";
-    Annotated<std::string, "units", Doc<"Comma-separated channel units">, Visible> units = "";
-    Annotated<std::string, "title", Doc<"Optional semantic panel title for Studio Application">, Visible> title = "";
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<std::string, "labels", Doc<"Channel labels in interleaved input order, separated by commas">, Visible> labels = "";
+    Annotated<std::string, "units", Doc<"Units in interleaved input order, separated by commas">, Visible> units = "";
+    Annotated<std::string, "title", Doc<"Panel title">, Visible> title = "";
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(StudioStatusSink, in, transport, endpoint, update_ms, channels, labels, units, title, topic);
 

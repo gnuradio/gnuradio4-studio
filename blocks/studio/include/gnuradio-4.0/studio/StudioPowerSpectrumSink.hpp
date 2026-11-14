@@ -1047,26 +1047,26 @@ struct StudioPowerSpectrumSink : Block<StudioPowerSpectrumSink<T>> {
 
     PortIn<T> in;
 
-    Annotated<detail::PowerSpectrumTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = detail::PowerSpectrumTransport::websocket;
+    Annotated<detail::PowerSpectrumTransport, "transport", Doc<"Connection method">, Visible> transport = detail::PowerSpectrumTransport::websocket;
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18085/snapshot";
-    Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 10U;
+    Annotated<std::uint32_t, "update_ms", Doc<"Display update interval in milliseconds; independent of the input sample rate">, Visible> update_ms = 50U;
     Annotated<gr::Size_t, "fft_size", Doc<"FFT size used for each spectrum frame">, Visible> fft_size = 1024UZ;
     Annotated<gr::Size_t, "num_averages", Doc<"Number of FFT frames averaged into the displayed spectrum">, Visible> num_averages = 8UZ;
     Annotated<gr::algorithm::window::Type, "window", Doc<"FFT window function">, Visible> window = gr::algorithm::window::Type::BlackmanHarris;
-    Annotated<float, "sample_rate", Doc<"Input sample rate in Hz">, Visible> sample_rate = 1.0F;
+    Annotated<float, "sample_rate", Doc<"Input sample rate in Hz">, Visible> sample_rate = 48000.0F;
     Annotated<float, "center_freq", Doc<"Optional RF center frequency in Hz added to the displayed frequency axis">, Visible> center_freq = 0.0F;
     Annotated<bool, "output_in_db", Doc<"Render the averaged power spectrum in dB">, Visible> output_in_db = true;
-    Annotated<bool, "persistence", Doc<"Enable phosphor persistence rendering in Studio Application">, Visible> persistence = false;
+    Annotated<bool, "persistence", Doc<"Keep a fading trail behind the spectrum">, Visible> persistence = false;
     Annotated<float, "phosphor_intensity", Doc<"Phosphor intensity multiplier when persistence is enabled">, Visible> phosphor_intensity = 1.1F;
     Annotated<float, "phosphor_decay_ms", Doc<"Phosphor persistence decay time in milliseconds">, Visible> phosphor_decay_ms = 1024.0F;
-    Annotated<std::string, "plot_title", Doc<"Optional semantic plot title for Studio Application">, Visible> plot_title = "Power Spectrum";
-    Annotated<std::string, "x_label", Doc<"Optional semantic x-axis label for Studio Application">, Visible> x_label = "Frequency";
-    Annotated<std::string, "y_label", Doc<"Optional semantic y-axis label for Studio Application">, Visible> y_label = "Power";
-    Annotated<std::string, "series_labels", Doc<"Optional comma-separated series labels for Studio Application">, Visible> series_labels = "Power";
-    Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
-    Annotated<float, "y_min", Doc<"Optional y-axis minimum when autoscale is disabled">, Visible> y_min = 0.0F;
-    Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<std::string, "plot_title", Doc<"Plot title">, Visible> plot_title = "Power Spectrum";
+    Annotated<std::string, "x_label", Doc<"Horizontal axis label">, Visible> x_label = "Frequency";
+    Annotated<std::string, "y_label", Doc<"Vertical axis label">, Visible> y_label = "Power";
+    Annotated<std::string, "series_labels", Doc<"Series labels in input order, separated by commas">, Visible> series_labels = "Power";
+    Annotated<bool, "autoscale", Doc<"Scale the plotted values automatically">, Visible> autoscale = true;
+    Annotated<float, "y_min", Doc<"Vertical axis minimum with automatic scaling off">, Visible> y_min = -140.0F;
+    Annotated<float, "y_max", Doc<"Vertical axis maximum with automatic scaling off">, Visible> y_max = 10.0F;
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(
         StudioPowerSpectrumSink,

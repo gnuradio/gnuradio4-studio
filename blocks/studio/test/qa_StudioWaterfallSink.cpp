@@ -39,7 +39,15 @@ void configureBlock(TBlock& block, float timeSpanSeconds = 1.0F) {
 void testDefaultTransportAndCadence() {
     gr::studio::StudioWaterfallSink<float> block{};
     assert(block.transport.value == gr::studio::detail::WaterfallTransport::websocket);
-    assert(block.update_ms == 10U);
+    assert(block.update_ms == 50U);
+}
+
+void testCenterFrequency() {
+    gr::studio::StudioWaterfallSink<std::complex<float>> block{};
+    configureBlock(block);
+    block.center_freq = 100.0F;
+    block.settingsChanged({}, gr::property_map{{"center_freq", 100.0F}});
+    assert(block.snapshotJson().find("\"frequencies\":[96,98,100,102]") != std::string::npos);
 }
 
 void testFloatWaterfall() {
@@ -111,8 +119,8 @@ void testEmptyAndClampedWaterfall() {
     assert(json.find("\"sample_type\":\"float32\"") != std::string::npos);
     assert(json.find("\"time_span\":1") != std::string::npos);
     assert(json.find("\"sample_rate\":1") != std::string::npos);
-    assert(json.find("\"min_value\":0") != std::string::npos);
-    assert(json.find("\"max_value\":1") != std::string::npos);
+    assert(json.find("\"min_value\":-140") != std::string::npos);
+    assert(json.find("\"max_value\":10") != std::string::npos);
     assert(json.find("\"color_map\":\"turbo\"") != std::string::npos);
 }
 
@@ -203,6 +211,7 @@ void testHttpTransportHelpers() {
 
 int main() {
     testDefaultTransportAndCadence();
+    testCenterFrequency();
     testFloatWaterfall();
     testManualColorScaleWaterfall();
     testEmptyAndClampedWaterfall();

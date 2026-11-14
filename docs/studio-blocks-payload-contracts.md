@@ -202,6 +202,7 @@ Expected payload fields:
 Semantics:
 
 - `StudioDataSetSink.window_size` defaults to `-1`, which publishes every point of the latest DataSet. A positive value publishes the last N points; zero and values below -1 are invalid. The sink retains the latest DataSet, without accumulating history.
+- An invalid signal or axis selection emits an optional `error` string with an empty trace. Studio reports this as a display error. A DataSet without explicit axis values uses sample indices when `axis_index=0`.
 - DataSet semantics remain sink/runtime-side.
 - Payload normalizes to one XY trace for plotting.
 - `StudioPowerSpectrumSink` uses this contract to publish FFT frequency bins against averaged power values.
@@ -286,7 +287,8 @@ Semantics:
 - The block also owns the color scale range:
   - when `autoscale` is true, it derives `min_value` / `max_value` from the live data
   - when `autoscale` is false, it uses `z_min` / `z_max` as the color range and mirrors that range back through `min_value` / `max_value`
-- Waterfall plots do not use `x_min` / `x_max` / `y_min` / `y_max`; those ranges are reserved for non-waterfall plot kinds.
+- Waterfall authoring exposes intensity bounds only. Legacy `x_min` / `x_max` / `y_min` / `y_max` values are ignored and omitted from runtime export.
+- `center_freq` offsets the emitted frequency bins in Hz; zero keeps baseband frequencies.
 - The payload emits the effective quantized `time_span` and `sample_rate` used for the raster size.
 
 Frontend routing:

@@ -47,6 +47,11 @@ int main() {
         }
         assert(refused);
     }
+    window.configure(1, 0, -1);
+    assert(window.snapshotJson().find("Signal index is outside") != std::string::npos);
+    window.configure(0, 1, -1);
+    assert(window.snapshotJson().find("Axis index is outside") != std::string::npos);
+    window.configure(0, 0, -1);
     const auto next = spectrum(2);
     window.push(std::span(&next, 1));
     assert(window.snapshotJson().find("\"points\":2") != std::string::npos);
