@@ -21,7 +21,8 @@ export type Gr4cpModule = {
 
 type Gr4cpModuleFactory = (options?: Record<string, unknown>) => Promise<Gr4cpModule>;
 
-export const DEFAULT_WASM_MODULE_URL = '/wasm/gr4cp_wasm.mjs';
+// Resolved against the page, so the app also works when hosted under a sub-path.
+export const DEFAULT_WASM_MODULE_URL = `${import.meta.env.BASE_URL}wasm/gr4cp_wasm.mjs`;
 
 let modulePromise: Promise<Gr4cpModule> | null = null;
 // Non-null once a transport is installed: the studio talks to the in-process module instead of HTTP.
@@ -138,7 +139,7 @@ async function instantiate(moduleUrl: string): Promise<Gr4cpModule> {
 
 export function loadControlPlaneWasm(moduleUrl: string = DEFAULT_WASM_MODULE_URL): Promise<Gr4cpModule> {
   if (modulePromise === null) {
-    modulePromise = instantiate(moduleUrl).then(
+    modulePromise = instantiate(new URL(moduleUrl, document.baseURI).href).then(
       (module) => {
         void measureBinarySize(moduleUrl);
         return module;
