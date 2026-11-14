@@ -42,6 +42,9 @@ input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-acce
   --xy-node-boxshadow-selected: 0 0 0 1px var(--theme-block-selected);
 }
 
+/* Keep the marquee while dragging; selected blocks provide the lasting outline. */
+.react-flow .react-flow__nodesselection { display: none; }
+
 .react-flow__edge:hover .react-flow__edge-path { stroke: var(--theme-connection-highlighted); }
 .react-flow__edge.selected .react-flow__edge-path { stroke: var(--theme-connection-selected); stroke-width: 3; }
 .react-flow__edge.theme-invalid .react-flow__edge-path {
