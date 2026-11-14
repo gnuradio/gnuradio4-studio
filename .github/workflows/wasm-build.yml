@@ -216,7 +216,8 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           MARKER: '<!-- uploads-urls -->'
           URL: ${{ steps.url.outputs.url }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          USER: ${{ github.event.pull_request.head.user.name }}
         run: |
           # bit brutal: get all the comments from every page, then look for the one we need.
           # should work for anything but the worst 1000 comment PRs
@@ -224,7 +225,7 @@ jobs:
                  | jq -r --arg m "$MARKER" \
                      '[.[][]] | map(select(.body | contains($m))) | .[0].id // ""')
 
-          NEW_LINE="- ${URL} ($(date -u) | ${SHA})"
+          NEW_LINE="- [$(date -u)](${URL}) (${SHA}${USER:+ | ${USER}})"
           if [ -z "$id" ]; then
             printf '%s\n\n# Published URLs\n(chronologically ordered)\n%s\n' "$MARKER" "$NEW_LINE" > body.md
             gh api "repos/$REPO/issues/$PR/comments" -F body=@body.md
