@@ -25,23 +25,33 @@ async function writeDocument(filePath, content) {
 // The renderer receives opaque handles only. It cannot choose a filesystem path via IPC.
 export function createDesktopDocuments({ dialog, getWindow }) {
   const files = new Map();
+  let lastDirectory;
+  const directoryFor = (token) => {
+    const filePath = typeof token === 'string' ? files.get(token) : undefined;
+    return filePath ? path.dirname(filePath) : lastDirectory;
+  };
   const remember = (filePath) => {
     const token = randomUUID();
     files.set(token, filePath);
+    lastDirectory = path.dirname(filePath);
     return { token, name: path.basename(filePath) };
   };
   const filters = [{ name: 'Studio documents', extensions: ['gr4s'] }, { name: 'All files', extensions: ['*'] }];
   return {
     clear() { files.clear(); },
-    async open() {
-      const result = await dialog.showOpenDialog(getWindow(), { filters, properties: ['openFile'] });
+    async open({ token } = {}) {
+      const result = await dialog.showOpenDialog(getWindow(), {
+        filters, properties: ['openFile'], defaultPath: directoryFor(token),
+      });
       if (result.canceled || !result.filePaths[0]) return null;
       const content = await fs.readFile(result.filePaths[0], 'utf8');
       return { ...remember(result.filePaths[0]), content };
     },
-    async saveAs({ name, content }) {
+    async saveAs({ name, content, token }) {
       if (typeof name !== 'string' || typeof content !== 'string') throw new Error('Invalid document.');
-      const result = await dialog.showSaveDialog(getWindow(), { filters, defaultPath: path.basename(name) });
+      const result = await dialog.showSaveDialog(getWindow(), {
+        filters, defaultPath: path.join(directoryFor(token) ?? '', path.basename(name)),
+      });
       if (result.canceled || !result.filePath) return null;
       await writeDocument(result.filePath, content);
       return remember(result.filePath);
@@ -50,6 +60,7 @@ export function createDesktopDocuments({ dialog, getWindow }) {
       const filePath = typeof token === 'string' ? files.get(token) : null;
       if (!filePath) throw new Error('This document handle has expired. Use Save As.');
       await writeDocument(filePath, content);
+      lastDirectory = path.dirname(filePath);
       return { token, name: path.basename(filePath) };
     },
   };
