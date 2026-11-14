@@ -39,7 +39,7 @@ export class StudioAudioPlaybackController {
 
     if (!this.context) {
       this.context = new AudioContext({ sampleRate }) as AudioContextWithSink;
-      await this.context.audioWorklet.addModule('/audio-worklet-processor.js');
+      await this.context.audioWorklet.addModule(new URL(`${import.meta.env.BASE_URL}audio-worklet-processor.js`, document.baseURI).href);
       this.workletNode = new AudioWorkletNode(this.context, 'studio-audio-playback', {
         numberOfInputs: 0,
         numberOfOutputs: 1,

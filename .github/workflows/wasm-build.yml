@@ -1,6 +1,7 @@
 name: WASM build
 
 on:
+  pull_request:
   push:
     branches:
       - main
@@ -123,3 +124,113 @@ jobs:
           name: gr4-studio-web
           path: dist
           if-no-files-found: error
+
+      - name: Check public bucket setup
+        id: checksetup
+        # sigh: github, you know this will come back to bite you, why don't you have a "check presence"
+        # function usable in "if:" ???
+        # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#example-using-secrets
+        run: >
+          [[ -n "${{ vars.PUB_BUCKET_NAME }}"
+          && -n "${{ vars.PUB_BUCKET_KEY_ID }}" ]]
+          && echo "hasthings=true" >> "${GITHUB_OUTPUT}"
+          || echo 'could not find bucket setup'
+      - name: Upload to public bucket (all but .js, .mjs and .wasm)
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        uses: backblaze-labs/b2-action@v1.2.0
+        with:
+          action: upload
+          application-key-id: ${{ vars.PUB_BUCKET_KEY_ID }}
+          application-key: ${{ secrets.PUB_BUCKET_KEY }}
+          bucket: ${{ vars.PUB_BUCKET_NAME }}
+          source: dist
+          destination: commit/${{ github.sha }}
+          exclude: '**/*.js, **/*.mjs, **/*.wasm, serve.py'
+      - name: Gather .js, .mjs and .wasm files in staging directory
+        # the b2 action is extremely stupid: you can't change into a directory,
+        # and if you're using globs, you can't remove a leading directory
+        # components. the include: and exclude: filters just don't work the way
+        # the documentation says, as they're actually post-filters. Not that
+        # there's much documentation to speak of.
+        # so, globs in source: is a non-feature, and we need to stage the .js 
+        # files in a separate directory. Sigh.
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        id: gatherfiles
+        shell: bash
+        run: |
+          jsdir="${RUNNER_TEMP}/jsfiles"
+          mkdir -p "${jsdir}"
+          shopt -s dotglob globstar
+          (cd dist && cp -v --parents -- **/*.js **/*.mjs "${jsdir}")
+          printf 'jsdir=%s\n' "${jsdir}" >> "${GITHUB_OUTPUT}"
+          wasmdir="${RUNNER_TEMP}/wasmfiles"
+          mkdir -p "${wasmdir}"
+          (cd dist && cp -v --parents -- **/*.wasm "${wasmdir}")
+          printf 'wasmdir=%s\n' "${wasmdir}" >> "${GITHUB_OUTPUT}"
+      - name: Upload to public bucket (.js and .mjs files)
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        uses: backblaze-labs/b2-action@v1.2.0
+        with:
+          action: upload
+          application-key-id: ${{ vars.PUB_BUCKET_KEY_ID }}
+          application-key: ${{ secrets.PUB_BUCKET_KEY }}
+          bucket: ${{ vars.PUB_BUCKET_NAME }}
+          # Got to explicitly mark JavaScript as such, otherwise MIME type
+          # gets auto-assigned, and that'd be application/json, which makes
+          # browsers rejects an attempt to load it as script
+          content-type: application/javascript
+          source: ${{ steps.gatherfiles.outputs.jsdir }}
+          destination: commit/${{ github.sha }}
+      - name: Upload to public bucket (.wasm files)
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        uses: backblaze-labs/b2-action@v1.2.0
+        with:
+          action: upload
+          application-key-id: ${{ vars.PUB_BUCKET_KEY_ID }}
+          application-key: ${{ secrets.PUB_BUCKET_KEY }}
+          bucket: ${{ vars.PUB_BUCKET_NAME }}
+          content-type: application/wasm
+          source: ${{ steps.gatherfiles.outputs.wasmdir }}
+          destination: commit/${{ github.sha }}
+
+      - name: Compile URL
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        id: url
+        run: >
+          printf 'url=https://%s.backblazeb2.com/file/%s/commit/%s/index.html\n'
+          f004
+          ${{ vars.PUB_BUCKET_NAME }}
+          ${{ github.sha }}
+          >> ${GITHUB_OUTPUT}
+      - name: Print URL
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        env:
+          COMPILED_URL: ${{ steps.url.outputs.url }}
+        run: >
+          printf '::notice title="Artifact URL"::%s\n' "${COMPILED_URL}"
+      - name: Insert or update PR comment containing URL
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          MARKER: '<!-- uploads-urls -->'
+          URL: ${{ steps.url.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          USER: ${{ github.event.pull_request.head.user.name }}
+        run: |
+          # bit brutal: get all the comments from every page, then look for the one we need.
+          # should work for anything but the worst 1000 comment PRs
+          id=$(gh api --paginate --slurp "repos/$REPO/issues/$PR/comments" \
+                 | jq -r --arg m "$MARKER" \
+                     '[.[][]] | map(select(.body | contains($m))) | .[0].id // ""')
+
+          NEW_LINE="- [$(date -u)](${URL}) (${SHA}${USER:+ | ${USER}})"
+          if [ -z "$id" ]; then
+            printf '%s\n\n# Published URLs\n(chronologically ordered)\n%s\n' "$MARKER" "$NEW_LINE" > body.md
+            gh api "repos/$REPO/issues/$PR/comments" -F body=@body.md
+          else
+            gh api "repos/$REPO/issues/comments/$id" --jq .body > old.md
+            { cat old.md; printf '%s\n' "$NEW_LINE"; } > body.md
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@body.md
+          fi
