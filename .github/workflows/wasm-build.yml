@@ -192,11 +192,44 @@ jobs:
           content-type: application/wasm
           source: ${{ steps.gatherfiles.outputs.wasmdir }}
           destination: commit/${{ github.sha }}
-      - name: Print URL
+
+      - name: Compile URL
         if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        id: url
         run: >
-          printf '::notice title="Artifact URL"::https://%s.backblazeb2.com/file/%s/commit/%s/index.html\n'
+          printf 'url=https://%s.backblazeb2.com/file/%s/commit/%s/index.html\n'
           f004
           ${{ vars.PUB_BUCKET_NAME }}
           ${{ github.sha }}
+          >> ${GITHUB_OUTPUT}
+      - name: Print URL
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
+        env:
+          COMPILED_URL: ${{ steps.url.outputs.url }}
+        run: >
+          printf '::notice title="Artifact URL"::%s\n' "${COMPILED_URL}"
+      - name: Insert or update PR comment containing URL
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          MARKER: '<!-- uploads-urls -->'
+          URL: ${{ steps.url.outputs.url }}
+          SHA: ${{ github.sha }}
+        run: |
+          # bit brutal: get all the comments from every page, then look for the one we need.
+          # should work for anything but the worst 1000 comment PRs
+          id=$(gh api --paginate --slurp "repos/$REPO/issues/$PR/comments" \
+                 | jq -r --arg m "$MARKER" \
+                     '[.[][]] | map(select(.body | contains($m))) | .[0].id // ""')
 
+          NEW_LINE="- ${URL} ($(date -u) | ${SHA})"
+          if [ -z "$id" ]; then
+            printf '%s\n\n# Published URLs\n(chronologically ordered)\n%s\n' "$MARKER" "$NEW_LINE" > body.md
+            gh api "repos/$REPO/issues/$PR/comments" -F body=@body.md
+          else
+            gh api "repos/$REPO/issues/comments/$id" --jq .body > old.md
+            { cat old.md; printf '%s\n' "$NEW_LINE"; } > body.md
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@body.md
+          fi
