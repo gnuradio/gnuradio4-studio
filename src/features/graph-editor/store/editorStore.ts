@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { rotateGraphNodes } from '../model/node-rotation';
 import type { EdgeChange, NodeChange } from '@xyflow/react';
 import type { ExpressionBinding } from '../../variables/model/types';
 import { createNextVariableName, createUniqueVariableName } from '../../variables/model/variable-binding';
@@ -97,6 +98,7 @@ type EditorState = {
   selectNode: (nodeId: string | null) => void;
   setNodePosition: (nodeId: string, position: GraphPoint) => void;
   setNodeExecutionMode: (nodeId: string, executionMode: 'active' | 'disabled' | 'bypassed') => void;
+  rotateNodes: (nodeIds: readonly string[], direction: 'left' | 'right', sizes?: ReadonlyMap<string, { width: number; height: number }>) => void;
   setNodeRotation: (nodeId: string, rotation: 0 | 90 | 180 | 270) => void;
   removeNode: (nodeId: string) => void;
   addEdge: (input: AddEdgeInput) => void;
@@ -375,6 +377,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           : node,
       ),
     }));
+  },
+  rotateNodes: (nodeIds, direction, sizes) => {
+    set((state) => {
+      const selectedIds = new Set(nodeIds);
+      const rotated = new Map(rotateGraphNodes(
+        state.nodes.filter((node) => selectedIds.has(node.instanceId)), direction, sizes,
+      ).map((node) => [node.instanceId, node]));
+      return { nodes: state.nodes.map((node) => rotated.get(node.instanceId) ?? node) };
+    });
   },
   setNodeRotation: (nodeId, rotation) => {
     set((state) => ({
