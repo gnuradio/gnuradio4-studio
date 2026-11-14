@@ -141,4 +141,23 @@ describe('editorStore flow change application', () => {
     expect(nodeIds.some((id) => id.startsWith('node-1-copy'))).toBe(true);
     expect(nodeIds.some((id) => id.startsWith('node-2-copy'))).toBe(true);
   });
+  it('resets paste offsets on a new copy and destination change without losing the snapshot', () => {
+    const store = useEditorStore.getState;
+    store().copyNodesToClipboard(['node-1', 'node-2'], 'source-tab');
+    store().pasteClipboard();
+    store().pasteClipboard();
+    expect(store().clipboardPasteSequence).toBe(2);
+    store().copyNodesToClipboard(['node-1', 'node-2'], 'source-tab');
+    expect(store().clipboardPasteSequence).toBe(0);
+    store().pasteClipboard();
+    store().replaceGraph({ nodes: [], edges: [], metadata: { name: 'Destination' } });
+    expect(store().clipboardPasteSequence).toBe(0);
+    expect(store().clipboard?.sourceGraphId).toBe('source-tab');
+    const pasted = store().pasteClipboard({ x: 200, y: 300 });
+    expect(pasted?.nodeIds).toEqual(['node-1-copy', 'node-2-copy']);
+    expect(store().nodes[0].position).toEqual({ x: 224, y: 324 });
+    expect(store().edges[0]).toMatchObject({ sourceInstanceId: 'node-1-copy', targetInstanceId: 'node-2-copy' });
+    expect(store().selectedNodeId).toBe('node-1-copy');
+  });
+
 });

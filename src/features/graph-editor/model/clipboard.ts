@@ -24,6 +24,7 @@ export type GraphClipboardEdge = {
 
 export type GraphClipboardPayload = {
   version: 1;
+  sourceGraphId?: string;
   nodes: GraphClipboardNode[];
   edges: GraphClipboardEdge[];
 };
@@ -92,6 +93,7 @@ export function pasteGraphClipboardPayload(
   input: {
     existingNodeIds: readonly string[];
     pasteSequence: number;
+    targetPosition?: { x: number; y: number };
   },
 ): {
   nodes: EditorGraphNode[];
@@ -101,6 +103,13 @@ export function pasteGraphClipboardPayload(
   const existingIds = new Set(input.existingNodeIds);
   const idMap = new Map<string, string>();
   const offset = (input.pasteSequence + 1) * 24;
+  const origin = {
+    x: Math.min(...payload.nodes.map((node) => node.position.x)),
+    y: Math.min(...payload.nodes.map((node) => node.position.y)),
+  };
+  const translation = input.targetPosition
+    ? { x: input.targetPosition.x - origin.x, y: input.targetPosition.y - origin.y }
+    : { x: 0, y: 0 };
   const nodes = payload.nodes.map((node) => {
     const nextId = makeUniqueCopyId(existingIds, node.instanceId);
     existingIds.add(nextId);
@@ -120,8 +129,8 @@ export function pasteGraphClipboardPayload(
         {},
       ),
       position: {
-        x: node.position.x + offset,
-        y: node.position.y + offset,
+        x: node.position.x + translation.x + offset,
+        y: node.position.y + translation.y + offset,
       },
     };
   });

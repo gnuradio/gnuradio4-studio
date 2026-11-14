@@ -9,9 +9,12 @@ export function buildMenuTemplate({ platform, editor = false, state = {}, editin
     click: () => dispatch(id),
   });
   const textEditing = editingText || !editor;
-  const edit = (id, label, accelerator) => textEditing
+  // Canvas edit shortcuts are handled in the renderer. Native accelerators
+  // would consume those keys before the canvas receives them. Text roles keep
+  // Electron's normal clipboard shortcuts when an input has focus.
+  const edit = (id, label) => textEditing
     ? { role: id }
-    : command(id, label, accelerator);
+    : command(id, label);
   const appMenu = platform === 'darwin' ? [{ role: 'appMenu' }] : [];
   return [
     ...appMenu,
@@ -25,9 +28,9 @@ export function buildMenuTemplate({ platform, editor = false, state = {}, editin
     { label: 'Edit', submenu: [
       // Graph history is not implemented. Never pretend Chromium text undo edits the graph.
       { role: 'undo', enabled: textEditing }, { role: 'redo', enabled: textEditing }, separator,
-      edit('cut', 'Cut', 'CmdOrCtrl+X'), edit('copy', 'Copy', 'CmdOrCtrl+C'),
-      edit('paste', 'Paste', 'CmdOrCtrl+V'), edit('delete', 'Delete', 'Delete'),
-      edit('selectAll', 'Select All', 'CmdOrCtrl+A'),
+      edit('cut', 'Cut'), edit('copy', 'Copy'),
+      edit('paste', 'Paste'), edit('delete', 'Delete'),
+      edit('selectAll', 'Select All'),
     ] },
     { label: 'View', submenu: [
       command('graph', 'Graph', 'CmdOrCtrl+1', 'checkbox'),

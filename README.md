@@ -147,6 +147,18 @@ those menu entries are disabled outside text fields. Display windows have native
 text editing and window controls, with editor commands disabled. The Window menu
 switches between editor and display windows.
 
+Graph copy/paste uses the selected blocks and every edge whose two endpoints are
+selected. Ctrl/Cmd+C and Ctrl/Cmd+V work within a flowgraph and between Studio
+flowgraph tabs in the same window. Pasted blocks receive new instance IDs, retain
+parameters and relative spacing, and become the only selected blocks; previous
+edge selections are cleared. Same-graph pastes use a small diagonal offset.
+Cross-tab pastes start in the visible canvas, and the view reveals the new group.
+A new copy or destination change resets the offset sequence. The clipboard is a
+snapshot retained when switching or closing source tabs, not the system clipboard.
+Variables and workspace layouts are not copied; existing graph validation reports
+missing variable references and conflicting named virtual routes.
+
+
 For local desktop development, use:
 
 ```bash
