@@ -567,7 +567,7 @@ export function GraphEditorPanel({
     return selectedFlowNodeIds.length > 0 ? selectedFlowNodeIds : selectedNodeId ? [selectedNodeId] : [];
   }, [selectedFlowNodeIds, selectedNodeId]);
 
-  const setNodeRotation = useEditorStore((state) => state.setNodeRotation);
+  const rotateNodes = useEditorStore((state) => state.rotateNodes);
 
   const isBypassableNodeId = useCallback(
     (nodeId: string) => {
@@ -696,7 +696,15 @@ export function GraphEditorPanel({
   const graphCommands: StudioCommands = {
     ...createSelectionCommands({
       nodes: editorNodes, nodeIds: targetNodeIds, canEdit,
-      isBypassable: isBypassableNodeId, setRotation: setNodeRotation, setExecutionMode: setNodeExecutionMode,
+      isBypassable: isBypassableNodeId, setExecutionMode: setNodeExecutionMode,
+      rotateNodes: (ids, direction) => {
+        const sizes = new Map<string, { width: number; height: number }>();
+        ids.forEach((id) => {
+          const measured = reactFlow.getNode(id)?.measured;
+          if (measured?.width && measured.height) sizes.set(id, { width: measured.width, height: measured.height });
+        });
+        rotateNodes(ids, direction, sizes);
+      },
     }),
     properties: { enabled: canEdit && Boolean(propertiesNodeId), execute: () => {
       if (propertiesNodeId) onOpenBlockProperties(propertiesNodeId);

@@ -1,6 +1,5 @@
 import type { StudioCommands } from '../../../lib/commands/studio-commands';
 import { getNodeExecutionMode } from './node-execution';
-import { rotateNodeRotation } from './node-rotation';
 import type { EditorGraphNode } from './types';
 
 export function contextSelection(selectedIds: readonly string[], clickedId: string): string[] {
@@ -12,7 +11,7 @@ export function createSelectionCommands(input: {
   nodeIds: readonly string[];
   canEdit: boolean;
   isBypassable: (id: string) => boolean;
-  setRotation: (id: string, rotation: 0 | 90 | 180 | 270) => void;
+  rotateNodes: (ids: readonly string[], direction: 'left' | 'right') => void;
   setExecutionMode: (id: string, mode: 'active' | 'disabled' | 'bypassed') => void;
 }): StudioCommands {
   const nodes = input.nodes.filter((node) => input.nodeIds.includes(node.instanceId));
@@ -24,7 +23,7 @@ export function createSelectionCommands(input: {
   });
   const rotate = (direction: 'left' | 'right') => ({
     enabled,
-    execute: () => nodes.forEach((node) => input.setRotation(node.instanceId, rotateNodeRotation(node.rotation ?? 0, direction))),
+    execute: () => input.rotateNodes(nodes.map((node) => node.instanceId), direction),
   });
   return {
     rotateLeft: rotate('left'),

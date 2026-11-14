@@ -163,6 +163,8 @@ Bypass, and Properties. Right-clicking a selected block preserves the group;
 right-clicking another block selects only that block. Bypass requires every
 selected block to have one input and one output. Enable, Disable, and Bypass
 (and the E, D, B shortcuts) set an explicit state for the whole selection.
+Rotation moves selected block centers around their shared center and turns their
+port orientations together; a single block rotates in place.
 Properties opens the clicked block. Right-click empty canvas for Paste here,
 Select All, and Fit Graph. Context-menu paste places the group near the clicked
 position. Escape or clicking outside dismisses the menu; Up/Down navigate it.

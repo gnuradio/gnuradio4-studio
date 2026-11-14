@@ -15,7 +15,7 @@ function commands(nodeIds: string[], bypassableIds = nodeIds, canEdit = true) {
   registry.register('graph', createSelectionCommands({
     nodes: store.nodes, nodeIds, canEdit,
     isBypassable: (id) => bypassableIds.includes(id),
-    setRotation: store.setNodeRotation, setExecutionMode: store.setNodeExecutionMode,
+    rotateNodes: store.rotateNodes, setExecutionMode: store.setNodeExecutionMode,
   }));
   return registry;
 }
@@ -31,11 +31,28 @@ describe('graph selection commands', () => {
     expect(contextSelection([], 'c')).toEqual(['c']);
   });
 
-  it('rotates the targeted group from each block’s existing rotation', async () => {
+  it('rotates the targeted group positions and orientations together', async () => {
+    useEditorStore.getState().setNodePosition('b', { x: 200, y: 0 });
     await commands(contextSelection(['a', 'b'], 'b')).execute('rotateRight');
     expect(useEditorStore.getState().nodes.map((entry) => entry.rotation)).toEqual([90, 0, 90]);
+    expect(useEditorStore.getState().nodes.map((entry) => entry.position)).toEqual([{ x: 100, y: -100 }, { x: 100, y: 100 }, { x: 0, y: 0 }]);
     await commands(['a', 'b']).execute('rotateLeft');
     expect(useEditorStore.getState().nodes.map((entry) => entry.rotation)).toEqual([0, 270, 90]);
+    expect(useEditorStore.getState().nodes.map((entry) => entry.position)).toEqual([{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 0, y: 0 }]);
+  });
+
+  it('updates group geometry atomically and preserves connected edges', async () => {
+    const store = useEditorStore.getState();
+    store.setNodePosition('b', { x: 200, y: 0 });
+    useEditorStore.setState({ edges: [{ id: 'a-b', sourceInstanceId: 'a', targetInstanceId: 'b', sourcePort: 'out', targetPort: 'in' }] });
+    const edges = useEditorStore.getState().edges;
+    let updates = 0;
+    const unsubscribe = useEditorStore.subscribe(() => { updates += 1; });
+    await commands(['a', 'b']).execute('rotateRight');
+    unsubscribe();
+    expect(updates).toBe(1);
+    expect(useEditorStore.getState().edges).toBe(edges);
+    expect(useEditorStore.getState().nodes[2]).toMatchObject({ position: { x: 0, y: 0 }, rotation: 90 });
   });
 
   it('applies explicit execution states to a mixed group without changing other blocks', async () => {
