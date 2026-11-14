@@ -145,7 +145,7 @@ jobs:
           bucket: ${{ vars.PUB_BUCKET_NAME }}
           source: dist
           destination: commit/${{ github.sha }}
-          exclude: '**/*.js, serve.py'
+          exclude: '**/*.js, **/*.mjs, serve.py'
       - name: Gather .js files in staging directory
         # the b2 action is extremely stupid: you can't change into a directory,
         # and if you're using globs, you can't remove a leading directory
@@ -161,7 +161,7 @@ jobs:
           jsdir="${RUNNER_TEMP}/jsfiles"
           mkdir -p "${jsdir}"
           shopt -s dotglob globstar
-          (cd dist && cp -v --parents -- **/*.js "${jsdir}")
+          (cd dist && cp -v --parents -- **/*.js **/*.mjs "${jsdir}")
           printf 'jsdir=%s\n' "${jsdir}" >> "${GITHUB_OUTPUT}"
       - name: Upload to public bucket (.js files)
         if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
