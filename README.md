@@ -141,34 +141,13 @@ to save; cancelling an application close keeps the backend running.
 - `Ctrl/Cmd+J`: toggle the local backend console.
 - `Ctrl/Cmd+0`: fit the graph; `Ctrl/Cmd+=` / `-`: canvas zoom.
 
-Edit commands operate on graph selections when editing the canvas and retain
-native text behavior inside input fields. Graph undo/redo is not implemented;
-those menu entries are disabled outside text fields. Display windows have native
-text editing and window controls, with editor commands disabled. The Window menu
-switches between editor and display windows.
+Drag empty canvas to select blocks, middle-drag to pan, and Ctrl+wheel to zoom.
+Right-click blocks or the canvas for editing actions and properties.
 
-Graph copy/paste uses the selected blocks and every edge whose two endpoints are
-selected. Ctrl/Cmd+C and Ctrl/Cmd+V work within a flowgraph and between Studio
-flowgraph tabs in the same window. Pasted blocks receive new instance IDs, retain
-parameters and relative spacing, and become the only selected blocks; previous
-edge selections are cleared. Same-graph pastes use a small diagonal offset.
-Cross-tab pastes start in the visible canvas, and the view reveals the new group.
-A new copy or destination change resets the offset sequence. The clipboard is a
-snapshot retained when switching or closing source tabs, not the system clipboard.
-Variables and workspace layouts are not copied; existing graph validation reports
-missing variable references and conflicting named virtual routes.
-
-Right-click a block for Cut, Copy, Paste, Delete, rotation, Enable, Disable,
-Bypass, and Properties. Right-clicking a selected block preserves the group;
-right-clicking another block selects only that block. Bypass requires every
-selected block to have one input and one output. Enable, Disable, and Bypass
-(and the E, D, B shortcuts) set an explicit state for the whole selection.
-Rotation moves selected block centers around their shared center and turns their
-port orientations together; a single block rotates in place.
-Properties opens the clicked block. Right-click empty canvas for Paste here,
-Select All, and Fit Graph. Context-menu paste places the group near the clicked
-position. Escape or clicking outside dismisses the menu; Up/Down navigate it.
-
+Use Ctrl/Cmd+C and Ctrl/Cmd+V to copy selected blocks and their internal
+connections within a flowgraph or between Studio tabs. Rotation applies to the
+selected group. Text fields keep normal editing shortcuts; graph undo/redo is
+not yet available.
 
 For local desktop development, use:
 

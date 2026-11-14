@@ -788,6 +788,14 @@ export function GraphEditorPanel({
 
       <ReactFlow
         deleteKeyCode={null}
+        selectionOnDrag
+        selectionKeyCode={null}
+        panOnDrag={[1]}
+        panActivationKeyCode={null}
+        panOnScroll={false}
+        zoomOnScroll={false}
+        zoomActivationKeyCode="Control"
+        zoomOnDoubleClick={false}
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={nodeTypes}
