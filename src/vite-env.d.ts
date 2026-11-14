@@ -19,8 +19,8 @@ interface Window {
     readonly themes?: import('./features/themes/persistence').ThemePersistence;
     readonly capabilities?: { readonly nativeMenus: boolean; readonly nativeFiles?: boolean };
     readonly documents?: {
-      open: () => Promise<{ token: string; name: string; content: string } | null>;
-      saveAs: (input: { name: string; content: string }) => Promise<{ token: string; name: string } | null>;
+      open: (input?: { token?: string }) => Promise<{ token: string; name: string; content: string } | null>;
+      saveAs: (input: { name: string; content: string; token?: string }) => Promise<{ token: string; name: string } | null>;
       save: (input: { token: string; content: string }) => Promise<{ token: string; name: string }>;
     };
     readonly setMenuState?: (state: { commands: import('./lib/commands/studio-commands').StudioCommandState; editingText: boolean }) => void;

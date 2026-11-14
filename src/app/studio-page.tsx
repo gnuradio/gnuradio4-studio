@@ -1095,7 +1095,7 @@ export function StudioPage() {
     setLastStatusMessage(null);
 
     try {
-      const result = await persistenceService.openDocument(capabilities);
+      const result = await persistenceService.openDocument(capabilities, activeDocument);
       if (result.kind !== 'success') {
         if (result.kind !== 'canceled') {
           setLastError(result.message);

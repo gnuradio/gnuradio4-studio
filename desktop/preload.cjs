@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('gr4StudioShell', {
     writeSelected: (id) => ipcRenderer.invoke('gr4-studio:theme:writeSelected', id),
   },
   documents: {
-    open: () => ipcRenderer.invoke('gr4-studio:document:open'),
+    open: (input) => ipcRenderer.invoke('gr4-studio:document:open', input),
     saveAs: (input) => ipcRenderer.invoke('gr4-studio:document:saveAs', input),
     save: (input) => ipcRenderer.invoke('gr4-studio:document:save', input),
   },

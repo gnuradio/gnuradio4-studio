@@ -47,4 +47,49 @@ describe('native document handles', () => {
     await documents.save({ token: saved.token, content: 'saved again' });
     expect(await fs.readFile(file, 'utf8')).toBe('saved again');
   });
+  it('prefers the active file directory over the most recently opened directory', async () => {
+    const { root, dialog, documents } = await setup();
+    const first = await documents.open();
+    const otherDirectory = path.join(root, 'other');
+    await fs.mkdir(otherDirectory);
+    const otherFile = path.join(otherDirectory, 'other.gr4s');
+    await fs.writeFile(otherFile, 'other');
+    dialog.showOpenDialog.mockResolvedValueOnce({ filePaths: [otherFile] });
+    await documents.open({ token: first.token });
+    dialog.showOpenDialog.mockResolvedValue({ canceled: true });
+
+    await documents.open({ token: first.token });
+    expect(dialog.showOpenDialog).toHaveBeenLastCalledWith(expect.anything(),
+      expect.objectContaining({ defaultPath: root }));
+    await documents.open();
+    expect(dialog.showOpenDialog).toHaveBeenLastCalledWith(expect.anything(),
+      expect.objectContaining({ defaultPath: otherDirectory }));
+  });
+  it('uses the active file directory for Save As and remembers a successful new location', async () => {
+    const { root, dialog, documents } = await setup();
+    const first = await documents.open();
+    const otherDirectory = path.join(root, 'saved');
+    await fs.mkdir(otherDirectory);
+    dialog.showSaveDialog.mockResolvedValue({ filePath: path.join(otherDirectory, 'copy.gr4s') });
+    await documents.saveAs({ token: first.token, name: 'copy.gr4s', content: 'copy' });
+    expect(dialog.showSaveDialog).toHaveBeenLastCalledWith(expect.anything(),
+      expect.objectContaining({ defaultPath: path.join(root, 'copy.gr4s') }));
+
+    dialog.showOpenDialog.mockResolvedValue({ canceled: true });
+    await documents.open();
+    expect(dialog.showOpenDialog).toHaveBeenLastCalledWith(expect.anything(),
+      expect.objectContaining({ defaultPath: otherDirectory }));
+  });
+  it('does not use renderer paths or remember canceled or failed selections', async () => {
+    const { root, dialog, documents } = await setup();
+    await documents.open();
+    dialog.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: ['/unselected/flow.gr4s'] });
+    await documents.open();
+    dialog.showOpenDialog.mockResolvedValueOnce({ filePaths: [path.join(root, 'missing', 'flow.gr4s')] });
+    await expect(documents.open()).rejects.toThrow();
+    dialog.showOpenDialog.mockResolvedValue({ canceled: true });
+    await documents.open({ token: '/renderer/chosen/path.gr4s' });
+    expect(dialog.showOpenDialog).toHaveBeenLastCalledWith(expect.anything(),
+      expect.objectContaining({ defaultPath: root }));
+  });
 });

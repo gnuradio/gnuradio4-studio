@@ -254,11 +254,12 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
 
   const openDocument = async (
     capabilities: DocumentPersistenceCapabilities,
+    currentDocument?: DocumentIdentityState,
   ): Promise<PersistenceResult<OpenDocumentSuccess>> => {
     void capabilities;
     try {
       if (nativeFiles) {
-        const file = await nativeFiles.open();
+        const file = await nativeFiles.open({ token: currentDocument?.nativeFileToken });
         if (!file) return { kind: 'canceled', message: 'Open canceled.' };
         const serialized = deserializeDocumentText(file.content);
         return { kind: 'success', value: {
@@ -387,7 +388,9 @@ export function createDocumentPersistenceService(deps: ServiceDeps = {}) {
 
     try {
       if (nativeFiles) {
-        const file = await nativeFiles.saveAs({ name: suggestedName, content: serialized.content });
+        const file = await nativeFiles.saveAs({
+          name: suggestedName, content: serialized.content, token: documentIdentity.nativeFileToken,
+        });
         if (!file) return { kind: 'canceled', message: 'Save As canceled.' };
         return { kind: 'success', value: { serialized, documentIdentity: {
           ...documentIdentity,

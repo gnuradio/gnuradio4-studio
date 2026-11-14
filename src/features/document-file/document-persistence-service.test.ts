@@ -705,6 +705,18 @@ describe('document persistence service', () => {
 });
 
 describe('native document persistence', () => {
+  it('passes the active document token to Open and Save As', async () => {
+    const open = vi.fn().mockResolvedValue(null);
+    const saveAs = vi.fn().mockResolvedValue(null);
+    const service = createDocumentPersistenceService({ win: {
+      gr4StudioShell: { capabilities: { nativeFiles: true }, documents: { open, saveAs } },
+    } as unknown as Window });
+    const identity = createIdentity({ nativeFileToken: 'active-file' });
+    await service.openDocument(createCapabilities(), identity);
+    expect(open).toHaveBeenCalledWith({ token: 'active-file' });
+    await service.saveCurrentDocumentAs(identity, createSnapshot(), createCapabilities());
+    expect(saveAs).toHaveBeenCalledWith(expect.objectContaining({ token: 'active-file' }));
+  });
   it('uses desktop dialogs and an opaque token instead of browser pickers', async () => {
     const save = vi.fn().mockResolvedValue({ token: 'native-1', name: 'flow.gr4s' });
     const saveAs = vi.fn().mockResolvedValue({ token: 'native-1', name: 'flow.gr4s' });
