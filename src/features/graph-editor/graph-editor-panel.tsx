@@ -1,4 +1,4 @@
-import { executeStudioCommand, isTextEditingTarget } from '../../lib/commands/studio-commands';
+import { executeStudioCommand, isTextEditingTarget, type StudioCommands } from '../../lib/commands/studio-commands';
 import { useStudioCommands } from '../../lib/commands/use-studio-commands';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
@@ -25,7 +25,8 @@ import type { RenderedPort, SchemaPort } from '../ports/model/types';
 import type { EditorCatalogBlock, EditorGraphEdge, EditorGraphNode, FlowNodeData } from './model/types';
 import { CATALOG_BLOCK_DRAG_MIME } from './model/catalog-drag';
 import { getNodeExecutionMode, isLinearBypassableBlock } from './model/node-execution';
-import { rotateNodeRotation } from './model/node-rotation';
+import { contextSelection, createSelectionCommands } from './model/selection-commands';
+import { GraphContextMenu } from './graph-context-menu';
 import {
   getVirtualRoutingBlockDetails,
   getVirtualRoutingCatalogBlocks,
@@ -411,6 +412,10 @@ export function GraphEditorPanel({
   const addNodeFromCatalogItem = useEditorStore((state) => state.addNodeFromCatalogItem);
   const reactFlow = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number; y: number; nodeId?: string; flowPosition: { x: number; y: number };
+  } | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const nodesInitialized = useNodesInitialized();
   const [revealNodeIds, setRevealNodeIds] = useState<string[] | null>(null);
   const addEdge = useEditorStore((state) => state.addEdge);
@@ -686,14 +691,23 @@ export function GraphEditorPanel({
   };
   const canEdit = !commandsDisabled && !isBlockPropertiesOpen;
   const hasSelection = getTargetNodeIds().length > 0;
-  useStudioCommands({
+  const targetNodeIds = getTargetNodeIds();
+  const propertiesNodeId = contextMenu?.nodeId ?? selectedNodeId;
+  const graphCommands: StudioCommands = {
+    ...createSelectionCommands({
+      nodes: editorNodes, nodeIds: targetNodeIds, canEdit,
+      isBypassable: isBypassableNodeId, setRotation: setNodeRotation, setExecutionMode: setNodeExecutionMode,
+    }),
+    properties: { enabled: canEdit && Boolean(propertiesNodeId), execute: () => {
+      if (propertiesNodeId) onOpenBlockProperties(propertiesNodeId);
+    } },
     cut: { enabled: canEdit && selectedFlowNodeIds.length > 0, execute: () => { copyNodesToClipboard(selectedFlowNodeIds, graphId); deleteSelectedNodes(); } },
     copy: { enabled: canEdit && selectedFlowNodeIds.length > 0, execute: () => copyNodesToClipboard(selectedFlowNodeIds, graphId) },
     paste: { enabled: canEdit && Boolean(clipboard), execute: () => {
       const bounds = canvasRef.current?.getBoundingClientRect();
-      const targetPosition = clipboard?.sourceGraphId !== graphId && bounds
+      const targetPosition = contextMenu?.flowPosition ?? (clipboard?.sourceGraphId !== graphId && bounds
         ? reactFlow.screenToFlowPosition({ x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 })
-        : undefined;
+        : undefined);
       const pasted = pasteClipboard(targetPosition);
       if (pasted) {
         pendingPasteSelectionRef.current = pasted.nodeIds;
@@ -710,7 +724,8 @@ export function GraphEditorPanel({
     zoomIn: { enabled: canEdit, execute: () => reactFlow.zoomIn({ duration: 160 }) },
     zoomOut: { enabled: canEdit, execute: () => reactFlow.zoomOut({ duration: 160 }) },
     fitView: { enabled: canEdit, execute: () => reactFlow.fitView({ duration: 180, padding: 0.2 }) },
-  });
+  };
+  useStudioCommands(graphCommands);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -735,64 +750,19 @@ export function GraphEditorPanel({
         return;
       }
 
-      const idsToRemove = getTargetNodeIds();
-      if (idsToRemove.length === 0) return;
-
       const key = event.key.toLowerCase();
-      if (key === 'arrowleft' || key === 'arrowright') {
-        const direction = key === 'arrowright' ? 'right' : 'left';
+      const command = key === 'arrowleft' ? 'rotateLeft' : key === 'arrowright' ? 'rotateRight'
+        : key === 'e' ? 'enable' : key === 'd' ? 'disable' : key === 'b' ? 'bypass'
+        : key === 'enter' ? 'properties' : null;
+      if (command) {
         event.preventDefault();
-        idsToRemove.forEach((nodeId) => {
-          const node = editorNodes.find((entry) => entry.instanceId === nodeId);
-          const currentRotation = node?.rotation ?? 0;
-          setNodeRotation(nodeId, rotateNodeRotation(currentRotation, direction));
-        });
-        return;
-      }
-
-      if (key === 'd' || key === 'e' || key === 'b') {
-        const bypassableIds = idsToRemove.filter((nodeId) => isBypassableNodeId(nodeId));
-        const canBypass = key !== 'b' || bypassableIds.length > 0;
-
-        if (!canBypass) {
-          return;
-        }
-
-        event.preventDefault();
-        idsToRemove.forEach((nodeId) => {
-          if (key === 'b') {
-            if (!isBypassableNodeId(nodeId)) {
-              return;
-            }
-
-            const node = editorNodes.find((entry) => entry.instanceId === nodeId);
-            const currentMode = getNodeExecutionMode(node?.executionMode);
-            setNodeExecutionMode(nodeId, currentMode === 'bypassed' ? 'active' : 'bypassed');
-            return;
-          }
-
-          setNodeExecutionMode(nodeId, key === 'd' ? 'disabled' : 'active');
-        });
+        executeStudioCommand(command);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [
-    applyFlowNodeChanges,
-    blockDetailsByType,
-    copyNodesToClipboard,
-    editorNodes,
-    getTargetNodeIds,
-    isBypassableNodeId,
-    isBlockPropertiesOpen,
-    commandsDisabled,
-    pasteClipboard,
-    selectedFlowNodeIds,
-    selectedNodeId,
-    setNodeExecutionMode,
-    setNodeRotation,
-  ]);
+  }, [isBlockPropertiesOpen, commandsDisabled]);
 
   return (
     <div ref={canvasRef} className="relative h-full w-full">
@@ -813,7 +783,32 @@ export function GraphEditorPanel({
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={nodeTypes}
+        onNodeContextMenu={(event, node) => {
+          event.preventDefault();
+          if (!canEdit) return;
+          const ids = contextSelection(selectedFlowNodeIds, node.id);
+          setFlowNodes((current) => current.map((entry) => ({ ...entry, selected: ids.includes(entry.id) })));
+          if (!selectedFlowNodeIds.includes(node.id)) setSelectedEdgeIds([]);
+          selectNode(node.id);
+          setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id,
+            flowPosition: reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+        }}
+        onSelectionContextMenu={(event, selection) => {
+          event.preventDefault();
+          if (!canEdit || selection.length === 0) return;
+          const nodeId = selection.some((node) => node.id === selectedNodeId) ? selectedNodeId! : selection[0].id;
+          setContextMenu({ x: event.clientX, y: event.clientY, nodeId,
+            flowPosition: reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+        }}
+        onPaneContextMenu={(event) => {
+          event.preventDefault();
+          if (!canEdit) return;
+          setContextMenu({ x: event.clientX, y: event.clientY,
+            flowPosition: reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+        }}
+        onMoveStart={closeContextMenu}
         onPaneClick={() => {
+          closeContextMenu();
           setFlowNodes((current) =>
             current.map((node) =>
               node.selected
@@ -843,6 +838,12 @@ export function GraphEditorPanel({
         <Background gap={16} size={1} color="var(--theme-canvas-grid)" />
         <GraphCanvasControls />
       </ReactFlow>
+      {contextMenu && canEdit && <GraphContextMenu
+        x={contextMenu.x} y={contextMenu.y} block={Boolean(contextMenu.nodeId)} commands={graphCommands}
+        bypassReason={targetNodeIds.every(isBypassableNodeId) ? undefined : 'Every selected block must have exactly one input and one output to bypass.'}
+        onClose={closeContextMenu}
+        onSelect={(command) => { executeStudioCommand(command); closeContextMenu(); }}
+      />}
     </div>
   );
 }

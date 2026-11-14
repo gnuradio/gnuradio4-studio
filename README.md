@@ -158,6 +158,15 @@ snapshot retained when switching or closing source tabs, not the system clipboar
 Variables and workspace layouts are not copied; existing graph validation reports
 missing variable references and conflicting named virtual routes.
 
+Right-click a block for Cut, Copy, Paste, Delete, rotation, Enable, Disable,
+Bypass, and Properties. Right-clicking a selected block preserves the group;
+right-clicking another block selects only that block. Bypass requires every
+selected block to have one input and one output. Enable, Disable, and Bypass
+(and the E, D, B shortcuts) set an explicit state for the whole selection.
+Properties opens the clicked block. Right-click empty canvas for Paste here,
+Select All, and Fit Graph. Context-menu paste places the group near the clicked
+position. Escape or clicking outside dismisses the menu; Up/Down navigate it.
+
 
 For local desktop development, use:
 
