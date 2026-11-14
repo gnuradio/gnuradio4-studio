@@ -30,7 +30,7 @@ export function stripAppApiPrefix(url: string): string {
   return stripped.length > 0 ? stripped : '/';
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const proxyTarget = env.VITE_CONTROL_PLANE_BASE_URL || DEFAULT_GRCTRL_BASE_URL;
   const useWasmControlPlane = env.VITE_CONTROL_PLANE_TRANSPORT === 'wasm';
@@ -41,7 +41,8 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
-    base: mode === 'desktop' ? './' : '/',
+    // relative base so a build works when hosted under any sub-path
+    base: mode === 'desktop' || command === 'build' ? './' : '/',
     plugins: [
       react(),
       {

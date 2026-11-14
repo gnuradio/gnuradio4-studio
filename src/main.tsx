@@ -18,7 +18,7 @@ if (import.meta.env.VITE_CONTROL_PLANE_TRANSPORT === 'wasm') {
 }
 
 const queryClient = new QueryClient();
-const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
+const Router = window.location.protocol === 'file:' || import.meta.env.PROD ? HashRouter : BrowserRouter;
 
 type DesktopBootStatus = {
   phase: 'starting' | 'waiting-backend' | 'ready' | 'error';

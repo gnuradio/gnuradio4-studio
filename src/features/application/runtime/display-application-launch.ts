@@ -80,7 +80,7 @@ export function readDisplayApplicationLaunchSnapshot(
 }
 
 export function buildDisplayApplicationUrl(launchId: string, location: Location = window.location): string {
-  if (location.protocol === 'file:') {
+  if (location.protocol === 'file:' || import.meta.env.PROD) {
     const base = location.href.split('#')[0];
     return `${base}#/app-runtime/${encodeURIComponent(launchId)}`;
   }
