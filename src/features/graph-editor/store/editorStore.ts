@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { rotateGraphNodes } from '../model/node-rotation';
 import type { EdgeChange, NodeChange } from '@xyflow/react';
 import type { ExpressionBinding } from '../../variables/model/types';
 import { createNextVariableName, createUniqueVariableName } from '../../variables/model/variable-binding';
@@ -97,6 +98,7 @@ type EditorState = {
   selectNode: (nodeId: string | null) => void;
   setNodePosition: (nodeId: string, position: GraphPoint) => void;
   setNodeExecutionMode: (nodeId: string, executionMode: 'active' | 'disabled' | 'bypassed') => void;
+  rotateNodes: (nodeIds: readonly string[], direction: 'left' | 'right', sizes?: ReadonlyMap<string, { width: number; height: number }>) => void;
   setNodeRotation: (nodeId: string, rotation: 0 | 90 | 180 | 270) => void;
   removeNode: (nodeId: string) => void;
   addEdge: (input: AddEdgeInput) => void;
@@ -109,8 +111,8 @@ type EditorState = {
   addVariable: (input?: { name?: string; binding?: ExpressionBinding }) => string;
   updateVariable: (variableId: string, patch: Partial<Pick<StudioVariable, 'name' | 'binding'>>) => void;
   removeVariable: (variableId: string) => void;
-  copyNodesToClipboard: (nodeIds: readonly string[]) => void;
-  pasteClipboard: () => { nodeIds: string[] } | null;
+  copyNodesToClipboard: (nodeIds: readonly string[], sourceGraphId?: string) => void;
+  pasteClipboard: (targetPosition?: GraphPoint) => { nodeIds: string[] } | null;
 };
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -227,7 +229,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       studioPlotPalettes: metadata.studioPlotPalettes,
       application: metadata.application,
       clipboard: state.clipboard,
-      clipboardPasteSequence: state.clipboardPasteSequence,
+      clipboardPasteSequence: 0,
       selectedNodeId: null,
       nextNodeSequence: Math.max(maxSuffix + 1, nodes.length + 1, 1),
     }));
@@ -375,6 +377,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           : node,
       ),
     }));
+  },
+  rotateNodes: (nodeIds, direction, sizes) => {
+    set((state) => {
+      const selectedIds = new Set(nodeIds);
+      const rotated = new Map(rotateGraphNodes(
+        state.nodes.filter((node) => selectedIds.has(node.instanceId)), direction, sizes,
+      ).map((node) => [node.instanceId, node]));
+      return { nodes: state.nodes.map((node) => rotated.get(node.instanceId) ?? node) };
+    });
   },
   setNodeRotation: (nodeId, rotation) => {
     set((state) => ({
@@ -584,7 +595,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       studioVariables: (state.studioVariables ?? []).filter((variable) => variable.id !== variableId),
     }));
   },
-  copyNodesToClipboard: (nodeIds) => {
+  copyNodesToClipboard: (nodeIds, sourceGraphId) => {
     set((state) => {
       const clipboard = buildGraphClipboardPayload(state.nodes, state.edges, nodeIds);
       if (!clipboard) {
@@ -592,11 +603,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
 
       return {
-        clipboard,
+        clipboard: { ...clipboard, sourceGraphId },
+        clipboardPasteSequence: 0,
       };
     });
   },
-  pasteClipboard: () => {
+  pasteClipboard: (targetPosition) => {
     const state = get();
     if (!state.clipboard) {
       return null;
@@ -605,6 +617,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const pasted = pasteGraphClipboardPayload(state.clipboard, {
       existingNodeIds: state.nodes.map((node) => node.instanceId),
       pasteSequence: state.clipboardPasteSequence,
+      targetPosition,
     });
 
     if (pasted.nodes.length === 0) {

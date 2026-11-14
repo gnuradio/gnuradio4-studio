@@ -141,11 +141,13 @@ to save; cancelling an application close keeps the backend running.
 - `Ctrl/Cmd+J`: toggle the local backend console.
 - `Ctrl/Cmd+0`: fit the graph; `Ctrl/Cmd+=` / `-`: canvas zoom.
 
-Edit commands operate on graph selections when editing the canvas and retain
-native text behavior inside input fields. Graph undo/redo is not implemented;
-those menu entries are disabled outside text fields. Display windows have native
-text editing and window controls, with editor commands disabled. The Window menu
-switches between editor and display windows.
+Drag empty canvas to select blocks, middle-drag to pan, and Ctrl+wheel to zoom.
+Right-click blocks or the canvas for editing actions and properties.
+
+Use Ctrl/Cmd+C and Ctrl/Cmd+V to copy selected blocks and their internal
+connections within a flowgraph or between Studio tabs. Rotation applies to the
+selected group. Text fields keep normal editing shortcuts; graph undo/redo is
+not yet available.
 
 For local desktop development, use:
 
