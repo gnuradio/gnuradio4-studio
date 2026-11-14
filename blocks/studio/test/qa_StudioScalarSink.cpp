@@ -11,10 +11,10 @@ namespace {
 void testDefaultTransportAndCadence() {
     gr::studio::StudioScalarSink<float> scalar{};
     gr::studio::StudioStatusSink<float> status{};
-    assert(scalar.transport.value == gr::studio::detail::ScalarStatusTransport::http_poll);
-    assert(status.transport.value == gr::studio::detail::ScalarStatusTransport::http_poll);
-    assert(scalar.update_ms == 250U);
-    assert(status.update_ms == 250U);
+    assert(scalar.transport.value == gr::studio::detail::ScalarStatusTransport::websocket);
+    assert(status.transport.value == gr::studio::detail::ScalarStatusTransport::websocket);
+    assert(scalar.update_ms == 50U);
+    assert(status.update_ms == 50U);
 }
 
 void testScalarSnapshotJson() {

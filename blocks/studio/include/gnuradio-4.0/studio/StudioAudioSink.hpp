@@ -160,7 +160,7 @@ struct StudioAudioSink : Block<StudioAudioSink<T>> {
 
     PortIn<T> in;
 
-    Annotated<audio_sink_detail::AudioSinkTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = audio_sink_detail::AudioSinkTransport::websocket;
+    Annotated<audio_sink_detail::AudioSinkTransport, "transport", Doc<"Connection method">, Visible> transport = audio_sink_detail::AudioSinkTransport::websocket;
     Annotated<std::string, "endpoint", Doc<"WebSocket endpoint URL/path">, Visible> endpoint = "ws://127.0.0.1:18084/audio";
     Annotated<std::uint32_t, "sample_rate", Doc<"Audio sample rate in Hz">, Visible> sample_rate = 48000U;
     Annotated<gr::Size_t, "channels", Doc<"Interleaved audio channel count">, Visible> channels = 1UZ;
@@ -168,7 +168,7 @@ struct StudioAudioSink : Block<StudioAudioSink<T>> {
     Annotated<std::uint32_t, "buffer_ms", Doc<"Suggested client playback buffer target in milliseconds">, Visible> buffer_ms = 120U;
     Annotated<float, "gain", Doc<"Server-side gain applied before publishing">, Visible> gain = 1.0F;
     Annotated<bool, "clip", Doc<"Clamp published samples to [-1, 1]">, Visible> clip = true;
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(StudioAudioSink, in, transport, endpoint, sample_rate, channels, frame_ms, buffer_ms, gain, clip, topic);
 

@@ -610,25 +610,25 @@ GR_REGISTER_BLOCK("gr::studio::StudioSeriesSink", gr::studio::StudioSeriesSink, 
 
 template<detail::SupportedSample T>
 struct StudioSeriesSink : Block<StudioSeriesSink<T>> {
-    using Description = Doc<"@brief Studio 1D series sink with explicit transport configuration.">;
+    using Description = Doc<"@brief Displays input samples as a line plot.">;
 
     std::vector<PortIn<T>> in{1UZ};
 
-    Annotated<detail::SeriesTransport, "transport", Doc<"Data-plane transport mode">, Visible> transport = detail::SeriesTransport::http_poll;
+    Annotated<detail::SeriesTransport, "transport", Doc<"Connection method">, Visible> transport = detail::SeriesTransport::websocket;
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18080/snapshot";
-    Annotated<std::uint32_t, "update_ms", Doc<"Suggested update interval in milliseconds for http_poll and websocket transports">, Visible> update_ms = 250U;
-    Annotated<gr::Size_t, "window_size", Doc<"Samples per channel kept in memory">, Visible> window_size = 1024UZ;
+    Annotated<std::uint32_t, "update_ms", Doc<"Display update interval in milliseconds; independent of the input sample rate">, Visible> update_ms = 50U;
+    Annotated<gr::Size_t, "window_size", Doc<"Number of samples displayed per input; horizontal axis uses sample indices">, Visible> window_size = 1024UZ;
     Annotated<detail::SeriesWindowMode, "window_mode", Doc<"Window update mode">, Visible> window_mode = detail::SeriesWindowMode::rolling;
     Annotated<gr::Size_t, "n_inputs", Doc<"Number of input series">, Visible, Limits<1U, 32U>> n_inputs = 1UZ;
-    Annotated<std::string, "plot_title", Doc<"Optional semantic plot title for Studio Application">, Visible> plot_title = "";
-    Annotated<std::string, "x_label", Doc<"Optional semantic x-axis label for Studio Application">, Visible> x_label = "";
-    Annotated<std::string, "y_label", Doc<"Optional semantic y-axis label for Studio Application">, Visible> y_label = "";
-    Annotated<std::string, "series_labels", Doc<"Optional comma-separated series labels for Studio Application">, Visible> series_labels = "";
-    Annotated<gr::Size_t, "max_labels", Doc<"Maximum visible tag labels in Studio Application">, Visible> max_labels = 100UZ;
-    Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
-    Annotated<float, "y_min", Doc<"Optional y-axis minimum when autoscale is disabled">, Visible> y_min = 0.0F;
-    Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<std::string, "plot_title", Doc<"Plot title">, Visible> plot_title = "";
+    Annotated<std::string, "x_label", Doc<"Horizontal axis label">, Visible> x_label = "";
+    Annotated<std::string, "y_label", Doc<"Vertical axis label">, Visible> y_label = "";
+    Annotated<std::string, "series_labels", Doc<"Series labels in input order, separated by commas">, Visible> series_labels = "";
+    Annotated<gr::Size_t, "max_labels", Doc<"Maximum number of displayed tag labels">, Visible> max_labels = 100UZ;
+    Annotated<bool, "autoscale", Doc<"Scale the plotted values automatically">, Visible> autoscale = true;
+    Annotated<float, "y_min", Doc<"Vertical axis minimum with automatic scaling off">, Visible> y_min = -1.0F;
+    Annotated<float, "y_max", Doc<"Vertical axis maximum with automatic scaling off">, Visible> y_max = 1.0F;
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(
         StudioSeriesSink,

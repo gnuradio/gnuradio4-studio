@@ -68,7 +68,7 @@ void testPowerSpectrumRegistered() {
 void testDefaultTransportAndCadence() {
     gr::studio::StudioPowerSpectrumSink<float> block{};
     assert(block.transport.value == gr::studio::detail::PowerSpectrumTransport::websocket);
-    assert(block.update_ms == 10U);
+    assert(block.update_ms == 50U);
 }
 
 #if !defined(_WIN32)

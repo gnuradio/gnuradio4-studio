@@ -176,3 +176,13 @@ describe('vector frame parsing', () => {
     ).toThrow('Plot tags must be an array when present.');
   });
 });
+
+
+describe('dataset selection errors', () => {
+  it('reports an unavailable selected signal', () => {
+    expect(() => parseHttpDatasetXySnapshot({
+      payload_format: 'dataset-xy-json-v1', layout: 'pairs_xy', points: 0, data: [],
+      error: 'Signal index is outside the latest DataSet.',
+    })).toThrow('Signal index is outside the latest DataSet.');
+  });
+});

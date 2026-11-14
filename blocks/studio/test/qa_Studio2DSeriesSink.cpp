@@ -29,8 +29,8 @@ void testSeries2DRegistered() {
 
 void testDefaultTransportAndCadence() {
     gr::studio::Studio2DSeriesSink<float> block{};
-    assert(block.transport.value == gr::studio::detail::Series2DTransport::http_poll);
-    assert(block.update_ms == 250U);
+    assert(block.transport.value == gr::studio::detail::Series2DTransport::websocket);
+    assert(block.update_ms == 50U);
 }
 
 void testWebSocketTransportLifecycle() {

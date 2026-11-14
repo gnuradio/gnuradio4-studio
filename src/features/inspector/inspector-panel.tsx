@@ -1,3 +1,4 @@
+import { studioPropertyChoices, validateStudioProperties } from '../block-properties/studio-properties';
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { PanelHeader } from '../../components/panel-header';
@@ -27,6 +28,8 @@ import type { BlockDetails, BlockParameterMeta } from '../../lib/api/block-detai
 import { getBlockDetails } from '../../lib/api/block-details';
 import {
   buildStudioAuthoringBindingView,
+  getAuthoringParameterLabel,
+  isDescriptorBindingHiddenParameter,
   getDescriptorBindingAuthoringMessage,
 } from '../graph-editor/runtime/studio-managed-runtime-authoring';
 import {
@@ -181,6 +184,15 @@ function RuntimeSettingsCard({
       return;
     }
 
+    const proposedValues = { ...query.data, [name]: value };
+    const errors = validateStudioProperties(selectedBlock?.blockTypeId ?? '',
+      Object.fromEntries(Object.entries(proposedValues)
+        .filter(([key]) => !isDescriptorBindingHiddenParameter(selectedBlock?.blockTypeId ?? '', key))
+        .map(([key, entry]) => [key, { value: String(entry), bindingKind: 'literal' as const }])));
+    if (Object.keys(errors).length > 0) {
+      setSaveError(Object.values(errors).join(' '));
+      return;
+    }
     setSaveError(null);
     try {
       await mutation.mutateAsync({
@@ -222,6 +234,7 @@ function RuntimeSettingsCard({
   Object.entries(runtimeValues)
     .sort(([left], [right]) => left.localeCompare(right))
     .forEach(([name, value]) => {
+      if (isDescriptorBindingHiddenParameter(selectedBlock?.blockTypeId ?? '', name)) return;
       const parameterMeta = parameterMetaByName.get(name);
       const advanced =
         isAdvancedParameterName(name) ||
@@ -277,7 +290,7 @@ function RuntimeSettingsCard({
   const renderRuntimeValue = (name: string, value: RuntimeSettingsValue, editable: boolean) => {
     const parameterMeta = parameterMetaByName.get(name);
     const typeLabel = parameterMeta?.valueType ?? typeof value;
-    const enumChoices = parameterMeta?.enumChoices ?? [];
+    const enumChoices = studioPropertyChoices(selectedBlock?.blockTypeId ?? '', name) ?? parameterMeta?.enumChoices ?? [];
     const hasEnumChoices = enumChoices.length > 0;
 
     if (typeof value === 'boolean') {
@@ -285,7 +298,7 @@ function RuntimeSettingsCard({
       return (
         <label key={name} className="flex items-center justify-between gap-3 rounded border border-slate-700 p-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">{name}</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
             <p className="text-[11px] text-slate-500">{typeLabel}</p>
           </div>
           <input
@@ -315,7 +328,7 @@ function RuntimeSettingsCard({
 
         return (
           <label key={name} className="block rounded border border-slate-700 p-2">
-            <p className="text-xs uppercase tracking-wide text-slate-400">{name}</p>
+            <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
             <p className="mb-2 text-[11px] text-slate-500">{typeLabel}</p>
             <select
               value={selectValue}
@@ -326,7 +339,7 @@ function RuntimeSettingsCard({
                 }
                 const nextValue = event.target.value;
                 setDraftValues((current) => ({ ...current, [name]: nextValue }));
-                void savePatch(name, nextValue);
+                void savePatch(name, typeof value === 'number' ? Number(nextValue) : nextValue);
               }}
               className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-70"
             >
@@ -360,7 +373,7 @@ function RuntimeSettingsCard({
 
       return (
         <label key={name} className="block rounded border border-slate-700 p-2">
-          <p className="text-xs uppercase tracking-wide text-slate-400">{name}</p>
+          <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
           <p className="mb-2 text-[11px] text-slate-500">{typeLabel}</p>
           <input
             type={typeof value === 'number' ? 'number' : 'text'}
@@ -385,7 +398,7 @@ function RuntimeSettingsCard({
 
     return (
       <div key={name} className="rounded border border-slate-700 p-2">
-        <p className="text-xs uppercase tracking-wide text-slate-400">{name}</p>
+        <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
         <p className="mb-2 text-[11px] text-slate-500">nested object</p>
         <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-slate-950/70 p-2 text-[11px] text-slate-300">
           {JSON.stringify(value, null, 2)}
@@ -694,13 +707,9 @@ function SelectionTab({
               <p className="text-xs text-slate-300 break-words">{studioBinding.reason}</p>
             )}
 
-            {descriptorBindingAuthoringMessage && (
+            {descriptorBindingAuthoringMessage && descriptorBindingAuthoringMessage !== studioBinding.reason && (
               <p className="text-[11px] text-sky-200 break-words">{descriptorBindingAuthoringMessage}</p>
             )}
-
-            <p className="text-[11px] text-slate-500">
-              Local binding validation only; backend/runtime behavior remains authoritative.
-            </p>
           </div>
         </SectionCard>
       )}

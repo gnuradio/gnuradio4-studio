@@ -12,7 +12,7 @@ describe('descriptor-based authoring helpers', () => {
   it('keeps StudioSeriesSink transport-authored while hiding endpoint from descriptor authoring UX', () => {
     expect(isDescriptorBasedBindingFamily('gr::studio::StudioSeriesSink<float32>')).toBe(true);
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioSeriesSink<float32>', 'endpoint')).toBe(true);
-    expect(getAuthoringParameterLabel('gr::studio::StudioSeriesSink<float32>', 'endpoint', 'Endpoint')).toBe('Endpoint');
+    expect(getAuthoringParameterLabel('gr::studio::StudioSeriesSink<float32>', 'endpoint', 'Endpoint')).toBe('Address');
 
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioSeriesSink<float32>', {
@@ -23,7 +23,7 @@ describe('descriptor-based authoring helpers', () => {
       status: 'configured',
       transport: 'websocket',
       reason:
-        'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
+        'The running session provides the connection address.',
     });
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioSeriesSink<float32>', {
@@ -85,7 +85,7 @@ describe('descriptor-based authoring helpers', () => {
     expect(isDescriptorBasedBindingFamily('gr::studio::StudioWaterfallSink<float32>')).toBe(true);
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioWaterfallSink<float32>', 'endpoint')).toBe(true);
     expect(getDescriptorBindingAuthoringMessage('gr::studio::StudioWaterfallSink<float32>')).toBe(
-      'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
+      'The running session provides the connection address.',
     );
 
     expect(
@@ -101,7 +101,7 @@ describe('descriptor-based authoring helpers', () => {
       updateMs: 175,
       sampleRate: 48000,
       reason:
-        'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
+        'The running session provides the connection address.',
     });
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioWaterfallSink<float32>', {
@@ -125,7 +125,7 @@ describe('descriptor-based authoring helpers', () => {
       updateMs: 210,
       sampleRate: 96000,
       reason:
-        'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
+        'The running session provides the connection address.',
     });
   });
 
@@ -150,7 +150,7 @@ describe('descriptor-based authoring helpers', () => {
       channels: 1,
       bufferMs: 140,
       reason:
-        'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
+        'The running session provides the connection address.',
     });
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioAudioSink<float32>', {
@@ -180,7 +180,7 @@ describe('descriptor-based authoring helpers', () => {
       updateMs: 200,
       channels: 2,
       reason:
-        'Descriptor-based session routes come from the linked session. Transport stays authored. Endpoint is persisted only for older documents and is not used by Studio runtime.',
+        'The running session provides the connection address.',
     });
     expect(scalar.endpoint).toBeUndefined();
 

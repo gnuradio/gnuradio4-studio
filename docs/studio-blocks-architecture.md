@@ -103,6 +103,22 @@ Rules:
 Websocket transport currently exists for selected sinks only. Descriptor-adapted current-session bindings currently include `StudioSeriesSink`, `Studio2DSeriesSink`, `StudioPowerSpectrumSink`, `StudioWaterfallSink`, `StudioScalarSink`, `StudioStatusSink`, and `StudioAudioSink`. When adding websocket support to a new sink, follow the implementation checklist in `docs/studio-websocket-integration.md`.
 For websocket-capable sinks, `update_ms` is the live cadence control used by the native send path.
 
+## Display defaults
+
+WebSocket-capable sinks default to `websocket`. DataSet and Image retain HTTP transports.
+Display sinks use a 50 ms update or poll interval. Audio retains its packet and playback buffer settings.
+Spectrum and waterfall sample rates default to 48 kHz; set this to the actual input rate.
+Waterfall history defaults to 5 seconds, rounded up to complete FFT frames.
+
+Manual ranges default to −1…1 for scalar series and generic DataSets, −2…2 for XY,
+and −140…10 for spectrum power and waterfall intensity. These power ranges assume dB output.
+Image bounds default to the 256 × 256 frame dimensions.
+
+The properties dialog validates literal settings and reports FFT bin spacing, averaging duration,
+and effective waterfall history depth. Expression values remain expressions and are resolved by
+the existing variable resolver. Series plots use sample indices on the horizontal axis.
+Unused `topic` settings remain loadable but are hidden and omitted from runtime export.
+
 ## Standard parameters
 
 The current registry resolves these parameter names where relevant:
@@ -149,8 +165,9 @@ Rendering is handled separately:
 - `StudioWaterfallSink` uses the `waterfall-spectrum-json-v1` path for bounded FFT-history waterfall rendering
 - `StudioWaterfallSink` uses `time_span` and `sample_rate` as the fixed waterfall depth controls and quantizes the resulting duration to the FFT size
 - `StudioWaterfallSink` emits the effective quantized `time_span` together with `sample_rate`
+- `StudioWaterfallSink.center_freq` offsets its frequency bins in Hz, matching the spectrum sink
 - `StudioWaterfallSink` also carries `autoscale`, `z_min`, and `z_max` parameters that control the rendered waterfall colormap range
-- Waterfall plots ignore the generic `x_min` / `x_max` / `y_min` / `y_max` axis-range parameters
+- Waterfall authoring exposes only intensity bounds (`z_min` / `z_max`). Legacy X/Y bounds remain loadable but are hidden and omitted from runtime export.
 - `StudioScalarSink` and `StudioStatusSink` use the `scalar-status-json-v1` path for latest-value metric cards and status rows
 - `StudioScalarSink` and `StudioStatusSink` are descriptor-managed and support `http_poll` and `websocket`; `http_snapshot` is not a valid transport for these sinks
 - `StudioAudioSink` is a playback-oriented sink and uses `audio-float32-binary-v1` over websocket

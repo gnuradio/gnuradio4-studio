@@ -98,9 +98,9 @@ describe('coerceBlockPropertyLiteralValue', () => {
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioPowerSpectrumSink<float32>', 'endpoint')).toBe(true);
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioWaterfallSink<float32>', 'endpoint')).toBe(true);
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioAudioSink<float32>', 'endpoint')).toBe(true);
-    expect(getAuthoringParameterLabel('gr::studio::StudioSeriesSink<float32>', 'endpoint', 'Endpoint')).toBe('Endpoint');
+    expect(getAuthoringParameterLabel('gr::studio::StudioSeriesSink<float32>', 'endpoint', 'Endpoint')).toBe('Address');
     expect(getDescriptorBindingAuthoringMessage('gr::studio::StudioSeriesSink<float32>')).toContain(
-      'Transport stays authored',
+      'running session',
     );
   });
 

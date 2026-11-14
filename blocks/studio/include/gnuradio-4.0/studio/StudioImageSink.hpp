@@ -237,22 +237,22 @@ GR_REGISTER_BLOCK("gr::studio::StudioImageSink", gr::studio::StudioImageSink, ([
 
 template<detail::SupportedImageSample T>
 struct StudioImageSink : Block<StudioImageSink<T>> {
-    using Description = Doc<"@brief Studio image/frame sink with explicit transport configuration.">;
+    using Description = Doc<"@brief Collects input samples into image frames.">;
 
     PortIn<T> in;
 
-    Annotated<std::string, "transport", Doc<"Data-plane transport mode">, Visible> transport = "http_poll";
+    Annotated<std::string, "transport", Doc<"Connection method">, Visible> transport = "http_poll";
     Annotated<std::string, "endpoint", Doc<"Transport endpoint URL/path">, Visible> endpoint = "http://127.0.0.1:18082/snapshot";
-    Annotated<std::uint32_t, "poll_ms", Doc<"Suggested poll interval in milliseconds for poll transports">, Visible> poll_ms = 250U;
+    Annotated<std::uint32_t, "poll_ms", Doc<"Display polling interval in milliseconds">, Visible> poll_ms = 50U;
     Annotated<gr::Size_t, "width", Doc<"Frame width in pixels">, Visible> width = 256UZ;
     Annotated<gr::Size_t, "height", Doc<"Frame height in pixels">, Visible> height = 256UZ;
-    Annotated<gr::Size_t, "channels", Doc<"Channels per pixel (1=gray,3=rgb,4=rgba)">, Visible> channels = 1UZ;
-    Annotated<bool, "autoscale", Doc<"Enable automatic axis scaling in Studio Application">, Visible> autoscale = true;
-    Annotated<float, "x_min", Doc<"Optional x-axis minimum when autoscale is disabled">, Visible> x_min = 0.0F;
-    Annotated<float, "x_max", Doc<"Optional x-axis maximum when autoscale is disabled">, Visible> x_max = 0.0F;
-    Annotated<float, "y_min", Doc<"Optional y-axis minimum when autoscale is disabled">, Visible> y_min = 0.0F;
-    Annotated<float, "y_max", Doc<"Optional y-axis maximum when autoscale is disabled">, Visible> y_max = 0.0F;
-    Annotated<std::string, "topic", Doc<"Optional stream topic for pub/sub transports">, Visible> topic = "";
+    Annotated<gr::Size_t, "channels", Doc<"Pixel format: 1 = grayscale, 3 = RGB, 4 = RGBA">, Visible> channels = 1UZ;
+    Annotated<bool, "autoscale", Doc<"Scale the plotted values automatically">, Visible> autoscale = true;
+    Annotated<float, "x_min", Doc<"Horizontal axis minimum with automatic scaling off">, Visible> x_min = 0.0F;
+    Annotated<float, "x_max", Doc<"Horizontal axis maximum with automatic scaling off">, Visible> x_max = 256.0F;
+    Annotated<float, "y_min", Doc<"Vertical axis minimum with automatic scaling off">, Visible> y_min = 0.0F;
+    Annotated<float, "y_max", Doc<"Vertical axis maximum with automatic scaling off">, Visible> y_max = 256.0F;
+    Annotated<std::string, "topic", Doc<"Reserved topic setting">> topic = "";
 
     GR_MAKE_REFLECTABLE(StudioImageSink, in, transport, endpoint, poll_ms, width, height, channels, autoscale, x_min, x_max, y_min, y_max, topic);
 
