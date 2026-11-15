@@ -2,6 +2,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { createStudioCommands } from './studio-commands';
 
 describe('shared Studio commands', () => {
+  it('passes recent-file IDs directly to the handler before yielding user activation', async () => {
+    const commands = createStudioCommands();
+    const execute = vi.fn();
+    commands.register('document', { openRecent: { enabled: true, execute } });
+    const opening = commands.execute('openRecent', 'recent-id');
+    expect(execute).toHaveBeenCalledWith('recent-id');
+    await opening;
+    commands.register('document', { openRecent: { enabled: false, execute } });
+    expect(await commands.execute('openRecent', 'other-id')).toBe(false);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
   it('blocks native and keyboard graph commands while a modal dialog owns input', async () => {
     const commands = createStudioCommands();
     const execute = vi.fn();

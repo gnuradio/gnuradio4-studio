@@ -10,6 +10,8 @@ export type RecentDocument = {
   fingerprint?: string;
 };
 
+export type RecentDocumentMenuEntry = Pick<RecentDocument, 'id' | 'name' | 'location' | 'requiresSelection'>;
+
 export type RecentDocumentsStorage = {
   read: () => Promise<RecentDocument[]>;
   write: (entries: RecentDocument[]) => Promise<void>;
@@ -58,6 +60,8 @@ export function createRecentDocuments(
   let sessionOnly = false;
   let warning: string | null = null;
   let pending: Promise<unknown> = Promise.resolve();
+  const listeners = new Set<() => void>();
+  const notify = () => listeners.forEach((listener) => listener());
   const serial = <T,>(operation: () => Promise<T>): Promise<T> => {
     // Coordinate read/modify/write across browser tabs as well as within this page.
     const result = pending.then(() => !native && win.navigator?.locks
@@ -93,11 +97,16 @@ export function createRecentDocuments(
   };
   return {
     get warning() { return warning; },
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
     list: () => serial(read),
     remember: (document: DocumentIdentityState, replaceId?: string) => serial(async () => {
       if (document.isUntitled || document.sourceKind === 'downloaded_export') return;
       if (native && document.nativeFileToken) {
         await native.rememberRecent({ token: document.nativeFileToken, replaceId });
+        notify();
         return;
       }
       if (native) return;
@@ -121,14 +130,17 @@ export function createRecentDocuments(
         ...(document.fileHandle ? { fileHandle: document.fileHandle } : { requiresSelection: true }),
         ...(document.fileFingerprint ? { fingerprint: document.fileFingerprint } : {}),
       }, ...entries.filter((entry) => entry.id !== existing?.id && entry.id !== replaceId)].slice(0, 10));
+      notify();
     }),
     remove: (id: string) => serial(async () => {
-      if (native) return native.removeRecent({ id });
-      await write((await read()).filter((entry) => entry.id !== id));
+      if (native) await native.removeRecent({ id });
+      else await write((await read()).filter((entry) => entry.id !== id));
+      notify();
     }),
     clear: () => serial(async () => {
-      if (native) return native.clearRecent();
-      await write([]);
+      if (native) await native.clearRecent();
+      else await write([]);
+      notify();
     }),
   };
 }

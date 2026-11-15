@@ -1,7 +1,7 @@
 const separator = { type: 'separator' };
 export const EDIT_COMMANDS = ['cut', 'copy', 'paste', 'delete', 'selectAll'];
 
-export function buildMenuTemplate({ platform, editor = false, state = {}, editingText = false, dispatch, windows = [], focusWindow, showLog, canShowLog = false }) {
+export function buildMenuTemplate({ platform, editor = false, state = {}, recentDocuments = [], editingText = false, dispatch, windows = [], focusWindow, showLog, canShowLog = false }) {
   const command = (id, label, accelerator, type) => ({
     id, label, accelerator,
     enabled: editor && state[id]?.enabled === true,
@@ -20,7 +20,14 @@ export function buildMenuTemplate({ platform, editor = false, state = {}, editin
     ...appMenu,
     { label: 'File', submenu: [
       command('new', 'New', 'CmdOrCtrl+N'), command('open', 'Open…', 'CmdOrCtrl+O'),
-      command('openRecent', 'Open Recent…'), separator,
+      { id: 'openRecent', label: 'Open Recent', enabled: editor && state.openRecent?.enabled === true, submenu: [
+        ...(recentDocuments.length ? recentDocuments.slice(0, 10).map((entry) => ({
+          // Escape native mnemonic markers so filenames render literally.
+          label: `${entry.name}${entry.location ? ` — ${entry.location}` : ''}${entry.requiresSelection ? ' (Select file again…)' : ''}`.replaceAll('&', '&&'),
+          click: () => dispatch('openRecent', entry.id),
+        })) : [{ label: 'No recent files', enabled: false }]),
+        separator, command('clearRecent', 'Clear Recent'), command('manageRecent', 'Manage Recent…'),
+      ] }, separator,
       command('save', 'Save', 'CmdOrCtrl+S'), command('saveAs', 'Save As…', 'Shift+CmdOrCtrl+S'),
       command('rename', 'Rename…'), separator,
       editor ? command('closeTab', 'Close Tab', 'CmdOrCtrl+W') : { role: 'close' },
@@ -66,9 +73,11 @@ export function buildMenuTemplate({ platform, editor = false, state = {}, editin
 
 export function sanitizeMenuState(value) {
   const allowed = new Set();
-  for (const menu of buildMenuTemplate({ platform: 'linux', editor: true })) {
-    for (const item of menu.submenu ?? []) if (item.id) allowed.add(item.id);
-  }
+  const collect = (items) => items.forEach((item) => {
+    if (item.id) allowed.add(item.id);
+    if (item.submenu) collect(item.submenu);
+  });
+  collect(buildMenuTemplate({ platform: 'linux', editor: true }));
   const commands = {};
   for (const id of allowed) {
     const item = value?.commands?.[id];
@@ -76,5 +85,15 @@ export function sanitizeMenuState(value) {
       commands[id] = { enabled: item.enabled, ...(typeof item.checked === 'boolean' ? { checked: item.checked } : {}) };
     }
   }
-  return { commands, editingText: value?.editingText === true };
+  const recentDocuments = [];
+  const seen = new Set();
+  for (const entry of Array.isArray(value?.recentDocuments) ? value.recentDocuments : []) {
+    if (!entry || typeof entry.id !== 'string' || !entry.id || typeof entry.name !== 'string' || !entry.name || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    recentDocuments.push({ id: entry.id, name: entry.name,
+      ...(typeof entry.location === 'string' ? { location: entry.location } : {}),
+      ...(entry.requiresSelection === true ? { requiresSelection: true } : {}) });
+    if (recentDocuments.length === 10) break;
+  }
+  return { commands, editingText: value?.editingText === true, recentDocuments };
 }

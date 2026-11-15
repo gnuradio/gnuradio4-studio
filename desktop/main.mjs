@@ -91,7 +91,7 @@ async function resolveAppIconPath() {
   return null;
 }
 
-let editorMenuState = { commands: {}, editingText: false };
+let editorMenuState = { commands: {}, editingText: false, recentDocuments: [] };
 
 function updateApplicationMenu() {
   const focused = BrowserWindow.getFocusedWindow();
@@ -101,11 +101,12 @@ function updateApplicationMenu() {
     platform: process.platform,
     editor,
     state: editorMenuState.commands,
+    recentDocuments: editorMenuState.recentDocuments,
     editingText: editorMenuState.editingText,
-    dispatch: (command) => {
+    dispatch: (command, argument) => {
       // A display window must never send editing commands to an invisible editor.
       if (BrowserWindow.getFocusedWindow() === mainWindow && editorMenuState.commands[command]?.enabled) {
-        mainWindow.webContents.send('gr4-studio:menu-command', command);
+        mainWindow.webContents.send('gr4-studio:menu-command', command, argument);
       }
     },
     windows: windows.map((win) => ({ id: win.id, title: win.getTitle(), focused: win === focused })),
@@ -173,23 +174,26 @@ function updateMenuCommandState() {
   const editor = Boolean(mainWindow && BrowserWindow.getFocusedWindow() === mainWindow);
   const menu = Menu.getApplicationMenu();
   if (!menu) return;
-  for (const group of menu.items) {
-    for (const item of group.submenu?.items ?? []) {
-      if (!item.id) continue;
+  const update = (items) => items.forEach((item) => {
+    if (item.id) {
       const state = editorMenuState.commands[item.id];
       item.enabled = editor && state?.enabled === true;
       if (item.type === 'checkbox') item.checked = state?.checked === true;
     }
-  }
+    if (item.submenu) update(item.submenu.items);
+  });
+  menu.items.forEach((group) => { if (group.submenu) update(group.submenu.items); });
 }
 
 ipcMain.on('gr4-studio:menu-state', (event, value) => {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) return;
   const previousTextEditing = editorMenuState.editingText;
+  const previousRecentDocuments = JSON.stringify(editorMenuState.recentDocuments);
   editorMenuState = sanitizeMenuState(value);
   // Rebuild only when roles/structure change. Updating native items in place keeps
   // open menus and checkmarks stable during renderer state changes.
-  if (previousTextEditing !== editorMenuState.editingText) updateApplicationMenu();
+  if (previousTextEditing !== editorMenuState.editingText
+    || previousRecentDocuments !== JSON.stringify(editorMenuState.recentDocuments)) updateApplicationMenu();
   else updateMenuCommandState();
 });
 
@@ -756,7 +760,7 @@ async function createWindow(startUrl, runtimeConfig) {
     // Keep restored handles alive across those same-document navigations.
     if (!isMainFrame || isInPlace) return;
     desktopDocuments.clear();
-    editorMenuState = { commands: {}, editingText: false };
+    editorMenuState = { commands: {}, editingText: false, recentDocuments: [] };
     updateApplicationMenu();
   });
   mainWindow.webContents.on('will-prevent-unload', (event) => {

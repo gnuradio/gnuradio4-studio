@@ -31,7 +31,8 @@ interface Window {
       saveWorkspace: (input: import('./features/document-file/workspace-recovery').WorkspaceCheckpoint) => Promise<void>;
       saveWorkspaceSync: (input: import('./features/document-file/workspace-recovery').WorkspaceCheckpoint) => void;
     };
-    readonly setMenuState?: (state: { commands: import('./lib/commands/studio-commands').StudioCommandState; editingText: boolean }) => void;
+    readonly setMenuState?: (state: { commands: import('./lib/commands/studio-commands').StudioCommandState; editingText: boolean;
+      recentDocuments?: import('./features/document-file/recent-documents').RecentDocumentMenuEntry[] }) => void;
     readonly getBootStatus?: () => Promise<{
       phase: 'starting' | 'waiting-backend' | 'ready' | 'error';
       message: string;
@@ -54,7 +55,7 @@ interface Window {
         currentSessionRouting: 'app-api';
       }) => void,
     ) => () => void;
-    readonly onMenuCommand?: (callback: (command: import('./lib/commands/studio-commands').StudioCommandId) => void) => () => void;
+    readonly onMenuCommand?: (callback: (command: import('./lib/commands/studio-commands').StudioCommandId, argument?: string) => void) => () => void;
     readonly getControlPlaneDiagnostics?: () => Promise<
       | {
           available: true;

@@ -1,5 +1,5 @@
 export type StudioCommandId =
-  | 'new' | 'open' | 'openRecent' | 'save' | 'saveAs' | 'rename' | 'closeTab'
+  | 'new' | 'open' | 'openRecent' | 'manageRecent' | 'clearRecent' | 'save' | 'saveAs' | 'rename' | 'closeTab'
   | 'cut' | 'copy' | 'paste' | 'delete' | 'selectAll'
   | 'rotateLeft' | 'rotateRight' | 'enable' | 'disable' | 'bypass' | 'properties'
   | 'graph' | 'variables' | 'workspace' | 'application'
@@ -8,7 +8,7 @@ export type StudioCommandId =
   | 'sessions' | 'console' | 'diagnostics';
 
 export type CommandState = { enabled: boolean; checked?: boolean };
-export type StudioCommand = CommandState & { execute: () => unknown };
+export type StudioCommand = CommandState & { execute: (argument?: string) => unknown };
 export type StudioCommands = Partial<Record<StudioCommandId, StudioCommand>>;
 export type StudioCommandState = Partial<Record<StudioCommandId, CommandState>>;
 
@@ -47,13 +47,13 @@ export function createStudioCommands() {
         ...(command.checked === undefined ? {} : { checked: command.checked }),
       }]));
     },
-    async execute(id: StudioCommandId) {
+    async execute(id: StudioCommandId, argument?: string) {
       const command = all()[id];
       if (!command?.enabled || inFlight || hasModalDialog()) return false;
       inFlight = true;
       notify();
       try {
-        const result = command.execute();
+        const result = argument === undefined ? command.execute() : command.execute(argument);
         if (result && typeof (result as PromiseLike<unknown>).then === 'function') await result;
         return true;
       } catch (error) {
@@ -73,7 +73,7 @@ export function createStudioCommands() {
 }
 
 export const studioCommands = createStudioCommands();
-export const executeStudioCommand = (id: StudioCommandId) => { void studioCommands.execute(id); };
+export const executeStudioCommand = (id: StudioCommandId, argument?: string) => { void studioCommands.execute(id, argument); };
 
 export function isTextEditingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
