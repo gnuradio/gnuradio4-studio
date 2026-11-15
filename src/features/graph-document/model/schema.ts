@@ -111,21 +111,6 @@ const studioDataPanelSpecSchema: z.ZodType<StudioDataPanelSpec> = z.object({
   plotStyle: studioPlotStyleConfigSchema.optional(),
 });
 
-const studioControlPanelSpecSchema: z.ZodType<StudioControlPanelSpec> = z.object({
-  id: z.string().min(1),
-  kind: z.literal('control'),
-  title: z.string().optional(),
-  visible: z.boolean(),
-  previewOnCanvas: z.literal(false).optional(),
-  widgets: z.array(studioControlWidgetSpecSchema),
-  nodeId: z.string().optional(),
-});
-
-const studioPanelSpecSchema: z.ZodType<StudioPanelSpec> = z.union([
-  studioDataPanelSpecSchema,
-  studioControlPanelSpecSchema,
-]);
-
 const studioLayoutNodeSchema: z.ZodType<StudioLayoutNode> = z.lazy(() =>
   z.union([
     z.object({
@@ -146,6 +131,22 @@ const studioLayoutSpecSchema: z.ZodType<StudioLayoutSpec> = z.object({
   root: studioLayoutNodeSchema,
   activePanelId: z.string().min(1).optional(),
 });
+
+const studioControlPanelSpecSchema: z.ZodType<StudioControlPanelSpec> = z.object({
+  id: z.string().min(1),
+  kind: z.literal('control'),
+  title: z.string().optional(),
+  visible: z.boolean(),
+  previewOnCanvas: z.literal(false).optional(),
+  widgets: z.array(studioControlWidgetSpecSchema),
+  widgetLayout: studioLayoutSpecSchema.optional(),
+  nodeId: z.string().optional(),
+});
+
+const studioPanelSpecSchema: z.ZodType<StudioPanelSpec> = z.union([
+  studioDataPanelSpecSchema,
+  studioControlPanelSpecSchema,
+]);
 
 const studioWorkspaceMetadataSchema = z.object({
   panels: z.array(studioPanelSpecSchema),

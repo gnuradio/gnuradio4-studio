@@ -7,7 +7,19 @@ import type {
   StudioControlWidgetSpec,
   StudioControlWidgetBinding,
   StudioPanelSpec,
+  StudioLayoutSpec,
 } from '../graph-document/model/studio-workspace';
+import { applySplitDropToLayout, collectLayoutPaneIds, normalizeStudioLayoutSpec } from '../graph-document/model/studio-layout';
+
+function withControlWidgets(panel: StudioControlPanelSpec, widgets: StudioControlWidgetSpec[]): StudioControlPanelSpec {
+  return {
+    ...panel,
+    widgets,
+    ...(panel.widgetLayout
+      ? { widgetLayout: normalizeStudioLayoutSpec(panel.widgetLayout, widgets.map((widget) => widget.id)) }
+      : {}),
+  };
+}
 
 function isNumericTypeName(valueType?: string): boolean {
   const normalized = (valueType ?? '').trim().toLowerCase();
@@ -222,10 +234,7 @@ export function addControlWidgetToPanels(
       if (existingPanel.kind === 'control') {
         const nextWidgets = [...existingPanel.widgets, input.widget];
         const nextPanels = [...currentPanels];
-        nextPanels[existingPanelIndex] = {
-          ...existingPanel,
-          widgets: nextWidgets,
-        };
+        nextPanels[existingPanelIndex] = withControlWidgets(existingPanel, nextWidgets);
         return nextPanels;
       }
     }
@@ -273,14 +282,8 @@ export function moveControlWidgetToPanel(
   const nextSourceWidgets = sourcePanel.widgets.filter((entry) => entry.id !== input.widgetId);
   const nextTargetWidgets = [...targetPanel.widgets, widget];
   const nextPanels = [...currentPanels];
-  nextPanels[sourceIndex] = {
-    ...sourcePanel,
-    widgets: nextSourceWidgets,
-  };
-  nextPanels[targetIndex] = {
-    ...targetPanel,
-    widgets: nextTargetWidgets,
-  };
+  nextPanels[sourceIndex] = withControlWidgets(sourcePanel, nextSourceWidgets);
+  nextPanels[targetIndex] = withControlWidgets(targetPanel, nextTargetWidgets);
   return nextPanels;
 }
 
@@ -300,6 +303,18 @@ export function renameControlPanelTitle(
       title: nextTitle || undefined,
     };
   });
+}
+
+export function updateControlPanelWidgetLayout(
+  panels: readonly StudioPanelSpec[] | undefined,
+  panelId: string,
+  layout: StudioLayoutSpec,
+): StudioPanelSpec[] {
+  return (panels ?? []).map((panel) =>
+    panel.kind === 'control' && panel.id === panelId
+      ? { ...panel, widgetLayout: normalizeStudioLayoutSpec(layout, panel.widgets.map((widget) => widget.id)) }
+      : panel,
+  );
 }
 
 export function updateControlWidgetLabel(
@@ -388,10 +403,7 @@ export function removeControlWidgetFromPanel(
       return panel;
     }
 
-    return {
-      ...panel,
-      widgets: panel.widgets.filter((widget) => widget.id !== widgetId),
-    };
+    return withControlWidgets(panel, panel.widgets.filter((widget) => widget.id !== widgetId));
   });
 }
 
@@ -404,12 +416,9 @@ export function removeControlWidgetsBoundToVariable(
       return panel;
     }
 
-    return {
-      ...panel,
-      widgets: panel.widgets.filter(
-        (widget) => widget.binding.kind !== 'variable' || widget.binding.variableName !== variableName,
-      ),
-    };
+    return withControlWidgets(panel, panel.widgets.filter(
+      (widget) => widget.binding.kind !== 'variable' || widget.binding.variableName !== variableName,
+    ));
   });
 }
 
@@ -424,21 +433,27 @@ export function moveControlWidgetInPanel(
       return panel;
     }
 
-    const index = panel.widgets.findIndex((widget) => widget.id === widgetId);
+    const widgetIds = panel.widgetLayout
+      ? collectLayoutPaneIds(normalizeStudioLayoutSpec(panel.widgetLayout, panel.widgets.map((widget) => widget.id)).root)
+      : panel.widgets.map((widget) => widget.id);
+    const index = widgetIds.indexOf(widgetId);
     if (index < 0) {
       return panel;
     }
 
     const nextIndex = direction === 'up' ? index - 1 : index + 1;
-    if (nextIndex < 0 || nextIndex >= panel.widgets.length) {
+    if (nextIndex < 0 || nextIndex >= widgetIds.length) {
       return panel;
     }
 
-    const nextWidgets = [...panel.widgets];
-    [nextWidgets[index], nextWidgets[nextIndex]] = [nextWidgets[nextIndex], nextWidgets[index]];
+    const nextWidgetIds = [...widgetIds];
+    [nextWidgetIds[index], nextWidgetIds[nextIndex]] = [nextWidgetIds[nextIndex], nextWidgetIds[index]];
     return {
       ...panel,
-      widgets: nextWidgets,
+      widgets: nextWidgetIds.map((id) => panel.widgets.find((widget) => widget.id === id)!),
+      ...(panel.widgetLayout ? {
+        widgetLayout: applySplitDropToLayout(panel.widgetLayout, widgetId, widgetIds[nextIndex], direction === 'up' ? 'top' : 'bottom', widgetIds),
+      } : {}),
     };
   });
 }

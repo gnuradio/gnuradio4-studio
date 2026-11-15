@@ -1,13 +1,11 @@
+import { LayoutDropTarget as DropTarget } from './layout-drag-drop';
+import { edgeDropCollisionDetection } from './layout-drop-collision';
 import { LayoutSplitGroup } from './layout-split-group';
 import {
-  type CollisionDetection,
   DndContext,
   DragOverlay,
   PointerSensor,
-  pointerWithin,
-  rectIntersection,
   useDraggable,
-  useDroppable,
   useSensor,
   useSensors,
   type DragCancelEvent,
@@ -54,6 +52,7 @@ export type WorkspacePanelViewModel = {
 
 export type WorkspacePanelEditHandlers = {
   onRenameControlPanel?: (panelId: string, title: string) => void;
+  onUpdateControlPanelLayout?: (panelId: string, layout: StudioLayoutSpec) => void;
   onUpdateControlWidgetLabel?: (panelId: string, widgetId: string, label: string) => void;
   onUpdateControlWidgetInputKind?: (
     panelId: string,
@@ -104,19 +103,6 @@ function countVisibleLayoutRows(
     : Math.max(...childRows);
 }
 
-const edgeDropCollisionDetection: CollisionDetection = (args) => {
-  const edgeTargets = args.droppableContainers.filter((container) =>
-    String(container.id).startsWith('split-drop:'),
-  );
-  const pointerHits = pointerWithin({
-    ...args,
-    droppableContainers: edgeTargets,
-  });
-  if (pointerHits.length > 0) {
-    return pointerHits;
-  }
-  return rectIntersection(args);
-};
 
 function LayoutEditorPane({
   entry,
@@ -125,6 +111,7 @@ function LayoutEditorPane({
   controlPanelOptions,
   onOpenPanelPlotStyleEditor,
   onRenameControlPanel,
+  onUpdateControlPanelLayout,
   onUpdateControlWidgetLabel,
   onUpdateControlWidgetInputKind,
   onUpdateControlWidgetSliderConfig,
@@ -139,6 +126,7 @@ function LayoutEditorPane({
   controlPanelOptions: readonly { id: string; title?: string; widgetCount: number }[];
   onOpenPanelPlotStyleEditor?: (entry: WorkspacePanelViewModel) => void;
   onRenameControlPanel?: (panelId: string, title: string) => void;
+  onUpdateControlPanelLayout?: (panelId: string, layout: StudioLayoutSpec) => void;
   onUpdateControlWidgetLabel?: (panelId: string, widgetId: string, label: string) => void;
   onUpdateControlWidgetInputKind?: (
     panelId: string,
@@ -199,13 +187,16 @@ function LayoutEditorPane({
           {panel.kind}
         </span>
       </header>
-      <div className="flex-1 p-3">
+      <div className="min-h-0 flex-1 p-3">
         {panel.kind === 'control' ? (
-          <div className="h-full min-h-[6.5rem] rounded border border-dashed border-slate-700/90 bg-slate-950/40 px-2 py-2 space-y-2">
+          <div className="h-full min-h-0 rounded border border-dashed border-slate-700/90 bg-slate-950/40 px-2 py-2">
             <ControlPanelView
               panelId={panel.id}
               widgets={entry.controlWidgets ?? []}
+              widgetLayout={panel.widgetLayout}
+              onWidgetLayoutChange={onUpdateControlPanelLayout ? (layout) => onUpdateControlPanelLayout(panel.id, layout) : undefined}
               isEditable={Boolean(
+                onUpdateControlPanelLayout ||
                 onUpdateControlWidgetLabel ||
                   onUpdateControlWidgetInputKind ||
                   onMoveControlWidget ||
@@ -247,71 +238,6 @@ function LayoutEditorPane({
   );
 }
 
-function DropTarget({
-  position,
-  targetPanelId,
-  activeDragPanelId,
-}: {
-  position: SplitDropPosition;
-  targetPanelId: string;
-  activeDragPanelId: string | null;
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `split-drop:${targetPanelId}:${position}`,
-    data: {
-      targetPanelId,
-      position,
-    },
-  });
-  const active = Boolean(activeDragPanelId && activeDragPanelId !== targetPanelId);
-  const placement =
-    position === 'left'
-      ? 'left-0 top-1 bottom-1 w-8'
-      : position === 'right'
-        ? 'right-0 top-1 bottom-1 w-8'
-        : position === 'top'
-          ? 'top-0 left-1 right-1 h-8'
-          : 'bottom-0 left-1 right-1 h-8';
-  const directionLabel =
-    position === 'left'
-      ? 'left'
-      : position === 'right'
-        ? 'right'
-        : position === 'top'
-          ? 'top'
-          : 'bottom';
-  const activeClass = active
-    ? `z-30 border text-emerald-100 opacity-100 ${
-        isOver
-          ? 'border-emerald-300/90 bg-emerald-500/45 shadow-sm'
-          : 'border-emerald-400/65 bg-emerald-500/22'
-      }`
-    : 'pointer-events-none opacity-0';
-
-  return (
-    <div
-      ref={setNodeRef}
-      aria-label={`Drop ${position} of ${targetPanelId}`}
-      className={`absolute ${placement} rounded-md transition-all duration-100 ${activeClass}`}
-    >
-      {active && (
-        <span
-          className={`absolute rounded border border-emerald-300/70 bg-slate-900/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-100 ${
-            position === 'left'
-              ? 'left-1 top-1/2 -translate-y-1/2'
-              : position === 'right'
-                ? 'right-1 top-1/2 -translate-y-1/2'
-                : position === 'top'
-                  ? 'left-1/2 top-1 -translate-x-1/2'
-                  : 'left-1/2 bottom-1 -translate-x-1/2'
-          }`}
-        >
-          {directionLabel}
-        </span>
-      )}
-    </div>
-  );
-}
 
 function LayoutTreePaneNode({
   entry,
@@ -320,6 +246,7 @@ function LayoutTreePaneNode({
   controlPanelOptions,
   onOpenPanelPlotStyleEditor,
   onRenameControlPanel,
+  onUpdateControlPanelLayout,
   onUpdateControlWidgetLabel,
   onUpdateControlWidgetInputKind,
   onUpdateControlWidgetSliderConfig,
@@ -334,6 +261,7 @@ function LayoutTreePaneNode({
   controlPanelOptions: readonly { id: string; title?: string; widgetCount: number }[];
   onOpenPanelPlotStyleEditor?: (entry: WorkspacePanelViewModel) => void;
   onRenameControlPanel?: (panelId: string, title: string) => void;
+  onUpdateControlPanelLayout?: (panelId: string, layout: StudioLayoutSpec) => void;
   onUpdateControlWidgetLabel?: (panelId: string, widgetId: string, label: string) => void;
   onUpdateControlWidgetInputKind?: (
     panelId: string,
@@ -366,6 +294,7 @@ function LayoutTreePaneNode({
         controlPanelOptions={controlPanelOptions}
         onOpenPanelPlotStyleEditor={onOpenPanelPlotStyleEditor}
         onRenameControlPanel={onRenameControlPanel}
+        onUpdateControlPanelLayout={onUpdateControlPanelLayout}
         onUpdateControlWidgetLabel={onUpdateControlWidgetLabel}
         onUpdateControlWidgetInputKind={onUpdateControlWidgetInputKind}
         onUpdateControlWidgetSliderConfig={onUpdateControlWidgetSliderConfig}
@@ -392,6 +321,7 @@ function renderLayoutTreeNode({
   onSplitSizesChange,
   onOpenPanelPlotStyleEditor,
   onRenameControlPanel,
+  onUpdateControlPanelLayout,
   onUpdateControlWidgetLabel,
   onUpdateControlWidgetInputKind,
   onUpdateControlWidgetSliderConfig,
@@ -409,6 +339,7 @@ function renderLayoutTreeNode({
   onSplitSizesChange?: (splitPath: SplitNodePath, sizes: number[]) => void;
   onOpenPanelPlotStyleEditor?: (entry: WorkspacePanelViewModel) => void;
   onRenameControlPanel?: (panelId: string, title: string) => void;
+  onUpdateControlPanelLayout?: (panelId: string, layout: StudioLayoutSpec) => void;
   onUpdateControlWidgetLabel?: (panelId: string, widgetId: string, label: string) => void;
   onUpdateControlWidgetInputKind?: (
     panelId: string,
@@ -438,6 +369,7 @@ function renderLayoutTreeNode({
         controlPanelOptions={controlPanelOptions}
         onOpenPanelPlotStyleEditor={onOpenPanelPlotStyleEditor}
         onRenameControlPanel={onRenameControlPanel}
+        onUpdateControlPanelLayout={onUpdateControlPanelLayout}
         onUpdateControlWidgetLabel={onUpdateControlWidgetLabel}
         onUpdateControlWidgetInputKind={onUpdateControlWidgetInputKind}
         onUpdateControlWidgetSliderConfig={onUpdateControlWidgetSliderConfig}
@@ -463,6 +395,7 @@ function renderLayoutTreeNode({
         onSplitSizesChange,
         onOpenPanelPlotStyleEditor,
         onRenameControlPanel,
+        onUpdateControlPanelLayout,
         onUpdateControlWidgetLabel,
         onUpdateControlWidgetInputKind,
         onUpdateControlWidgetSliderConfig,
@@ -567,6 +500,7 @@ export function WorkspaceView({
   onOpenPanelPlotStyleEditor,
   onCreateControlPanel,
   onRenameControlPanel,
+  onUpdateControlPanelLayout,
   onUpdateControlWidgetLabel,
   onUpdateControlWidgetInputKind,
   onUpdateControlWidgetSliderConfig,
@@ -610,6 +544,7 @@ export function WorkspaceView({
     onSplitSizesChange,
     onOpenPanelPlotStyleEditor,
     onRenameControlPanel,
+    onUpdateControlPanelLayout,
     onUpdateControlWidgetLabel,
     onUpdateControlWidgetInputKind,
     onUpdateControlWidgetSliderConfig,

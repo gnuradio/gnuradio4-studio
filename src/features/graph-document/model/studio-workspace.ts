@@ -66,6 +66,7 @@ export type StudioControlPanelSpec = {
   nodeId?: string;
   plotStyle?: StudioPlotStyleConfig;
   widgets: StudioControlWidgetSpec[];
+  widgetLayout?: StudioLayoutSpec;
 };
 
 export type StudioDataPanelSpec = {
