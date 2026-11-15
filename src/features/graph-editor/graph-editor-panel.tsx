@@ -40,6 +40,7 @@ import {
 } from './model/presentation';
 import { useEditorStore } from './store/editorStore';
 import { GraphNode } from './graph-node';
+import { captureGraphPng, copyPngToClipboard, downloadBlob } from './model/graph-screenshot';
 import { isHttpTimeSeriesSink } from './runtime/http-time-series';
 
 const nodeTypes = {
@@ -48,9 +49,30 @@ const nodeTypes = {
 
 type FlowGraphNode = Node<FlowNodeData>;
 
-function GraphCanvasControls() {
+function GraphCanvasControls({ getRoot }: { getRoot: () => HTMLElement | null }) {
+  const flow = useReactFlow();
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(copiedTimer.current), []);
+  const screenshot = async (action: 'download' | 'copy') => {
+    const root = getRoot();
+    if (!root) return;
+    try {
+      const nodes = flow.getNodes();
+      const blob = await captureGraphPng(root, nodes.length > 0 ? flow.getNodesBounds(nodes) : null);
+      if (action === 'copy') {
+        await copyPngToClipboard(blob);
+        setCopied(true);
+        clearTimeout(copiedTimer.current);
+        copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+      } else downloadBlob(blob, 'graph.png');
+    } catch (error) {
+      window.alert(`Screenshot failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
 
   return (
+    <>
     <div className="absolute bottom-3 left-3 z-20 overflow-hidden rounded-xl border border-slate-700/80 bg-slate-950/90 p-0.5 shadow-xl backdrop-blur">
       <div className="flex flex-col gap-1">
         <button
@@ -82,8 +104,46 @@ function GraphCanvasControls() {
             />
           </svg>
         </button>
+        <button
+          type="button"
+          title="Save graph as PNG"
+          onClick={() => void screenshot('download')}
+          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800"
+        >
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h1.2l.8-1.5h5l.8 1.5h1.2A1.5 1.5 0 0 1 14 5.5v6a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5v-6Z" /><circle cx="8" cy="8.5" r="2.3" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          title={copied ? 'Copied to clipboard' : 'Copy graph PNG to clipboard'}
+          onClick={() => void screenshot('copy')}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg border bg-slate-900 transition-colors hover:bg-slate-800 ${
+            copied ? 'border-emerald-500 text-emerald-400' : 'border-slate-700 text-slate-100 hover:border-slate-500'
+          }`}
+        >
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            {copied ? (
+              <path d="M3.5 8.5l3 3 6-7" />
+            ) : (
+              <>
+                <rect x="3" y="3" width="10" height="11" rx="1.5" /><path d="M6 3V2.5A.5.5 0 0 1 6.5 2h3a.5.5 0 0 1 .5.5V3" /><path d="M6 8h4M6 10.5h4" />
+              </>
+            )}
+          </svg>
+        </button>
       </div>
     </div>
+    <div
+      role="status"
+      aria-live="polite"
+      className={`pointer-events-none absolute bottom-3 left-12 z-20 rounded-lg border border-emerald-500/60 bg-slate-950/90 px-2 py-1 text-xs text-emerald-300 shadow-xl transition-opacity ${
+        copied ? 'opacity-100' : 'opacity-0'
+      }`}
+    >
+      {copied ? 'Graph copied to clipboard' : ''}
+    </div>
+    </>
   );
 }
 
@@ -852,7 +912,7 @@ export function GraphEditorPanel({
         selectionMode={SelectionMode.Partial}
       >
         <Background gap={16} size={1} color="var(--theme-canvas-grid)" />
-        <GraphCanvasControls />
+        <GraphCanvasControls getRoot={() => canvasRef.current} />
       </ReactFlow>
       {contextMenu && canEdit && <GraphContextMenu
         x={contextMenu.x} y={contextMenu.y} block={Boolean(contextMenu.nodeId)} commands={graphCommands}

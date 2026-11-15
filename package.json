@@ -26,6 +26,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@tanstack/react-query": "^5.67.0",
     "@xyflow/react": "^12.5.3",
+    "html-to-image": "1.11.13",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^4.7.4",
