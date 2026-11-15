@@ -301,9 +301,9 @@ Canonical fixtures:
 - `public/demo/waterfall-spectrum-json-v1.normal.json`
 - `public/demo/waterfall-spectrum-json-v1.smallest.json`
 - `public/demo/waterfall-spectrum-json-v1.malformed.json`
-- `examples/waterfall-demo.gr4s`
+- `examples/studio-blocks-waterfall.gr4s`
 
-Phosphor spectrum validation uses the same `dataset-xy-json-v1` contract as `StudioPowerSpectrumSink` with `persistence=true`; the demo graph is `examples/phosphor-spectrum-demo.gr4s`.
+Phosphor spectrum validation uses the same `dataset-xy-json-v1` contract as `StudioPowerSpectrumSink` with `persistence=true`; the demo graph is `examples/studio-blocks-sidebands.gr4s`.
 
 These fixtures are used by the TS contract tests and provide canonical payload references for manual payload inspection.
 
@@ -342,10 +342,10 @@ Runtime surface behavior:
 Manual validation path:
 
 1. Run the Studio dev server.
-2. Open `examples/waterfall-demo.gr4s` in Studio.
-3. Run the graph with the default waterfall endpoint settings.
+2. Open `examples/studio-blocks-waterfall.gr4s` in Studio.
+3. Run the graph.
 4. Confirm the waterfall panel renders and scrolls.
 5. Hover the waterfall to verify the readout updates.
-6. To verify manual color scaling, set `autoscale=false` and adjust `z_min` / `z_max` on the sink, then confirm the waterfall colors change on the next poll.
+6. To verify manual color scaling, set `autoscale=false` and adjust `z_min` / `z_max` on the sink, then confirm the waterfall colors change on the next frame.
 7. To verify fixed history depth, adjust `time_span` on the sink together with `sample_rate` and confirm the waterfall keeps a fixed row count quantized to the FFT size.
 8. Use the TS fixtures above to inspect the exact payload shape and error cases outside the runtime path if needed.

@@ -1,0 +1,626 @@
+{
+  "format": "gr4-studio.graph",
+  "version": 1,
+  "metadata": {
+    "name": "studio-blocks-audio.gr4s",
+    "description": "A quiet A-major chord at 440, 550, and 660 Hz with time and frequency views. Start playback in the audio panel.",
+    "schedulerId": "gr::scheduler::SimpleMulti",
+    "application": {
+      "mode": "in_app",
+      "renderer": "react",
+      "title": "Three-tone audio"
+    },
+    "studio": {
+      "panels": [
+        {
+          "id": "controls",
+          "kind": "control",
+          "title": "Controls",
+          "visible": true,
+          "previewOnCanvas": false,
+          "widgets": [
+            {
+              "id": "third-tone_frequency",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "third",
+                "parameterName": "tone_frequency"
+              },
+              "label": "Third (Hz)",
+              "inputKind": "slider",
+              "slider": {
+                "min": 500,
+                "max": 600,
+                "step": 1
+              },
+              "mode": "immediate"
+            },
+            {
+              "id": "fifth-tone_frequency",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "fifth",
+                "parameterName": "tone_frequency"
+              },
+              "label": "Fifth (Hz)",
+              "inputKind": "slider",
+              "slider": {
+                "min": 620,
+                "max": 700,
+                "step": 1
+              },
+              "mode": "immediate"
+            }
+          ]
+        },
+        {
+          "id": "spectrum",
+          "nodeId": "spectrum",
+          "kind": "series2d",
+          "title": "Chord spectrum",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "time",
+          "nodeId": "time",
+          "kind": "series",
+          "title": "Chord waveform",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "audio",
+          "nodeId": "audio",
+          "kind": "audio",
+          "title": "Playback",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        }
+      ],
+      "variables": [
+        {
+          "id": "sample_rate",
+          "name": "sample_rate",
+          "binding": {
+            "kind": "literal",
+            "value": 48000
+          }
+        }
+      ],
+      "layout": {
+        "version": 2,
+        "root": {
+          "kind": "split",
+          "direction": "column",
+          "children": [
+            {
+              "kind": "pane",
+              "panelId": "controls"
+            },
+            {
+              "kind": "split",
+              "direction": "column",
+              "children": [
+                {
+                  "kind": "split",
+                  "direction": "row",
+                  "children": [
+                    {
+                      "kind": "pane",
+                      "panelId": "time"
+                    },
+                    {
+                      "kind": "pane",
+                      "panelId": "spectrum"
+                    }
+                  ]
+                },
+                {
+                  "kind": "pane",
+                  "panelId": "audio"
+                }
+              ],
+              "sizes": [
+                78,
+                22
+              ]
+            }
+          ],
+          "sizes": [
+            18,
+            82
+          ]
+        },
+        "activePanelId": "controls"
+      }
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "clock",
+        "blockType": "gr::blocks::basic::ClockSource",
+        "title": "Sample clock",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "n_samples_max": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "root",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Root",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Sin"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "440"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.12"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "third",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Third",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 200
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Sin"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "550"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.12"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "fifth",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Fifth",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 400
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Sin"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "660"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.12"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "mix",
+        "blockType": "gr::blocks::math::Add<float32>",
+        "title": "Three-tone mix",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 550,
+          "y": 150
+        },
+        "parameters": {
+          "n_inputs": {
+            "kind": "literal",
+            "value": "3"
+          }
+        }
+      },
+      {
+        "id": "spectrum",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<float32>",
+        "title": "Chord spectrum",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 0
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "fft_size": {
+            "kind": "literal",
+            "value": "4096"
+          },
+          "num_averages": {
+            "kind": "literal",
+            "value": "4"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "output_in_db": {
+            "kind": "literal",
+            "value": true
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-110"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "plot_title": {
+            "kind": "literal",
+            "value": "Chord spectrum"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Power (dB)"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Chord spectrum"
+          },
+          "persistence": {
+            "kind": "literal",
+            "value": false
+          }
+        }
+      },
+      {
+        "id": "time",
+        "blockType": "gr::studio::StudioSeriesSink<float32>",
+        "title": "Chord waveform",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 240
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "2048"
+          },
+          "n_inputs": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "window_mode": {
+            "kind": "literal",
+            "value": "buffered"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-0.4"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0.4"
+          },
+          "x_label": {
+            "kind": "literal",
+            "value": "Sample"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Amplitude"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Mix"
+          }
+        }
+      },
+      {
+        "id": "audio",
+        "blockType": "gr::studio::StudioAudioSink<float32>",
+        "title": "Playback",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 480
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "channels": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "frame_ms": {
+            "kind": "literal",
+            "value": "20"
+          },
+          "buffer_ms": {
+            "kind": "literal",
+            "value": "120"
+          },
+          "gain": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "clip": {
+            "kind": "literal",
+            "value": true
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "clock-out-root-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "root",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "clock-out-third-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "third",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "clock-out-fifth-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "fifth",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "root-out-mix-in#0",
+        "source": {
+          "nodeId": "root",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "third-out-mix-in#1",
+        "source": {
+          "nodeId": "third",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#1"
+        }
+      },
+      {
+        "id": "fifth-out-mix-in#2",
+        "source": {
+          "nodeId": "fifth",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#2"
+        }
+      },
+      {
+        "id": "mix-out-spectrum-in",
+        "source": {
+          "nodeId": "mix",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "spectrum",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "mix-out-time-in#0",
+        "source": {
+          "nodeId": "mix",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "time",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "mix-out-audio-in",
+        "source": {
+          "nodeId": "mix",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "audio",
+          "portId": "in"
+        }
+      }
+    ]
+  }
+}

@@ -115,8 +115,7 @@ and −140…10 for spectrum power and waterfall intensity. These power ranges a
 Image bounds default to the 256 × 256 frame dimensions.
 
 The properties dialog validates literal settings and reports FFT bin spacing, averaging duration,
-and effective waterfall history depth. Expression values remain expressions and are resolved by
-the existing variable resolver. Series plots use sample indices on the horizontal axis.
+and effective waterfall history depth. Series plots use sample indices on the horizontal axis.
 Unused `topic` settings remain loadable but are hidden and omitted from runtime export.
 
 ## Standard parameters
@@ -228,8 +227,8 @@ For manual waterfall validation, the repo also ships canonical fixture payloads 
 
 Demo graphs live in `examples/`:
 
-- `examples/waterfall-demo.gr4s`
-- `examples/phosphor-spectrum-demo.gr4s`
+- `examples/studio-blocks-waterfall.gr4s`
+- `examples/studio-blocks-sidebands.gr4s`
 
 Payload details live in:
 
