@@ -2,7 +2,7 @@ import { useTheme } from '../../../themes/theme-store';
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import type { PlotAdapterProps } from '../model/types';
 import type { WaterfallRaster } from './waterfall-rendering';
-import { buildWaterfallRaster } from './waterfall-rendering';
+import { buildWaterfallRaster, resolveWaterfallColorStops } from './waterfall-rendering';
 
 type HoverSample = {
   row: number;
@@ -75,11 +75,11 @@ export function resolveWaterfallHoverSample(params: {
   };
 }
 
-export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapterProps) {
+export function WaterfallCanvasAdapter({ frame, width, height }: PlotAdapterProps) {
   const theme = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
-  const [hover, setHover] = useState<HoverSample | null>(null);
+  const [pointer, setPointer] = useState<{ x: number; y: number } | null>(null);
 
   const image = frame.image;
   const raster = useMemo(() => (image ? buildWaterfallRaster(image) : null), [image]);
@@ -91,7 +91,10 @@ export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapt
     () => (image?.xAxis ? toNumberArray(image.xAxis) : undefined),
     [image],
   );
-  const signalLabel = image?.signalName?.trim() || spec.title?.trim() || 'Waterfall';
+  const hover = useMemo(() => pointer ? resolveWaterfallHoverSample({
+    raster, sourceValues, frequencyBins,
+    rect: { width: 1, height: 1 }, clientX: pointer.x, clientY: pointer.y,
+  }) : null, [pointer, raster, sourceValues, frequencyBins]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -143,32 +146,18 @@ export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapt
     context.restore();
   }, [height, raster, width, theme]);
 
-  useEffect(() => {
-    setHover(null);
-  }, [frame.meta?.sequence, image]);
-
   const onPointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
-    const next = resolveWaterfallHoverSample({
-      raster,
-      sourceValues,
-      frequencyBins,
-      rect: {
-        width: rect.width,
-        height: rect.height,
-      },
-      clientX: event.clientX - rect.left,
-      clientY: event.clientY - rect.top,
+    if (rect.width <= 0 || rect.height <= 0) return;
+    setPointer({
+      x: (event.clientX - rect.left) / rect.width,
+      y: (event.clientY - rect.top) / rect.height,
     });
-    setHover(next);
   };
 
   const onPointerLeave = () => {
-    setHover(null);
+    setPointer(null);
   };
-
-  const minValue = image?.minValue ?? raster?.minValue;
-  const maxValue = image?.maxValue ?? raster?.maxValue;
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded border border-slate-800 bg-slate-950 shadow-sm">
@@ -179,56 +168,35 @@ export function WaterfallCanvasAdapter({ spec, frame, width, height }: PlotAdapt
         onPointerLeave={onPointerLeave}
       />
 
-      <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-slate-700/80 bg-slate-950/80 px-2 py-1 shadow-lg backdrop-blur">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-300">{signalLabel}</div>
-        <div className="mt-1 text-[10px] text-slate-400">
-          {raster ? `${raster.height} rows × ${raster.width} bins` : 'No waterfall data'}
-        </div>
-        {image?.timeSpan ? (
-          <div className="mt-0.5 text-[10px] text-slate-500">span {formatValue(image.timeSpan)} s</div>
-        ) : null}
-      </div>
-
       {raster ? (
-        <div className="pointer-events-none absolute bottom-3 right-3 flex items-end gap-2 rounded-md border border-slate-700/80 bg-slate-950/80 px-2 py-1 shadow-lg backdrop-blur">
+        <div
+          className="pointer-events-none absolute bottom-2 right-2 w-32 max-w-[calc(100%-1rem)] rounded border border-slate-700/80 bg-slate-950/80 px-2 py-1 text-[10px] text-slate-300"
+          role="img"
+          aria-label={`Intensity: ${formatValue(raster.minValue)} to ${formatValue(raster.maxValue)} ${image?.signalUnit ?? ''}`}
+        >
           <div
-            className="h-24 w-3 overflow-hidden rounded-sm border border-slate-800"
+            className="h-1.5 rounded-sm"
             style={{
-              background: `linear-gradient(to top, ${[
-                '#081120',
-                '#18204c',
-                '#384cac',
-                '#1391a8',
-                '#2ab775',
-                '#f0bc39',
-                '#f27c22',
-                '#ee463d',
-              ].join(', ')})`,
+              background: `linear-gradient(to right, ${resolveWaterfallColorStops(image?.colorMap)
+                .map(({ position, color }) => `rgb(${color.join(', ')}) ${position * 100}%`).join(', ')})`,
             }}
           />
-          <div className="text-[10px] leading-tight text-slate-300">
-            <div className="font-semibold text-slate-100">Intensity</div>
-            <div>{formatValue(raster.maxValue)}</div>
-            <div className="text-slate-500">→</div>
-            <div>{formatValue(raster.minValue)}</div>
+          <div className="mt-0.5 flex justify-between gap-1 font-mono">
+            <span>{formatValue(raster.minValue)}</span>
+            <span className="text-slate-400">{image?.signalUnit || 'Intensity'}</span>
+            <span>{formatValue(raster.maxValue)}</span>
           </div>
         </div>
       ) : null}
 
       {hover ? (
         <div className="pointer-events-none absolute right-3 top-3 max-w-[16rem] rounded-md border border-cyan-500/30 bg-slate-950/90 px-2 py-1 text-[10px] shadow-xl backdrop-blur">
-          <div className="font-semibold text-cyan-100">{signalLabel}</div>
-          <div className="mt-1 text-slate-300">
+          <div className="font-mono text-slate-200">
+            f={formatAxisValue(hover.frequency)} {image?.axisUnit ?? ''} · {formatValue(hover.value)} {image?.signalUnit ?? ''}
+          </div>
+          <div className="mt-0.5 text-slate-400">
             row {hover.row + 1}/{raster?.height ?? 0} · bin {hover.column + 1}/{raster?.width ?? 0}
-          </div>
-          <div className="text-slate-300">
-            f={formatAxisValue(hover.frequency)} {image?.axisUnit ? image.axisUnit : ''}
-          </div>
-          <div className="text-slate-300">
-            value={formatValue(hover.value)} {image?.signalUnit ? image.signalUnit : ''}
-          </div>
-          <div className="text-slate-500">
-            range {formatValue(minValue ?? 0)} .. {formatValue(maxValue ?? 1)}
+            {image?.timeSpan ? ` · ${formatValue(image.timeSpan)} s` : ''}
           </div>
         </div>
       ) : null}

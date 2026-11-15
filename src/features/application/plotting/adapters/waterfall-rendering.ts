@@ -32,7 +32,7 @@ export const VIRIDIS_WATERFALL_COLOR_STOPS: readonly WaterfallColorStop[] = [
   { position: 1.0, color: [253, 231, 37] },
 ] as const;
 
-function resolveWaterfallColorStops(colorMap?: string): readonly WaterfallColorStop[] {
+export function resolveWaterfallColorStops(colorMap?: string): readonly WaterfallColorStop[] {
   const normalized = colorMap?.trim().toLowerCase();
   if (normalized === 'grayscale' || normalized === 'grey' || normalized === 'gray') {
     return GRAYSCALE_WATERFALL_COLOR_STOPS;
