@@ -69,14 +69,6 @@ export function getAuthoringParameterLabel(blockTypeId: string, parameterName: s
   return labels[parameterName] ?? label;
 }
 
-export function getDescriptorBindingAuthoringMessage(blockTypeId: string): string | null {
-  if (!isDescriptorBasedBindingFamily(blockTypeId)) {
-    return null;
-  }
-
-  return 'The running session provides the connection address.';
-}
-
 export function buildStudioAuthoringBindingView(
   blockTypeId: string,
   parameterValues: Record<string, string>,
@@ -91,7 +83,6 @@ export function buildStudioAuthoringBindingView(
   }
 
   const transportRaw = normalizeString(parameterValues[binding.parameters.transport]);
-  const authoringMessage = getDescriptorBindingAuthoringMessage(blockTypeId) as string;
 
   if (!transportRaw) {
     return {
@@ -99,7 +90,7 @@ export function buildStudioAuthoringBindingView(
       blockTypeId,
       family: binding.family,
       payloadFormat: binding.payloadFormat,
-      reason: `Set transport. ${authoringMessage}`,
+      reason: 'Set transport.',
     };
   }
 
@@ -138,7 +129,6 @@ export function buildStudioAuthoringBindingView(
     channels: binding.parameters.channels ? parseInteger(parameterValues[binding.parameters.channels]) : undefined,
     bufferMs: binding.parameters.bufferMs ? parseInteger(parameterValues[binding.parameters.bufferMs]) : undefined,
     topic: binding.parameters.topic ? normalizeString(parameterValues[binding.parameters.topic]) || undefined : undefined,
-    reason: authoringMessage,
   };
 }
 
@@ -160,7 +150,6 @@ function buildDescriptorAuthoringView(
   parameterValues: Record<string, string>,
 ): StudioBindingView {
   const transportRaw = normalizeString(parameterValues[binding.parameters.transport]);
-  const authoringMessage = getDescriptorBindingAuthoringMessage(blockTypeId) ?? undefined;
 
   if (!transportRaw) {
     return {
@@ -168,7 +157,7 @@ function buildDescriptorAuthoringView(
       blockTypeId,
       family: binding.family,
       payloadFormat: binding.payloadFormat,
-      reason: authoringMessage ? `Set transport. ${authoringMessage}` : 'Set transport.',
+      reason: 'Set transport.',
     };
   }
 
@@ -207,6 +196,5 @@ function buildDescriptorAuthoringView(
     channels: binding.parameters.channels ? parseInteger(parameterValues[binding.parameters.channels]) : undefined,
     bufferMs: binding.parameters.bufferMs ? parseInteger(parameterValues[binding.parameters.bufferMs]) : undefined,
     topic: binding.parameters.topic ? normalizeString(parameterValues[binding.parameters.topic]) || undefined : undefined,
-    reason: authoringMessage,
   };
 }

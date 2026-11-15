@@ -8,7 +8,6 @@ import {
 } from './block-properties-modal';
 import {
   getAuthoringParameterLabel,
-  getDescriptorBindingAuthoringMessage,
   isDescriptorBindingHiddenParameter,
 } from '../graph-editor/runtime/studio-managed-runtime-authoring';
 
@@ -99,9 +98,6 @@ describe('coerceBlockPropertyLiteralValue', () => {
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioWaterfallSink<float32>', 'endpoint')).toBe(true);
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioAudioSink<float32>', 'endpoint')).toBe(true);
     expect(getAuthoringParameterLabel('gr::studio::StudioSeriesSink<float32>', 'endpoint', 'Endpoint')).toBe('Address');
-    expect(getDescriptorBindingAuthoringMessage('gr::studio::StudioSeriesSink<float32>')).toContain(
-      'running session',
-    );
   });
 
   it('keeps unsupported families unchanged', () => {
