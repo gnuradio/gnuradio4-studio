@@ -1691,6 +1691,7 @@ export function StudioPage() {
               />
             ) : activeCenterView === 'workspace' ? (
               <WorkspaceView
+                key={`${activeTabId}:${activeTab?.document.internalDocumentId}`}
                 panelEntries={renderedWorkspacePanelEntries}
                 layout={workspaceLayout}
                 onSplitDrop={applyLayoutEditorSplitDrop}
@@ -1719,6 +1720,7 @@ export function StudioPage() {
             />
             ) : (
               <ApplicationView
+                key={`${activeTabId}:${activeTab?.document.internalDocumentId}`}
                 panelEntries={renderedWorkspacePanelEntries}
                 layout={workspaceLayout}
                 executionState={runtimeView?.executionState}

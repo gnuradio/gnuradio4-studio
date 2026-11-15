@@ -4,7 +4,8 @@ import {
   GRAPH_DOCUMENT_VERSION,
   type GraphDocument,
 } from './types';
-import { normalizeStudioLayoutSpec } from './studio-layout';
+import { deriveDefaultStudioPanelsFromNodes } from '../../workspace/model/panel-derivation';
+import { mergeSavedAndDerivedStudioPanels, resolveStudioPanelLayout } from '../../workspace/model/panel-merge';
 import type {
   StudioControlPanelSpec,
   StudioControlWidgetSpec,
@@ -240,18 +241,24 @@ export function parseGraphDocument(input: unknown): GraphDocument {
     throw new Error(`Invalid GraphDocument: ${makeIssueMessage(parsed.error.issues)}`);
   }
 
-  if (!parsed.data.metadata.studio?.layout) {
+  const derivedPanels = deriveDefaultStudioPanelsFromNodes(parsed.data.graph.nodes.map((node) => ({
+    instanceId: node.id, blockTypeId: node.blockType, displayName: node.title ?? node.blockType,
+  })));
+  if (!parsed.data.metadata.studio && derivedPanels.length === 0) {
     return parsed.data;
   }
 
-  const panelIds = parsed.data.metadata.studio.panels.map((panel) => panel.id);
+  const panels = mergeSavedAndDerivedStudioPanels({
+    savedPanels: parsed.data.metadata.studio?.panels, derivedPanels, preserveSavedPanels: true,
+  });
   return {
     ...parsed.data,
     metadata: {
       ...parsed.data.metadata,
       studio: {
         ...parsed.data.metadata.studio,
-        layout: normalizeStudioLayoutSpec(parsed.data.metadata.studio.layout, panelIds),
+        panels,
+        layout: resolveStudioPanelLayout(parsed.data.metadata.studio?.layout, panels, derivedPanels),
       },
     },
   };

@@ -630,4 +630,31 @@ describe('workspace layout model (split tree)', () => {
     const next = applySplitSizesToLayout(initial, [], [55, 45], ['panel-a', 'panel-b']);
     expect(next).toBe(initial);
   });
+
+  it('preserves an untouched branch and ancestor proportions when another panel is moved', () => {
+    const left = { kind: 'split' as const, direction: 'row' as const, sizes: [3, 1], children: [
+      { kind: 'pane' as const, panelId: 'a' }, { kind: 'pane' as const, panelId: 'b' },
+    ] };
+    const initial = { version: 2 as const, root: {
+      kind: 'split' as const, direction: 'column' as const, sizes: [2, 1], children: [left,
+        { kind: 'split' as const, direction: 'row' as const, sizes: [1, 2], children: [
+          { kind: 'pane' as const, panelId: 'c' }, { kind: 'pane' as const, panelId: 'd' },
+        ] },
+      ],
+    } };
+    const next = applySplitDropToLayout(initial, 'd', 'c', 'bottom', ['a', 'b', 'c', 'd']);
+    expect(next.root.kind).toBe('split');
+    if (next.root.kind !== 'split') return;
+    expect(next.root.children[0]).toEqual(left);
+    expect(next.root.sizes).toEqual([2, 1]);
+  });
+
+  it('does not rewrite equivalent split proportions as percentages', () => {
+    const initial = { version: 2 as const, root: {
+      kind: 'split' as const, direction: 'row' as const, sizes: [1, 2], children: [
+        { kind: 'pane' as const, panelId: 'a' }, { kind: 'pane' as const, panelId: 'b' },
+      ],
+    } };
+    expect(applySplitSizesToLayout(initial, [], [100 / 3, 200 / 3], ['a', 'b'])).toBe(initial);
+  });
 });

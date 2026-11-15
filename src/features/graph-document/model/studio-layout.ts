@@ -92,7 +92,12 @@ export function normalizeStudioLayoutSpec(
   const missingPanelIds = (panelIds ?? []).filter((panelId) => !seen.has(panelId));
   const withMissingRoot =
     missingPanelIds.length > 0
-      ? buildColumnLayoutRoot([...rootPaneIds, ...missingPanelIds])
+      ? {
+          kind: 'split' as const,
+          direction: 'column' as const,
+          children: [normalizedRoot, ...missingPanelIds.map((panelId) => ({ kind: 'pane' as const, panelId }))],
+          sizes: [Math.max(1, rootPaneIds.length), ...missingPanelIds.map(() => 1)],
+        }
       : normalizedRoot;
   const paneIds = collectLayoutPaneIds(withMissingRoot).filter((panelId) => panelId !== EMPTY_LAYOUT_PANEL_ID);
   const activePanelId =
@@ -117,13 +122,14 @@ function removePaneFromNode(
   }
 
   let removed = false;
-  const nextChildren = node.children
+  const mappedChildren = node.children
     .map((child) => {
       const result = removePaneFromNode(child, panelId);
       removed = removed || result.removed;
       return result.node;
-    })
-    .filter((child): child is StudioLayoutNode => child !== null);
+    });
+  if (!removed) return { node, removed: false };
+  const nextChildren = mappedChildren.filter((child): child is StudioLayoutNode => child !== null);
 
   if (nextChildren.length === 0) {
     return { node: null, removed };
@@ -138,8 +144,9 @@ function removePaneFromNode(
       kind: 'split',
       direction: node.direction,
       children: nextChildren,
-      // Keep split mutation deterministic in Step 3 by dropping stale size vectors.
-      sizes: undefined,
+      sizes: node.sizes?.length === node.children.length
+        ? node.sizes.filter((_, index) => mappedChildren[index] !== null)
+        : undefined,
     },
     removed,
   };
@@ -348,11 +355,10 @@ export function applySplitSizesToLayout(
       return node;
     }
     const roundedSizes = sizes.map((size) => roundLayoutSize(size));
-    if (
-      node.sizes &&
-      node.sizes.length === roundedSizes.length &&
-      node.sizes.every((size, index) => roundLayoutSize(size) === roundedSizes[index])
-    ) {
+    const previousSizes = buildNormalizedSplitSizes(node.children.length, node.sizes);
+    const previousTotal = previousSizes.reduce((sum, size) => sum + size, 0);
+    const nextTotal = roundedSizes.reduce((sum, size) => sum + size, 0);
+    if (previousSizes.every((size, index) => Math.abs(size / previousTotal - roundedSizes[index] / nextTotal) < 0.000001)) {
       return node;
     }
     return {
