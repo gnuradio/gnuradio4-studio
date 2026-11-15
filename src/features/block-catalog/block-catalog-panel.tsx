@@ -20,6 +20,7 @@ import { useBlockCatalogQuery } from './hooks/use-block-catalog-query';
 import { config } from '../../lib/config';
 import { CATALOG_BLOCK_DRAG_MIME } from '../graph-editor/model/catalog-drag';
 import { SidePanelToggleButton } from '../../components/side-panel-toggle-button';
+import { getPortTypeColor } from '../ports/model/typeColors';
 
 function BlockVariantButton({ block }: { block: BlockCatalogItem }) {
   const addNodeFromCatalogItem = useEditorStore((state) => state.addNodeFromCatalogItem);
@@ -67,12 +68,19 @@ function BlockFamilyCard({ name, variants }: { name: string; variants: BlockCata
       <div className="mt-2 flex flex-wrap gap-1">
         {variants.map((block) => {
           const { variantLabel } = parseTypeId(block.blockTypeId);
+          const variantType = variantLabel === '(default)' ? undefined : variantLabel.slice(1, -1);
           const label =
-            variantLabel === '(default)' ? variantLabel : abbreviateTypeExpr(variantLabel.slice(1, -1));
+            variantType === undefined ? variantLabel : abbreviateTypeExpr(variantType);
+          const typeColor = variantType === undefined ? undefined : getPortTypeColor(variantType);
           return (
             <button
               key={block.blockTypeId}
               className="rounded border border-slate-600 bg-slate-900 px-2 py-0.5 text-xs text-slate-200 hover:border-accent transition"
+              style={typeColor && {
+                backgroundColor: typeColor.background,
+                borderColor: typeColor.border,
+                color: typeColor.text,
+              }}
               onClick={() => addNodeFromCatalogItem(toEditorCatalogBlock(block))}
               title={block.blockTypeId}
               type="button"
