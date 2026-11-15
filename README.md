@@ -150,6 +150,31 @@ because the browser cannot confirm their saved location. History stores no
 document snapshots; clearing browser site data clears browser history. If browser
 storage is unavailable, Studio reports that history is limited to the page session.
 
+Studio also restores the open graph tabs, their order, the selected tab, and
+unsaved edits (including untitled graphs) when reopened. Recovery copies are
+separate from Open Recent and from the original `.gr4s` files; a recovery
+checkpoint does not save edits to those files. Restored edits keep their unsaved
+indicator. Closing a graph tab removes it from the next recovery checkpoint.
+
+Electron keeps recovery in `state/workspace.json` under its application-data
+directory, so it survives changes to the local UI port or backend connection.
+Browser and WASM builds use IndexedDB for the current site address and browser
+profile. Clearing site data removes their recovery copies. Browser file handles
+are retained where supported; Save may need permission again. Uploaded files and
+missing desktop files can still recover their contents, with Save As used when
+the original file is unavailable. Studio reports a warning if recovery storage
+cannot be read or written.
+
+Recovery restores the last editor contents, including graph layout, variables,
+and display configuration. It does not reload external file changes, restore
+undo/redo history, reconnect runtime sessions, or run graphs automatically.
+Multiple browser windows at the same site share the last written recovery copy.
+
+To repeat the browser and Electron restart checks, start `npm run dev`, then run
+`node scripts/workspace-recovery-acceptance.mjs` in another terminal. Set
+`STUDIO_URL` or `CHROME_PATH` if needed. The checks use temporary profiles and
+files, and require Chrome plus a display for Electron.
+
 - `Ctrl/Cmd+N`, `O`, `S`, and `Shift+S`: new, open, save, and save as.
 - `Ctrl/Cmd+W`: close the active tab when more than one is open.
 - `Ctrl/Cmd+1` through `4`: graph, variables, layout, and in-app display.

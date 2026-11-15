@@ -22,6 +22,7 @@ import {
 import { serializeEditorSnapshot, STUDIO_UNTITLED_NAME } from '../features/document-file/document-serialization';
 import { useDocumentStore } from '../features/document-file/document-store';
 import { registerBeforeUnloadUnsavedChangesGuard } from '../features/document-file/unsaved-changes-guard';
+import { flushWorkspaceRecovery } from '../features/document-file/workspace-recovery';
 import { handleDocumentShortcutKeydown } from '../features/document-file/document-shortcuts';
 import {
   buildCapabilityIndicatorText,
@@ -252,6 +253,7 @@ export function StudioPage() {
   const tabs = useGraphTabsStore((state) => state.tabs);
   const activeTabId = useGraphTabsStore((state) => state.activeTabId);
   const initializedTabs = useGraphTabsStore((state) => state.initialized);
+  const recoveryWarning = useGraphTabsStore((state) => state.recoveryWarning);
   const initializeFromSnapshot = useGraphTabsStore((state) => state.initializeFromSnapshot);
   const createTab = useGraphTabsStore((state) => state.createTab);
   const updateActiveSnapshot = useGraphTabsStore((state) => state.updateActiveSnapshot);
@@ -915,6 +917,25 @@ export function StudioPage() {
   useEffect(() => registerBeforeUnloadUnsavedChangesGuard(anyTabDirty), [anyTabDirty]);
 
   useEffect(() => {
+    const checkpoint = () => {
+      const tabId = useGraphTabsStore.getState().activeTabId;
+      // A tab switch may still be loading into the editor. Never back up the
+      // previous tab's canvas into the newly selected tab.
+      const captureEditor = tabId && editorBoundTabIdRef.current === tabId && !pendingEditorLoadRef.current;
+      flushWorkspaceRecovery(captureEditor ? { tabId, snapshot: useEditorStore.getState().getGraphSnapshot() } : undefined);
+    };
+    window.addEventListener('beforeunload', checkpoint);
+    window.addEventListener('pagehide', checkpoint);
+    const onVisibilityChange = () => { if (document.visibilityState === 'hidden') checkpoint(); };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', checkpoint);
+      window.removeEventListener('pagehide', checkpoint);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
@@ -1564,6 +1585,11 @@ export function StudioPage() {
       {documentError && (
         <div className="shrink-0 border-b border-rose-900 bg-rose-950/30 px-4 py-2 text-sm text-rose-200">
           {documentError}
+        </div>
+      )}
+      {recoveryWarning && (
+        <div role="alert" className="shrink-0 border-b border-amber-900 bg-amber-950/30 px-4 py-2 text-sm text-amber-200">
+          {recoveryWarning}
         </div>
       )}
       {!documentError && documentStatusMessage && (

@@ -32,6 +32,8 @@ type GraphTabsState = {
   tabs: GraphTab[];
   activeTabId: string | null;
   initialized: boolean;
+  recoveryWarning: string | null;
+  restoreTabs: (tabs: Array<{ snapshot: EditorSnapshot; document: DocumentIdentityState }>, activeTabIndex: number) => void;
   initializeFromSnapshot: (snapshot: EditorSnapshot) => void;
   createTab: (input?: { snapshot?: EditorSnapshot; document?: DocumentIdentityState; activate?: boolean }) => GraphTab;
   updateActiveSnapshot: (snapshot: EditorSnapshot, options?: { dirty?: boolean }) => void;
@@ -113,6 +115,14 @@ export const useGraphTabsStore = create<GraphTabsState>((set, get) => ({
   tabs: [],
   activeTabId: null,
   initialized: false,
+  recoveryWarning: null,
+
+  restoreTabs: (restored, activeTabIndex) => {
+    if (get().initialized || get().tabs.length > 0 || restored.length === 0) return;
+    tabCounter = 0;
+    const tabs = restored.map(({ snapshot, document }) => createTabFromSnapshot(createTabId(), snapshot, document));
+    set({ initialized: true, tabs, activeTabId: tabs[activeTabIndex]?.id ?? tabs[0].id });
+  },
 
   initializeFromSnapshot: (snapshot) => {
     const state = get();

@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('gr4StudioShell', {
     openRecent: (input) => ipcRenderer.invoke('gr4-studio:document:openRecent', input),
     removeRecent: (input) => ipcRenderer.invoke('gr4-studio:document:removeRecent', input),
     clearRecent: () => ipcRenderer.invoke('gr4-studio:document:clearRecent'),
+    loadWorkspace: () => ipcRenderer.invoke('gr4-studio:document:loadWorkspace'),
+    saveWorkspace: (input) => ipcRenderer.invoke('gr4-studio:document:saveWorkspace', input),
+    saveWorkspaceSync: (input) => {
+      const result = ipcRenderer.sendSync('gr4-studio:document:saveWorkspaceSync', input);
+      if (result.error) throw new Error(result.error);
+    },
   },
   setMenuState(state) {
     ipcRenderer.send('gr4-studio:menu-state', state);
