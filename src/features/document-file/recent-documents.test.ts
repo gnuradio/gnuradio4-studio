@@ -21,6 +21,34 @@ function setup() {
 }
 
 describe('browser recent documents', () => {
+  it('notifies menu subscribers after successful changes and stops after unsubscribe', async () => {
+    const { history } = setup();
+    const changed = vi.fn();
+    const dispose = history.subscribe(changed);
+    await history.list();
+    expect(changed).not.toHaveBeenCalled();
+    await history.remember(identity('one.gr4s'));
+    await history.remove((await history.list())[0].id);
+    await history.clear();
+    expect(changed).toHaveBeenCalledTimes(3);
+    dispose();
+    await history.remember(identity('two.gr4s'));
+    expect(changed).toHaveBeenCalledTimes(3);
+  });
+  it('notifies desktop menu subscribers after native changes, including failures', async () => {
+    const native = { rememberRecent: vi.fn().mockResolvedValue(undefined), removeRecent: vi.fn().mockResolvedValue(undefined),
+      clearRecent: vi.fn().mockResolvedValue(undefined) };
+    const history = createRecentDocuments({ gr4StudioShell: { capabilities: { nativeFiles: true }, documents: native } } as unknown as Window);
+    const changed = vi.fn();
+    history.subscribe(changed);
+    await history.remember({ ...identity('one.gr4s'), nativeFileToken: 'token' });
+    await history.remove('entry');
+    await history.clear();
+    expect(changed).toHaveBeenCalledTimes(3);
+    native.clearRecent.mockRejectedValue(new Error('disk unavailable'));
+    await expect(history.clear()).rejects.toThrow('disk unavailable');
+    expect(changed).toHaveBeenCalledTimes(3);
+  });
   it('persists a bounded MRU list and deduplicates uploads by name, size and modified time', async () => {
     const { storage, history } = setup();
     for (let i = 0; i < 12; i++) await history.remember(identity(`${i}.gr4s`));

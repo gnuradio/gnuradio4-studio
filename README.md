@@ -134,11 +134,12 @@ uses opaque file handles for file access. Save writes to the
 selected file; Save As selects a new backing file. Closing a dirty tab prompts
 to save; cancelling an application close keeps the backend running.
 
-**File → Open Recent** is available in both Electron and the browser. It keeps
-the last 10 successfully opened or saved-as documents, newest first. Files open
-in a new tab and existing unsaved tabs stay open. Use **Locate** to select a moved
-file, **Remove** to forget one entry, or **Clear Recent** to forget the list;
-these actions never delete document files.
+**File → Open Recent** lists the last 10 successfully opened or saved-as documents,
+newest first, in Electron's native menu and the browser/WASM File menu. Select a
+filename to open it in a new tab; existing unsaved tabs stay open. **Clear Recent**
+forgets the list. **Manage Recent…** opens a dialog with **Locate** to select a
+moved file and **Remove** to forget one entry. These actions never delete document
+files. Upload-only browser entries show **Select file again…** in the submenu.
 
 Electron stores paths in `state/recent-documents.json` under its per-user
 application-data directory (normally `~/.config/gr4-studio` on Linux), shared
@@ -170,7 +171,7 @@ and display configuration. It does not reload external file changes, restore
 undo/redo history, reconnect runtime sessions, or run graphs automatically.
 Multiple browser windows at the same site share the last written recovery copy.
 
-To repeat the browser and Electron restart checks, start `npm run dev`, then run
+To repeat the browser and Electron restart and recent-menu checks, start `npm run dev`, then run
 `node scripts/workspace-recovery-acceptance.mjs` in another terminal. Set
 `STUDIO_URL` or `CHROME_PATH` if needed. The checks use temporary profiles and
 files, and require Chrome plus a display for Electron.

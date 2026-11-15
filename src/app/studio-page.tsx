@@ -101,6 +101,8 @@ import { SidePanelToggleButton } from '../components/side-panel-toggle-button';
 import { getStudioShellGridTemplate } from './side-panel-layout';
 import { createRecentDocuments, type RecentDocument } from '../features/document-file/recent-documents';
 import { RecentDocumentsDialog } from '../features/document-file/recent-documents-dialog';
+import { RecentDocumentsMenu } from '../features/document-file/recent-documents-menu';
+import { useRecentDocuments } from '../features/document-file/use-recent-documents';
 
 type ConnectionStatus = 'idle' | 'loading' | 'connected' | 'error';
 type CenterViewMode = 'graph' | 'variables' | 'workspace' | 'application';
@@ -284,6 +286,7 @@ export function StudioPage() {
   const setOpening = useDocumentStore((state) => state.setOpening);
   const setLastError = useDocumentStore((state) => state.setLastError);
   const setLastStatusMessage = useDocumentStore((state) => state.setLastStatusMessage);
+  const { entries: recentEntries, refresh: refreshRecentDocuments } = useRecentDocuments(recentDocuments, setLastError);
 
   const activeTab = useMemo(
     () => (activeTabId ? tabs.find((tab) => tab.id === activeTabId) ?? null : null),
@@ -1435,8 +1438,19 @@ export function StudioPage() {
   const canDeleteSession = runtimeAvailable && Boolean(activeRuntimeContext?.sessionId);
   useStudioCommands({
     new: { enabled: commandsAvailable, execute: handleCreateTab },
-    open: { enabled: commandsAvailable, execute: handleOpenCommand },
-    openRecent: { enabled: commandsAvailable, execute: () => { setLastError(null); setIsRecentDocumentsOpen(true); } },
+    open: { enabled: commandsAvailable, execute: () => handleOpenCommand() },
+    openRecent: { enabled: commandsAvailable, execute: (id) => {
+      const entry = recentEntries.find((item) => item.id === id);
+      if (!entry) throw new Error('This recent file is no longer available. Open Manage Recent or select the file again.');
+      return handleOpenCommand(entry);
+    } },
+    manageRecent: { enabled: commandsAvailable, execute: () => { setLastError(null); setIsRecentDocumentsOpen(true); } },
+    clearRecent: { enabled: commandsAvailable && recentEntries.length > 0, execute: async () => {
+      setLastError(null);
+      await recentDocuments.clear();
+      await refreshRecentDocuments();
+      setLastStatusMessage(recentDocuments.warning ?? 'Recent files cleared.');
+    } },
     save: { enabled: commandsAvailable && saveEnabled, execute: handleSaveCurrentDocument },
     saveAs: { enabled: commandsAvailable && Boolean(activeTabId), execute: handleSaveAsCurrentDocument },
     rename: { enabled: commandsAvailable && Boolean(activeTabId), execute: handleRenameCurrentDocument },
@@ -1454,7 +1468,7 @@ export function StudioPage() {
     deleteSession: { enabled: canDeleteSession, execute: () => activeTabId && deleteSessionAndShowGraph(activeTabId) },
     diagnostics: { enabled: commandsAvailable, execute: () => setIsDiagnosticsOpen(true) },
   });
-  useDesktopCommands((error) => setLastError(error instanceof Error ? error.message : String(error)));
+  useDesktopCommands((error) => setLastError(error instanceof Error ? error.message : String(error)), recentEntries);
 
   return (
     <div className="h-screen overflow-hidden bg-slate-900 text-slate-100 flex flex-col">
@@ -1468,11 +1482,11 @@ export function StudioPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <details className="relative">
+          <details data-file-menu className="relative">
             <summary className="cursor-pointer list-none rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700">
               File
             </summary>
-            <div className="absolute right-0 z-40 mt-1 w-52 rounded border border-slate-700 bg-slate-900 p-1 shadow-lg">
+            <div className="absolute right-0 z-40 mt-1 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto rounded border border-slate-700 bg-slate-900 p-1 shadow-lg">
               <button
                 type="button"
                 onClick={() => executeStudioCommand('new')}
@@ -1490,14 +1504,7 @@ export function StudioPage() {
               >
                 Open...
               </button>
-              <button type="button" disabled={!commandsAvailable}
-                onClick={(event) => {
-                  event.currentTarget.closest('details')?.removeAttribute('open');
-                  executeStudioCommand('openRecent');
-                }}
-                className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50">
-                Open Recent…
-              </button>
+              <RecentDocumentsMenu entries={recentEntries} enabled={commandsAvailable} onRefresh={refreshRecentDocuments} />
               <button
                 type="button"
                 onClick={() => executeStudioCommand('save')}

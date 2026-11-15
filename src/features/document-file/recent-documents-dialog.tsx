@@ -59,7 +59,7 @@ export function RecentDocumentsDialog({ history, onOpen, onClose, error }: Props
     }}
     className="w-[min(42rem,calc(100vw-2rem))] rounded-lg border border-slate-600 bg-slate-900 p-5 text-slate-100 shadow-xl backdrop:bg-black/60">
     <div className="mb-2 flex items-center justify-between gap-4">
-      <h2 id="recent-documents-title" className="text-lg font-semibold">Open Recent</h2>
+      <h2 id="recent-documents-title" className="text-lg font-semibold">Manage Recent</h2>
       <button type="button" className={button} disabled={busy} onClick={onClose} autoFocus>Close</button>
     </div>
     <p className="mb-4 text-sm text-slate-400">Your last 10 files. Files open in a new tab; unsaved tabs stay open.</p>

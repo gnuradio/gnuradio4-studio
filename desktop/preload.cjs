@@ -52,8 +52,8 @@ contextBridge.exposeInMainWorld('gr4StudioShell', {
     };
   },
   onMenuCommand(callback) {
-    const listener = (_event, command) => {
-      callback(command);
+    const listener = (_event, command, argument) => {
+      callback(command, argument);
     };
 
     ipcRenderer.on('gr4-studio:menu-command', listener);
