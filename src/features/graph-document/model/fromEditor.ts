@@ -3,6 +3,8 @@ import type { ApplicationSpec, StudioLayoutSpec, StudioPanelSpec, StudioPlotPale
 import type { GraphDocument, GraphParameterValue } from './types';
 import { GRAPH_DOCUMENT_FORMAT, GRAPH_DOCUMENT_VERSION } from './types';
 import type { ExpressionBinding, JsonPrimitive } from '../../variables/model/types';
+import { deriveDefaultStudioPanelsFromNodes } from '../../workspace/model/panel-derivation';
+import { mergeSavedAndDerivedStudioPanels, resolveStudioPanelLayout } from '../../workspace/model/panel-merge';
 
 type EditorSnapshot = {
   metadata: {
@@ -41,9 +43,12 @@ function toGraphParameterValue(value: EditorGraphNode['parameters'][string]): Ex
 }
 
 export function graphDocumentFromEditor(snapshot: EditorSnapshot): GraphDocument {
-  const studioPanels = snapshot.metadata.studioPanels;
+  const derivedPanels = deriveDefaultStudioPanelsFromNodes(snapshot.nodes);
+  const studioPanels = snapshot.metadata.studioPanels !== undefined || derivedPanels.length > 0
+    ? mergeSavedAndDerivedStudioPanels({ savedPanels: snapshot.metadata.studioPanels, derivedPanels, preserveSavedPanels: true })
+    : undefined;
   const studioVariables = snapshot.metadata.studioVariables;
-  const studioLayout = snapshot.metadata.studioLayout;
+  const studioLayout = resolveStudioPanelLayout(snapshot.metadata.studioLayout, studioPanels ?? [], derivedPanels);
   const studioPlotPalettes = snapshot.metadata.studioPlotPalettes;
 
   return {

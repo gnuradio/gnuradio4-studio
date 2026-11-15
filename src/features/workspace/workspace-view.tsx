@@ -1,3 +1,4 @@
+import { LayoutSplitGroup } from './layout-split-group';
 import {
   type CollisionDetection,
   DndContext,
@@ -13,7 +14,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { Group, Panel, Separator } from 'react-resizable-panels';
+import { Panel, Separator } from 'react-resizable-panels';
 import { useState } from 'react';
 import type {
   StudioControlWidgetSliderConfig,
@@ -448,9 +449,10 @@ function renderLayoutTreeNode({
     );
   }
 
-  const children: Array<{ key: string; node: ReactNode }> = node.children
+  const children: Array<{ key: string; index: number; node: ReactNode }> = node.children
     .map((child: StudioLayoutNode, index: number) => ({
       key: `${node.direction}:${index}`,
+      index,
       node: renderLayoutTreeNode({
         node: child,
         nodePath: [...nodePath, index],
@@ -487,12 +489,13 @@ function renderLayoutTreeNode({
 
   const splitSizes =
     node.sizes &&
-    node.sizes.length === children.length &&
+    node.sizes.length === node.children.length &&
     node.sizes.every((size) => typeof size === 'number' && Number.isFinite(size) && size > 0)
       ? node.sizes
-      : Array.from({ length: children.length }, () => 1);
-  const totalSplitSize = splitSizes.reduce((sum, size) => sum + size, 0) || children.length;
-  const percentSizes = splitSizes.map((size) => (size / totalSplitSize) * 100);
+      : Array.from({ length: node.children.length }, () => 1);
+  const visibleSizes = children.map((child) => splitSizes[child.index]);
+  const totalSplitSize = visibleSizes.reduce((sum, size) => sum + size, 0) || children.length;
+  const percentSizes = visibleSizes.map((size) => (size / totalSplitSize) * 100);
   const groupDirection = node.direction === 'row' ? 'horizontal' : 'vertical';
   const splitKey = nodePath.length === 0 ? 'root' : nodePath.join('-');
   const childIds = children.map((_, index) => `split-${splitKey}-child-${index}`);
@@ -529,11 +532,11 @@ function renderLayoutTreeNode({
   });
 
   return (
-    <Group
+    <LayoutSplitGroup
       orientation={groupDirection}
       className={splitClass}
       defaultLayout={defaultLayout}
-      onLayoutChanged={(layoutMap) => {
+      onUserResize={(layoutMap) => {
         if (!onSplitSizesChange) {
           return;
         }
@@ -544,11 +547,15 @@ function renderLayoutTreeNode({
           }
           return percentSizes[index];
         });
-        onSplitSizesChange([...nodePath], layoutSizes);
+        const nextSizes = [...splitSizes];
+        children.forEach((child, index) => {
+          nextSizes[child.index] = layoutSizes[index] * totalSplitSize / 100;
+        });
+        onSplitSizesChange([...nodePath], nextSizes);
       }}
     >
       {groupChildren}
-    </Group>
+    </LayoutSplitGroup>
   );
 }
 

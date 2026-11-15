@@ -1,5 +1,6 @@
+import { LayoutSplitGroup } from '../workspace/layout-split-group';
 import { useMemo, type ReactNode } from 'react';
-import { Group, Panel, Separator } from 'react-resizable-panels';
+import { Panel, Separator } from 'react-resizable-panels';
 import type { StudioLayoutSpec } from '../graph-document/model/studio-workspace';
 import type { StudioLayoutNode } from '../graph-document/model/studio-workspace';
 import { PlotPanel } from './plotting/components/plot-panel';
@@ -151,9 +152,10 @@ export function ApplicationView({ panelEntries, layout, executionState, onUpdate
       return <ApplicationPanelShell entry={entry} executionState={executionState} onUpdateVariableValue={onUpdateVariableValue} />;
     }
 
-    const children: Array<{ key: string; node: ReactNode }> = node.children
+    const children: Array<{ key: string; index: number; node: ReactNode }> = node.children
       .map((child, index) => ({
         key: `${node.direction}:${index}`,
+        index,
         node: renderLayoutNode(child, [...nodePath, index]),
       }))
       .filter((item) => item.node !== null);
@@ -172,12 +174,13 @@ export function ApplicationView({ panelEntries, layout, executionState, onUpdate
         : 'flex flex-col min-h-0 min-w-0 h-full w-full';
     const splitSizes =
       node.sizes &&
-      node.sizes.length === children.length &&
+      node.sizes.length === node.children.length &&
       node.sizes.every((size) => typeof size === 'number' && Number.isFinite(size) && size > 0)
         ? node.sizes
-        : Array.from({ length: children.length }, () => 1);
-    const totalSplitSize = splitSizes.reduce((sum, size) => sum + size, 0) || children.length;
-    const percentSizes = splitSizes.map((size) => (size / totalSplitSize) * 100);
+        : Array.from({ length: node.children.length }, () => 1);
+    const visibleSizes = children.map((child) => splitSizes[child.index]);
+    const totalSplitSize = visibleSizes.reduce((sum, size) => sum + size, 0) || children.length;
+    const percentSizes = visibleSizes.map((size) => (size / totalSplitSize) * 100);
     const splitKey = nodePath.length === 0 ? 'root' : nodePath.join('-');
     const childIds = children.map((_, index) => `app-split-${splitKey}-child-${index}`);
     const defaultLayout = Object.fromEntries(childIds.map((childId, index) => [childId, percentSizes[index]]));
@@ -203,9 +206,9 @@ export function ApplicationView({ panelEntries, layout, executionState, onUpdate
     });
 
     return (
-      <Group orientation={node.direction === 'row' ? 'horizontal' : 'vertical'} className={splitClass} defaultLayout={defaultLayout}>
+      <LayoutSplitGroup orientation={node.direction === 'row' ? 'horizontal' : 'vertical'} className={splitClass} defaultLayout={defaultLayout}>
         {groupChildren}
-      </Group>
+      </LayoutSplitGroup>
     );
   };
 
