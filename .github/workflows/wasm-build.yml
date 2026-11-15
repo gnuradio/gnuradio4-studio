@@ -209,7 +209,7 @@ jobs:
         run: >
           printf '::notice title="Artifact URL"::%s\n' "${COMPILED_URL}"
       - name: Insert or update PR comment containing URL
-        if: github.event_name == 'pull_request'
+        if: ${{ steps.checksetup.outputs.hasthings == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
