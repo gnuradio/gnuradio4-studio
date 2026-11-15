@@ -87,16 +87,6 @@ function formatRateBadge(params: { renderFps: number | null; ingressFps: number 
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
-function formatConnectionBadge(frame: PlotDataFrame): string | null {
-  if (frame.meta?.statusMessage) {
-    return frame.meta.statusMessage;
-  }
-  if (frame.meta?.errorMessage) {
-    return frame.meta.errorMessage;
-  }
-  return null;
-}
-
 export function PlotSurface({
   spec,
   frame,
@@ -179,7 +169,6 @@ export function PlotSurface({
   });
   const statusText =
     frame.meta?.errorMessage ?? frame.meta?.statusMessage ?? (visibleState === 'loading' ? 'Connecting live source...' : null);
-  const connectionBadge = formatConnectionBadge(frame);
   const showDiagnostics = Boolean(binding?.transport || endpointLabel || frame.meta?.state);
 
   const titleByState: Record<Exclude<typeof visibleState, 'live'>, string> = {
@@ -329,7 +318,6 @@ export function PlotSurface({
                   {sequenceLabel ? <span className="text-slate-400">{sequenceLabel}</span> : null}
                   {rateLabel ? <span className="text-slate-400">{rateLabel}</span> : null}
                 </div>
-                {connectionBadge ? <div className="mt-0.5 truncate text-slate-300">{connectionBadge}</div> : null}
                 {endpointLabel ? (
                   <div className="mt-0.5 truncate text-slate-400" title={binding?.endpoint}>
                     {endpointLabel}
