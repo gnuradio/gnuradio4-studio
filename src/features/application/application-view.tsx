@@ -65,7 +65,11 @@ function ApplicationPanelShell({
         </header>
         <div className="p-2 flex-1 min-h-0">
           <div className="h-full rounded border border-slate-700 bg-slate-950/50 p-3">
-            <ControlPanelView widgets={entry.controlWidgets ?? []} onUpdateVariableValue={onUpdateVariableValue} />
+            <ControlPanelView
+              widgets={entry.controlWidgets ?? []}
+              widgetLayout={panel.widgetLayout}
+              onUpdateVariableValue={onUpdateVariableValue}
+            />
           </div>
         </div>
       </article>

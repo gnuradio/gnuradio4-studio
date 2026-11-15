@@ -75,10 +75,12 @@ import {
   updateControlWidgetInputKind,
   updateControlWidgetLabel,
   updateControlWidgetSliderConfig,
+  updateControlPanelWidgetLayout,
 } from '../features/control-panels/control-panel-authoring';
 import { PlotStyleModal } from '../features/workspace/plot-style-modal';
 import type {
   ApplicationMode,
+  StudioLayoutSpec,
   StudioControlWidgetSliderConfig,
   StudioPlotStyleConfig,
   StudioVariable,
@@ -1333,6 +1335,10 @@ export function StudioPage() {
     setStudioPanels(renameControlPanelTitle(mergedWorkspacePanels, panelId, title));
   };
 
+  const updateControlPanelLayout = (panelId: string, layout: StudioLayoutSpec) => {
+    setStudioPanels(updateControlPanelWidgetLayout(mergedWorkspacePanels, panelId, layout));
+  };
+
   const updateControlWidgetLabelInWorkspace = (panelId: string, widgetId: string, label: string) => {
     setStudioPanels(updateControlWidgetLabel(mergedWorkspacePanels, panelId, widgetId, label));
   };
@@ -1699,6 +1705,7 @@ export function StudioPage() {
                 onOpenPanelPlotStyleEditor={(entry) => setPlotStyleEditorPanelId(entry.panel.id)}
                 onCreateControlPanel={createEmptyControlPanel}
                 onRenameControlPanel={renameControlPanel}
+                onUpdateControlPanelLayout={updateControlPanelLayout}
                 onUpdateControlWidgetLabel={updateControlWidgetLabelInWorkspace}
                 onUpdateControlWidgetInputKind={updateControlWidgetInputKindInWorkspace}
                 onUpdateControlWidgetSliderConfig={updateControlWidgetSliderConfigInWorkspace}

@@ -53,7 +53,25 @@
               },
               "mode": "immediate"
             }
-          ]
+          ],
+          "widgetLayout": {
+            "version": 2,
+            "root": {
+              "kind": "split",
+              "direction": "row",
+              "children": [
+                {
+                  "kind": "pane",
+                  "panelId": "band_noise-amplitude"
+                },
+                {
+                  "kind": "pane",
+                  "panelId": "burst_gate-tone_frequency"
+                }
+              ]
+            },
+            "activePanelId": "band_noise-amplitude"
+          }
         },
         {
           "id": "waterfall",
@@ -186,8 +204,8 @@
             }
           ],
           "sizes": [
-            18,
-            82
+            13.756,
+            86.244
           ]
         },
         "activePanelId": "controls"

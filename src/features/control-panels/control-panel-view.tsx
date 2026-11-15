@@ -6,7 +6,8 @@ import { toRuntimeSettingsErrorMessage } from '../inspector/runtime-settings-mod
 import { getCompatibleControlWidgetInputKinds, getControlWidgetTargetLabel } from './control-panel-authoring';
 import type { ResolvedControlWidget } from './control-panel-binding-resolution';
 import type { ExpressionBinding } from '../variables/model/types';
-import type { StudioControlWidgetSliderConfig } from '../graph-document/model/studio-workspace';
+import type { StudioControlWidgetSliderConfig, StudioLayoutSpec } from '../graph-document/model/studio-workspace';
+import { ControlWidgetLayout } from './control-widget-layout';
 import {
   applyLocalVariableControlValues,
   expressionBindingToLocalValue,
@@ -113,6 +114,8 @@ type ControlWidgetFieldProps = {
   widget: ResolvedControlWidget;
   panelId: string;
   isEditable: boolean;
+  isTiled: boolean;
+  dragHandleProps?: Record<string, unknown>;
   isPanelSelected: boolean;
   controlPanelOptions: readonly ControlPanelTargetOption[];
   onUpdateVariableValue?: (variableName: string, binding: ExpressionBinding) => void;
@@ -136,6 +139,8 @@ function ControlWidgetField({
   widget,
   panelId,
   isEditable,
+  isTiled,
+  dragHandleProps,
   isPanelSelected,
   controlPanelOptions,
   onUpdateVariableValue,
@@ -318,10 +323,13 @@ function ControlWidgetField({
         ? widget.reason ?? stateLabel(widget.state)
         : undefined);
   const rowClass = [
-    'group relative grid items-center gap-2 rounded-md border px-3 py-2 transition-colors',
-    isEditable
-      ? 'grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,auto)_auto]'
-      : 'grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_auto]',
+    'group relative grid min-w-0 items-center gap-2 rounded-md border px-3 py-2 transition-colors',
+    isTiled
+      ? 'grid-cols-[minmax(0,1fr)_auto] [&>span:first-child]:col-span-2 [&>div:last-child]:absolute [&>div:last-child]:right-2 [&>div:last-child]:top-1.5'
+      : isEditable
+        ? 'grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,auto)_auto]'
+        : 'grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_auto]',
+    isTiled && isEditable ? '[&>span:first-child]:pr-8' : '',
     isDisabled
       ? 'border-slate-700/80 bg-slate-950/25 opacity-65'
       : 'border-slate-700/70 bg-slate-950/35 hover:border-slate-600/90',
@@ -329,6 +337,22 @@ function ControlWidgetField({
   const displayText = draftText.length > 0 ? draftText : committedText;
   const labelText =
     widget.label ?? (widget.binding.kind === 'parameter' ? widget.binding.parameterName : widget.binding.variableName);
+  const widgetLabel = (
+    <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-slate-100">
+      {dragHandleProps ? (
+        <button
+          type="button"
+          {...dragHandleProps}
+          aria-label={`Drag ${labelText}`}
+          onClick={(event) => event.preventDefault()}
+          className="shrink-0 cursor-grab touch-none rounded border border-slate-600 px-1 text-xs text-slate-400 active:cursor-grabbing"
+        >
+          ::
+        </button>
+      ) : null}
+      <span className="truncate">{labelText}</span>
+    </span>
+  );
   const inputKindOptions = widget.parameterMeta
     ? getCompatibleControlWidgetInputKinds(widget.parameterMeta)
     : ['text', 'number', 'slider', 'boolean', 'enum'];
@@ -498,7 +522,7 @@ function ControlWidgetField({
   if (widget.inputKind === 'boolean') {
     return (
       <label className={rowClass} title={rowTooltip}>
-        <span className="min-w-0 truncate text-sm font-medium text-slate-100">{labelText}</span>
+        {widgetLabel}
         <span className="flex items-center justify-center">
           <input
             type="checkbox"
@@ -551,7 +575,7 @@ function ControlWidgetField({
       Number.isFinite(numericDraftValue) && draftText !== '' ? numericDraftValue : numericCommittedValue;
     return (
       <label className={rowClass} title={rowTooltip}>
-        <span className="min-w-0 truncate text-sm font-medium text-slate-100">{labelText}</span>
+        {widgetLabel}
         {widget.inputKind === 'slider' ? (
           <input
             type="range"
@@ -643,7 +667,7 @@ function ControlWidgetField({
     const options = enumOptionsForWidget(widget, committedText);
     return (
       <label className={rowClass} title={rowTooltip}>
-        <span className="min-w-0 truncate text-sm font-medium text-slate-100">{labelText}</span>
+        {widgetLabel}
         <select
           value={draftText}
           disabled={isDisabled}
@@ -693,7 +717,7 @@ function ControlWidgetField({
 
   return (
     <label className={rowClass} title={rowTooltip}>
-      <span className="min-w-0 truncate text-sm font-medium text-slate-100">{labelText}</span>
+      {widgetLabel}
       <input
         type="text"
         value={draftText}
@@ -750,6 +774,8 @@ function ControlWidgetField({
 export function ControlPanelView({
   panelId,
   widgets,
+  widgetLayout,
+  onWidgetLayoutChange,
   isEditable = false,
   isPanelSelected = false,
   controlPanelOptions = [],
@@ -763,6 +789,8 @@ export function ControlPanelView({
 }: {
   panelId?: string;
   widgets: readonly ResolvedControlWidget[];
+  widgetLayout?: StudioLayoutSpec;
+  onWidgetLayoutChange?: (layout: StudioLayoutSpec) => void;
   isEditable?: boolean;
   isPanelSelected?: boolean;
   controlPanelOptions?: readonly ControlPanelTargetOption[];
@@ -800,31 +828,40 @@ export function ControlPanelView({
 
   return (
     <div className="h-full min-h-0 overflow-y-auto pr-1">
-      <div className="space-y-1.5">
-        {effectiveWidgets.length === 0 ? (
-          <div className="rounded border border-dashed border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
-            No widgets defined.
-          </div>
-        ) : (
-          effectiveWidgets.map((widget) => (
-            <ControlWidgetField
-              key={widget.id}
-              widget={widget}
-              panelId={panelId ?? ''}
-              isEditable={isEditable && Boolean(panelId)}
-              isPanelSelected={isPanelSelected}
-              controlPanelOptions={controlPanelOptions}
-              onUpdateVariableValue={updateVariableValue}
-              onUpdateWidgetLabel={onUpdateWidgetLabel}
-              onUpdateWidgetInputKind={onUpdateWidgetInputKind}
-              onUpdateWidgetSliderConfig={onUpdateWidgetSliderConfig}
-              onMoveWidget={onMoveWidget}
-              onRemoveWidget={onRemoveWidget}
-              onMoveWidgetToPanel={onMoveWidgetToPanel}
-            />
-          ))
-        )}
-      </div>
+      {effectiveWidgets.length === 0 ? (
+        <div className="rounded border border-dashed border-slate-700 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+          No widgets defined.
+        </div>
+      ) : (
+        <ControlWidgetLayout
+          widgetIds={effectiveWidgets.map((widget) => widget.id)}
+          layout={widgetLayout}
+          onLayoutChange={isEditable ? onWidgetLayoutChange : undefined}
+          renderWidget={(id, isTiled, dragHandleProps) => {
+            const widget = effectiveWidgets.find((entry) => entry.id === id);
+            if (!widget) return null;
+            return (
+              <ControlWidgetField
+                key={widget.id}
+                widget={widget}
+                panelId={panelId ?? ''}
+                isEditable={isEditable && Boolean(panelId)}
+                isTiled={isTiled}
+                dragHandleProps={dragHandleProps}
+                isPanelSelected={isPanelSelected}
+                controlPanelOptions={controlPanelOptions}
+                onUpdateVariableValue={updateVariableValue}
+                onUpdateWidgetLabel={onUpdateWidgetLabel}
+                onUpdateWidgetInputKind={onUpdateWidgetInputKind}
+                onUpdateWidgetSliderConfig={onUpdateWidgetSliderConfig}
+                onMoveWidget={onMoveWidget}
+                onRemoveWidget={onRemoveWidget}
+                onMoveWidgetToPanel={onMoveWidgetToPanel}
+              />
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

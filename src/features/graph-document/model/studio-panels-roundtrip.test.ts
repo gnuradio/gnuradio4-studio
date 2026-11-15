@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { graphDocumentFromEditor } from './fromEditor';
 import { editorGraphFromDocument } from './toEditor';
 import type { GraphDocument } from './types';
+import { parseGraphDocument } from './schema';
+import type { StudioLayoutSpec } from './studio-workspace';
 
 describe('studio panel metadata round-trip', () => {
   it('preserves studio panels and layout between editor snapshot and graph document', () => {
@@ -56,7 +58,13 @@ describe('studio panel metadata round-trip', () => {
     expect(restored.metadata.studioPlotPalettes).toEqual(snapshot.metadata.studioPlotPalettes);
   });
 
-  it('preserves control panels and widgets between editor snapshot and graph document', () => {
+  it.each<StudioLayoutSpec | undefined>([undefined, {
+    version: 2,
+    root: { kind: 'split', direction: 'row', children: [
+      { kind: 'pane', panelId: 'enabled' },
+      { kind: 'pane', panelId: 'gain' },
+    ] },
+  }])('preserves control panels and widget arrangement through file save/load (%j)', (widgetLayout) => {
     const snapshot = {
       metadata: {
         name: 'Graph',
@@ -64,6 +72,7 @@ describe('studio panel metadata round-trip', () => {
           {
             id: 'studio-control:node-1',
             kind: 'control' as const,
+            ...(widgetLayout ? { widgetLayout } : {}),
             title: 'Controls',
             visible: true,
             widgets: [
@@ -98,7 +107,7 @@ describe('studio panel metadata round-trip', () => {
       edges: [],
     };
 
-    const document = graphDocumentFromEditor(snapshot);
+    const document = parseGraphDocument(JSON.parse(JSON.stringify(graphDocumentFromEditor(snapshot))));
     expect(document.metadata.studio?.panels).toEqual(snapshot.metadata.studioPanels);
 
     const restored = editorGraphFromDocument(document);

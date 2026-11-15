@@ -15,8 +15,10 @@ import {
   updateControlWidgetInputKind,
   updateControlWidgetLabel,
   updateControlWidgetSliderConfig,
+  updateControlPanelWidgetLayout,
 } from './control-panel-authoring';
-import type { StudioPanelSpec } from '../graph-document/model/studio-workspace';
+import type { StudioControlPanelSpec, StudioPanelSpec } from '../graph-document/model/studio-workspace';
+import { collectLayoutPaneIds } from '../graph-document/model/studio-layout';
 
 function makeParameter(overrides: Partial<BlockParameterMeta> = {}): BlockParameterMeta {
   return {
@@ -31,6 +33,47 @@ function makeParameter(overrides: Partial<BlockParameterMeta> = {}): BlockParame
 }
 
 describe('control panel authoring', () => {
+  it('preserves a dragged arrangement when adding, moving, and removing controls', () => {
+    const makeWidget = (name: string) => buildControlWidgetSpec({ variableName: name, initialValue: 1 });
+    const widgets = ['a', 'b', 'c'].map(makeWidget);
+    const panel: StudioControlPanelSpec = { id: 'controls', kind: 'control', visible: true, widgets };
+    const empty: StudioControlPanelSpec = { id: 'other', kind: 'control', visible: true, widgets: [] };
+    const root = {
+      kind: 'split' as const, direction: 'row' as const, sizes: [2, 1],
+      children: [
+        { kind: 'pane' as const, panelId: widgets[1].id },
+        { kind: 'split' as const, direction: 'column' as const, children: [
+          { kind: 'pane' as const, panelId: widgets[0].id },
+          { kind: 'pane' as const, panelId: widgets[2].id },
+        ] },
+      ],
+    };
+    const arranged = updateControlPanelWidgetLayout([panel, empty], panel.id, { version: 2, root });
+    const added = addControlWidgetToPanels(arranged, { widget: makeWidget('d'), targetPanelId: panel.id });
+    expect((added[0] as StudioControlPanelSpec).widgetLayout?.root).toMatchObject({ children: [root, { panelId: makeWidget('d').id }] });
+    const moved = moveControlWidgetToPanel(added, { sourcePanelId: panel.id, targetPanelId: empty.id, widgetId: widgets[0].id });
+    expect(collectLayoutPaneIds((moved[0] as StudioControlPanelSpec).widgetLayout!.root)).toEqual([widgets[1].id, widgets[2].id, makeWidget('d').id]);
+    expect((moved[1] as StudioControlPanelSpec).widgets).toEqual([widgets[0]]);
+    const removed = removeControlWidgetsBoundToVariable(moved, 'c');
+    expect(collectLayoutPaneIds((removed[0] as StudioControlPanelSpec).widgetLayout!.root)).toEqual([widgets[1].id, makeWidget('d').id]);
+    const last = removeControlWidgetFromPanel(removed, panel.id, widgets[1].id);
+    expect(collectLayoutPaneIds((last[0] as StudioControlPanelSpec).widgetLayout!.root)).toEqual([makeWidget('d').id]);
+  });
+
+  it('moves controls in visual order after they have been tiled', () => {
+    const widgets = ['a', 'b', 'c'].map((variableName) => buildControlWidgetSpec({ variableName }));
+    const panel: StudioControlPanelSpec = {
+      id: 'controls', kind: 'control', visible: true, widgets,
+      widgetLayout: { version: 2, root: { kind: 'split', direction: 'row', children: [
+        { kind: 'pane', panelId: widgets[2].id },
+        { kind: 'pane', panelId: widgets[0].id },
+        { kind: 'pane', panelId: widgets[1].id },
+      ] } },
+    };
+    const moved = moveControlWidgetInPanel([panel], panel.id, widgets[0].id, 'up');
+    expect(collectLayoutPaneIds((moved[0] as StudioControlPanelSpec).widgetLayout!.root)).toEqual([widgets[0].id, widgets[2].id, widgets[1].id]);
+  });
+
   it('infers control widget kinds from parameter metadata', () => {
     expect(inferControlWidgetInputKind(makeParameter({ valueType: 'bool' }))).toBe('boolean');
     expect(inferControlWidgetInputKind(makeParameter({ valueType: 'float', uiHint: 'slider' }))).toBe('slider');
