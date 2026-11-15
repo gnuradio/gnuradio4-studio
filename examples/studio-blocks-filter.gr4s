@@ -1,0 +1,640 @@
+{
+  "format": "gr4-studio.graph",
+  "version": 1,
+  "metadata": {
+    "name": "studio-blocks-filter.gr4s",
+    "description": "White noise through a 1.2–2.4 kHz FIR band-pass filter. Compare input/output power spectra and the linear FFT magnitude DataSet.",
+    "schedulerId": "gr::scheduler::SimpleMulti",
+    "application": {
+      "mode": "in_app",
+      "renderer": "react",
+      "title": "Band-pass filter"
+    },
+    "studio": {
+      "panels": [
+        {
+          "id": "input_spectrum",
+          "nodeId": "input_spectrum",
+          "kind": "series2d",
+          "title": "Input spectrum",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "output_spectrum",
+          "nodeId": "output_spectrum",
+          "kind": "series2d",
+          "title": "Filtered spectrum",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "time",
+          "nodeId": "time",
+          "kind": "series",
+          "title": "Before and after filtering",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "dataset",
+          "nodeId": "dataset",
+          "kind": "series2d",
+          "title": "Linear FFT DataSet",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        }
+      ],
+      "variables": [
+        {
+          "id": "sample_rate",
+          "name": "sample_rate",
+          "binding": {
+            "kind": "literal",
+            "value": 8192
+          }
+        }
+      ],
+      "layout": {
+        "version": 2,
+        "root": {
+          "kind": "split",
+          "direction": "column",
+          "children": [
+            {
+              "kind": "split",
+              "direction": "row",
+              "children": [
+                {
+                  "kind": "pane",
+                  "panelId": "input_spectrum"
+                },
+                {
+                  "kind": "pane",
+                  "panelId": "output_spectrum"
+                }
+              ]
+            },
+            {
+              "kind": "split",
+              "direction": "row",
+              "children": [
+                {
+                  "kind": "pane",
+                  "panelId": "time"
+                },
+                {
+                  "kind": "pane",
+                  "panelId": "dataset"
+                }
+              ]
+            }
+          ],
+          "sizes": [
+            55,
+            45
+          ]
+        },
+        "activePanelId": "input_spectrum"
+      }
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "clock",
+        "blockType": "gr::blocks::basic::ClockSource",
+        "title": "Sample clock",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "n_samples_max": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "noise",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Noise",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 80
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "GaussianNoise"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.3"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "123"
+          }
+        }
+      },
+      {
+        "id": "bandpass",
+        "blockType": "gr::blocks::filter::DesignedFilter<float32, float32>",
+        "title": "1.2–2.4 kHz band-pass",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 540,
+          "y": 80
+        },
+        "parameters": {
+          "profile": {
+            "kind": "literal",
+            "value": "bandpass"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "cutoff": {
+            "kind": "literal",
+            "value": "1200"
+          },
+          "high_cutoff": {
+            "kind": "literal",
+            "value": "2400"
+          },
+          "transition_width": {
+            "kind": "literal",
+            "value": "250"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          }
+        }
+      },
+      {
+        "id": "input_spectrum",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<float32>",
+        "title": "Input spectrum",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": -100
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "fft_size": {
+            "kind": "literal",
+            "value": "1024"
+          },
+          "num_averages": {
+            "kind": "literal",
+            "value": "24"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "output_in_db": {
+            "kind": "literal",
+            "value": true
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-100"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "-20"
+          },
+          "plot_title": {
+            "kind": "literal",
+            "value": "Input spectrum"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Power (dB)"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Input spectrum"
+          },
+          "persistence": {
+            "kind": "literal",
+            "value": false
+          }
+        }
+      },
+      {
+        "id": "output_spectrum",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<float32>",
+        "title": "Filtered spectrum",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 120
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "fft_size": {
+            "kind": "literal",
+            "value": "1024"
+          },
+          "num_averages": {
+            "kind": "literal",
+            "value": "24"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "output_in_db": {
+            "kind": "literal",
+            "value": true
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-100"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "-20"
+          },
+          "plot_title": {
+            "kind": "literal",
+            "value": "Filtered spectrum"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Power (dB)"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Filtered spectrum"
+          },
+          "persistence": {
+            "kind": "literal",
+            "value": false
+          }
+        }
+      },
+      {
+        "id": "time",
+        "blockType": "gr::studio::StudioSeriesSink<float32>",
+        "title": "Before and after filtering",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 350
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "n_inputs": {
+            "kind": "literal",
+            "value": "2"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "512"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-1.2"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "1.2"
+          },
+          "x_label": {
+            "kind": "literal",
+            "value": "Sample"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Amplitude"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Input,Filtered"
+          }
+        }
+      },
+      {
+        "id": "fft",
+        "blockType": "gr::blocks::fourier::FFT<float32>",
+        "title": "FFT DataSet",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 540,
+          "y": 450
+        },
+        "parameters": {
+          "fftSize": {
+            "kind": "literal",
+            "value": "1024"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "outputInDb": {
+            "kind": "literal",
+            "value": false
+          },
+          "outputPhase": {
+            "kind": "literal",
+            "value": false
+          },
+          "signal_name": {
+            "kind": "literal",
+            "value": "Filtered noise"
+          },
+          "signal_unit": {
+            "kind": "literal",
+            "value": "a.u."
+          }
+        }
+      },
+      {
+        "id": "dataset",
+        "blockType": "gr::studio::StudioDataSetSink<float32>",
+        "title": "Linear FFT DataSet",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 600
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "http_poll"
+          },
+          "endpoint": {
+            "kind": "literal",
+            "value": "http://127.0.0.1:18120/snapshot"
+          },
+          "poll_ms": {
+            "kind": "literal",
+            "value": "100"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "-1"
+          },
+          "signal_index": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "axis_index": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "x_min": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "x_max": {
+            "kind": "literal",
+            "value": "4096"
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0.04"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "clock-out-noise-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "noise",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "noise-out-bandpass-in",
+        "source": {
+          "nodeId": "noise",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "bandpass",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "noise-out-input_spectrum-in",
+        "source": {
+          "nodeId": "noise",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "input_spectrum",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "bandpass-out-output_spectrum-in",
+        "source": {
+          "nodeId": "bandpass",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "output_spectrum",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "noise-out-time-in#0",
+        "source": {
+          "nodeId": "noise",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "time",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "bandpass-out-time-in#1",
+        "source": {
+          "nodeId": "bandpass",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "time",
+          "portId": "in#1"
+        }
+      },
+      {
+        "id": "bandpass-out-fft-in",
+        "source": {
+          "nodeId": "bandpass",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "fft",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "fft-out-dataset-in",
+        "source": {
+          "nodeId": "fft",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "dataset",
+          "portId": "in"
+        }
+      }
+    ]
+  }
+}

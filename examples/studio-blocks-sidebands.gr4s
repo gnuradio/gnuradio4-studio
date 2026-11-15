@@ -1,0 +1,852 @@
+{
+  "format": "gr4-studio.graph",
+  "version": 1,
+  "metadata": {
+    "name": "studio-blocks-sidebands.gr4s",
+    "description": "A 1.4 kHz AM carrier, a pulsed 3.2 kHz interferer, and broadband noise. Compare the live trace with phosphor persistence.",
+    "schedulerId": "gr::scheduler::SimpleMulti",
+    "application": {
+      "mode": "in_app",
+      "renderer": "react",
+      "title": "AM sidebands"
+    },
+    "studio": {
+      "panels": [
+        {
+          "id": "controls",
+          "kind": "control",
+          "title": "Controls",
+          "visible": true,
+          "previewOnCanvas": false,
+          "widgets": [
+            {
+              "id": "modulation-tone_frequency",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "modulation",
+                "parameterName": "tone_frequency"
+              },
+              "label": "Modulation frequency (Hz)",
+              "inputKind": "slider",
+              "slider": {
+                "min": 25,
+                "max": 400,
+                "step": 25
+              },
+              "mode": "immediate"
+            },
+            {
+              "id": "interferer-tone_frequency",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "interferer",
+                "parameterName": "tone_frequency"
+              },
+              "label": "Interferer frequency (Hz)",
+              "inputKind": "slider",
+              "slider": {
+                "min": 2200,
+                "max": 3800,
+                "step": 50
+              },
+              "mode": "immediate"
+            }
+          ]
+        },
+        {
+          "id": "spectrum",
+          "nodeId": "spectrum",
+          "kind": "series2d",
+          "title": "AM sidebands",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "persistence",
+          "nodeId": "persistence",
+          "kind": "histogram",
+          "title": "Interference persistence",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "time",
+          "nodeId": "time",
+          "kind": "series",
+          "title": "AM waveform",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        }
+      ],
+      "variables": [
+        {
+          "id": "sample_rate",
+          "name": "sample_rate",
+          "binding": {
+            "kind": "literal",
+            "value": 8192
+          }
+        }
+      ],
+      "layout": {
+        "version": 2,
+        "root": {
+          "kind": "split",
+          "direction": "column",
+          "children": [
+            {
+              "kind": "pane",
+              "panelId": "controls"
+            },
+            {
+              "kind": "split",
+              "direction": "column",
+              "children": [
+                {
+                  "kind": "split",
+                  "direction": "row",
+                  "children": [
+                    {
+                      "kind": "pane",
+                      "panelId": "spectrum"
+                    },
+                    {
+                      "kind": "pane",
+                      "panelId": "persistence"
+                    }
+                  ]
+                },
+                {
+                  "kind": "pane",
+                  "panelId": "time"
+                }
+              ],
+              "sizes": [
+                72,
+                28
+              ]
+            }
+          ],
+          "sizes": [
+            18,
+            82
+          ]
+        },
+        "activePanelId": "controls"
+      }
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "clock",
+        "blockType": "gr::blocks::basic::ClockSource",
+        "title": "Sample clock",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "n_samples_max": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "carrier",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Carrier",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Cos"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "1400"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.8"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "modulation",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Modulation",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 180
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Sin"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "100"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.45"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0.55"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "am",
+        "blockType": "gr::blocks::math::Multiply<float32>",
+        "title": "Amplitude modulation",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 520,
+          "y": 30
+        },
+        "parameters": {
+          "n_inputs": {
+            "kind": "literal",
+            "value": "2"
+          }
+        }
+      },
+      {
+        "id": "interferer",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Interferer",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 380
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Cos"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "3200"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.24"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "gate",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Gate",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 560
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Square"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "0.75"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.5"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0.5"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "pulsed_interferer",
+        "blockType": "gr::blocks::math::Multiply<float32>",
+        "title": "Pulsed interferer",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 520,
+          "y": 420
+        },
+        "parameters": {
+          "n_inputs": {
+            "kind": "literal",
+            "value": "2"
+          }
+        }
+      },
+      {
+        "id": "noise",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Noise",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 740
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "GaussianNoise"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.012"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "17"
+          }
+        }
+      },
+      {
+        "id": "mix",
+        "blockType": "gr::blocks::math::Add<float32>",
+        "title": "Composite signal",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 780,
+          "y": 240
+        },
+        "parameters": {
+          "n_inputs": {
+            "kind": "literal",
+            "value": "3"
+          }
+        }
+      },
+      {
+        "id": "spectrum",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<float32>",
+        "title": "AM sidebands",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1060,
+          "y": 0
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "fft_size": {
+            "kind": "literal",
+            "value": "1024"
+          },
+          "num_averages": {
+            "kind": "literal",
+            "value": "8"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "output_in_db": {
+            "kind": "literal",
+            "value": true
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-100"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "plot_title": {
+            "kind": "literal",
+            "value": "AM sidebands"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Power (dB)"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "AM sidebands"
+          },
+          "persistence": {
+            "kind": "literal",
+            "value": false
+          }
+        }
+      },
+      {
+        "id": "persistence",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<float32>",
+        "title": "Interference persistence",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1060,
+          "y": 260
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "fft_size": {
+            "kind": "literal",
+            "value": "1024"
+          },
+          "num_averages": {
+            "kind": "literal",
+            "value": "2"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "output_in_db": {
+            "kind": "literal",
+            "value": true
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-100"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "plot_title": {
+            "kind": "literal",
+            "value": "Interference persistence"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Power (dB)"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Interference persistence"
+          },
+          "persistence": {
+            "kind": "literal",
+            "value": true
+          },
+          "phosphor_intensity": {
+            "kind": "literal",
+            "value": "1.25"
+          },
+          "phosphor_decay_ms": {
+            "kind": "literal",
+            "value": "1800"
+          }
+        }
+      },
+      {
+        "id": "time",
+        "blockType": "gr::studio::StudioSeriesSink<float32>",
+        "title": "AM waveform",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 780,
+          "y": -170
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "1024"
+          },
+          "n_inputs": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "window_mode": {
+            "kind": "literal",
+            "value": "buffered"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-0.9"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0.9"
+          },
+          "x_label": {
+            "kind": "literal",
+            "value": "Sample"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Amplitude"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "AM"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "clock-out-carrier-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "carrier",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "clock-out-modulation-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "modulation",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "carrier-out-am-in#0",
+        "source": {
+          "nodeId": "carrier",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "am",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "modulation-out-am-in#1",
+        "source": {
+          "nodeId": "modulation",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "am",
+          "portId": "in#1"
+        }
+      },
+      {
+        "id": "clock-out-interferer-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "interferer",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "clock-out-gate-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "gate",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "interferer-out-pulsed_interferer-in#0",
+        "source": {
+          "nodeId": "interferer",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "pulsed_interferer",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "gate-out-pulsed_interferer-in#1",
+        "source": {
+          "nodeId": "gate",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "pulsed_interferer",
+          "portId": "in#1"
+        }
+      },
+      {
+        "id": "clock-out-noise-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "noise",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "am-out-mix-in#0",
+        "source": {
+          "nodeId": "am",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "pulsed_interferer-out-mix-in#1",
+        "source": {
+          "nodeId": "pulsed_interferer",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#1"
+        }
+      },
+      {
+        "id": "noise-out-mix-in#2",
+        "source": {
+          "nodeId": "noise",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#2"
+        }
+      },
+      {
+        "id": "mix-out-spectrum-in",
+        "source": {
+          "nodeId": "mix",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "spectrum",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "mix-out-persistence-in",
+        "source": {
+          "nodeId": "mix",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "persistence",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "am-out-time-in#0",
+        "source": {
+          "nodeId": "am",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "time",
+          "portId": "in#0"
+        }
+      }
+    ]
+  }
+}

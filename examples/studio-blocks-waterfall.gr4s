@@ -1,0 +1,836 @@
+{
+  "format": "gr4-studio.graph",
+  "version": 1,
+  "metadata": {
+    "name": "studio-blocks-waterfall.gr4s",
+    "description": "Pulsed FM at −2.5 kHz with a 2–4 kHz noise band. Eight seconds of history; 32 Hz FFT bins.",
+    "schedulerId": "gr::scheduler::SimpleMulti",
+    "application": {
+      "mode": "in_app",
+      "renderer": "react",
+      "title": "Burst waterfall"
+    },
+    "studio": {
+      "panels": [
+        {
+          "id": "controls",
+          "kind": "control",
+          "title": "Controls",
+          "visible": true,
+          "previewOnCanvas": false,
+          "widgets": [
+            {
+              "id": "burst_gate-tone_frequency",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "burst_gate",
+                "parameterName": "tone_frequency"
+              },
+              "label": "Pulse rate (Hz)",
+              "inputKind": "slider",
+              "slider": {
+                "min": 0.25,
+                "max": 4,
+                "step": 0.25
+              },
+              "mode": "immediate"
+            },
+            {
+              "id": "band_noise-amplitude",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "band_noise",
+                "parameterName": "amplitude"
+              },
+              "label": "Noise amplitude",
+              "inputKind": "slider",
+              "slider": {
+                "min": 0,
+                "max": 0.5,
+                "step": 0.01
+              },
+              "mode": "immediate"
+            }
+          ]
+        },
+        {
+          "id": "waterfall",
+          "nodeId": "waterfall",
+          "kind": "waterfall",
+          "title": "Burst waterfall",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "spectrum",
+          "nodeId": "spectrum",
+          "kind": "series2d",
+          "title": "Live spectrum",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "envelope",
+          "nodeId": "envelope",
+          "kind": "series",
+          "title": "Burst envelope",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80",
+                "#22d3ee"
+              ]
+            }
+          }
+        }
+      ],
+      "variables": [
+        {
+          "id": "sample_rate",
+          "name": "sample_rate",
+          "binding": {
+            "kind": "literal",
+            "value": 16384
+          }
+        },
+        {
+          "id": "deviation_hz",
+          "name": "deviation_hz",
+          "binding": {
+            "kind": "literal",
+            "value": 1400
+          }
+        },
+        {
+          "id": "sweep_rate",
+          "name": "sweep_rate",
+          "binding": {
+            "kind": "literal",
+            "value": 0.2
+          }
+        }
+      ],
+      "layout": {
+        "version": 2,
+        "root": {
+          "kind": "split",
+          "direction": "column",
+          "children": [
+            {
+              "kind": "pane",
+              "panelId": "controls"
+            },
+            {
+              "kind": "split",
+              "direction": "row",
+              "children": [
+                {
+                  "kind": "split",
+                  "direction": "column",
+                  "children": [
+                    {
+                      "kind": "pane",
+                      "panelId": "spectrum"
+                    },
+                    {
+                      "kind": "pane",
+                      "panelId": "envelope"
+                    }
+                  ],
+                  "sizes": [
+                    65,
+                    35
+                  ]
+                },
+                {
+                  "kind": "pane",
+                  "panelId": "waterfall"
+                }
+              ],
+              "sizes": [
+                42,
+                58
+              ]
+            }
+          ],
+          "sizes": [
+            18,
+            82
+          ]
+        },
+        "activePanelId": "controls"
+      }
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "clock",
+        "blockType": "gr::blocks::basic::ClockSource",
+        "title": "Sample clock",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "n_samples_max": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "burst_gate",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Burst gate",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Square"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "1.25"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.325"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0.325"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "sweep_phase",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Sweep phase",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 180
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Sin"
+          },
+          "tone_frequency": {
+            "kind": "expression",
+            "expr": "sweep_rate"
+          },
+          "amplitude": {
+            "kind": "expression",
+            "expr": "deviation_hz / sweep_rate"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "fm",
+        "blockType": "gr::blocks::basic::MagPhaseToComplex<float32>",
+        "title": "Pulsed FM",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 520,
+          "y": 50
+        },
+        "parameters": {}
+      },
+      {
+        "id": "carrier",
+        "blockType": "gr::blocks::math::Rotator<complex<float32>>",
+        "title": "−2.5 kHz carrier",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 760,
+          "y": 50
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "frequency_shift": {
+            "kind": "literal",
+            "value": "-2500"
+          }
+        }
+      },
+      {
+        "id": "band_noise",
+        "blockType": "gr::blocks::basic::SignalGenerator<complex<float32>>",
+        "title": "Band noise",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 400
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "GaussianNoise"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.24"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "31"
+          }
+        }
+      },
+      {
+        "id": "noise_band",
+        "blockType": "gr::blocks::filter::DesignedFilter<complex<float32>, complex<float32>>",
+        "title": "2–4 kHz noise band",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 520,
+          "y": 400
+        },
+        "parameters": {
+          "profile": {
+            "kind": "literal",
+            "value": "complex_bandpass"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "cutoff": {
+            "kind": "literal",
+            "value": "2000"
+          },
+          "high_cutoff": {
+            "kind": "literal",
+            "value": "4000"
+          },
+          "transition_width": {
+            "kind": "literal",
+            "value": "350"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          }
+        }
+      },
+      {
+        "id": "background",
+        "blockType": "gr::blocks::basic::SignalGenerator<complex<float32>>",
+        "title": "Background",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 650
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "GaussianNoise"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.004"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "97"
+          }
+        }
+      },
+      {
+        "id": "mix",
+        "blockType": "gr::blocks::math::Add<complex<float32>>",
+        "title": "Signal mix",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1000,
+          "y": 250
+        },
+        "parameters": {
+          "n_inputs": {
+            "kind": "literal",
+            "value": "3"
+          }
+        }
+      },
+      {
+        "id": "waterfall",
+        "blockType": "gr::studio::StudioWaterfallSink<complex<float32>>",
+        "title": "Burst waterfall",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1300,
+          "y": 120
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "center_freq": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "fft_size": {
+            "kind": "literal",
+            "value": "512"
+          },
+          "num_averages": {
+            "kind": "literal",
+            "value": "2"
+          },
+          "time_span": {
+            "kind": "literal",
+            "value": "8"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "output_in_db": {
+            "kind": "literal",
+            "value": true
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "z_min": {
+            "kind": "literal",
+            "value": "-90"
+          },
+          "z_max": {
+            "kind": "literal",
+            "value": "-12"
+          },
+          "plot_title": {
+            "kind": "literal",
+            "value": "Burst waterfall"
+          }
+        }
+      },
+      {
+        "id": "spectrum",
+        "blockType": "gr::studio::StudioPowerSpectrumSink<complex<float32>>",
+        "title": "Live spectrum",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 1300,
+          "y": 380
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "fft_size": {
+            "kind": "literal",
+            "value": "512"
+          },
+          "num_averages": {
+            "kind": "literal",
+            "value": "2"
+          },
+          "window": {
+            "kind": "literal",
+            "value": "Hann"
+          },
+          "output_in_db": {
+            "kind": "literal",
+            "value": true
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-100"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "plot_title": {
+            "kind": "literal",
+            "value": "Live spectrum"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Power (dB)"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Live spectrum"
+          },
+          "persistence": {
+            "kind": "literal",
+            "value": false
+          }
+        }
+      },
+      {
+        "id": "envelope",
+        "blockType": "gr::studio::StudioSeriesSink<float32>",
+        "title": "Burst envelope",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 760,
+          "y": -180
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "16384"
+          },
+          "n_inputs": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-0.05"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "0.75"
+          },
+          "x_label": {
+            "kind": "literal",
+            "value": "Sample"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Amplitude"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "Envelope"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "clock-out-burst_gate-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "burst_gate",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "clock-out-sweep_phase-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "sweep_phase",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "burst_gate-out-fm-mag",
+        "source": {
+          "nodeId": "burst_gate",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "fm",
+          "portId": "mag"
+        }
+      },
+      {
+        "id": "sweep_phase-out-fm-phase",
+        "source": {
+          "nodeId": "sweep_phase",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "fm",
+          "portId": "phase"
+        }
+      },
+      {
+        "id": "fm-out-carrier-in",
+        "source": {
+          "nodeId": "fm",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "carrier",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "clock-out-band_noise-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "band_noise",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "band_noise-out-noise_band-in",
+        "source": {
+          "nodeId": "band_noise",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "noise_band",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "clock-out-background-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "background",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "carrier-out-mix-in#0",
+        "source": {
+          "nodeId": "carrier",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "noise_band-out-mix-in#1",
+        "source": {
+          "nodeId": "noise_band",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#1"
+        }
+      },
+      {
+        "id": "background-out-mix-in#2",
+        "source": {
+          "nodeId": "background",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "mix",
+          "portId": "in#2"
+        }
+      },
+      {
+        "id": "mix-out-waterfall-in",
+        "source": {
+          "nodeId": "mix",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "waterfall",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "mix-out-spectrum-in",
+        "source": {
+          "nodeId": "mix",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "spectrum",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "burst_gate-out-envelope-in#0",
+        "source": {
+          "nodeId": "burst_gate",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "envelope",
+          "portId": "in#0"
+        }
+      }
+    ]
+  }
+}

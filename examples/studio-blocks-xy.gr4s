@@ -1,0 +1,569 @@
+{
+  "format": "gr4-studio.graph",
+  "version": 1,
+  "metadata": {
+    "name": "studio-blocks-xy.gr4s",
+    "description": "Two nearly commensurate tones form a slowly changing 3:2 Lissajous curve. The same samples are shown as lines, points, and two time traces.",
+    "schedulerId": "gr::scheduler::SimpleMulti",
+    "application": {
+      "mode": "in_app",
+      "renderer": "react",
+      "title": "Lissajous"
+    },
+    "studio": {
+      "panels": [
+        {
+          "id": "controls",
+          "kind": "control",
+          "title": "Controls",
+          "visible": true,
+          "previewOnCanvas": false,
+          "widgets": [
+            {
+              "id": "y-tone_frequency",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "y",
+                "parameterName": "tone_frequency"
+              },
+              "label": "Y frequency (Hz)",
+              "inputKind": "slider",
+              "slider": {
+                "min": 149,
+                "max": 151,
+                "step": 0.01
+              },
+              "mode": "immediate"
+            },
+            {
+              "id": "y-phase",
+              "kind": "parameter",
+              "binding": {
+                "kind": "parameter",
+                "nodeId": "y",
+                "parameterName": "phase"
+              },
+              "label": "Y phase (rad)",
+              "inputKind": "slider",
+              "slider": {
+                "min": 0,
+                "max": 6.28,
+                "step": 0.05
+              },
+              "mode": "immediate"
+            }
+          ]
+        },
+        {
+          "id": "line",
+          "nodeId": "line",
+          "kind": "series2d",
+          "title": "XY trace",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        },
+        {
+          "id": "scatter",
+          "nodeId": "scatter",
+          "kind": "series2d",
+          "title": "XY points",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#a78bfa",
+                "#4ade80",
+                "#22d3ee",
+                "#fb923c"
+              ]
+            }
+          }
+        },
+        {
+          "id": "time",
+          "nodeId": "time",
+          "kind": "series",
+          "title": "X and Y",
+          "visible": true,
+          "previewOnCanvas": false,
+          "plotStyle": {
+            "assignmentMode": "byIndex",
+            "palette": {
+              "kind": "custom",
+              "colors": [
+                "#22d3ee",
+                "#fb923c",
+                "#a78bfa",
+                "#4ade80"
+              ]
+            }
+          }
+        }
+      ],
+      "variables": [
+        {
+          "id": "sample_rate",
+          "name": "sample_rate",
+          "binding": {
+            "kind": "literal",
+            "value": 8192
+          }
+        }
+      ],
+      "layout": {
+        "version": 2,
+        "root": {
+          "kind": "split",
+          "direction": "column",
+          "children": [
+            {
+              "kind": "pane",
+              "panelId": "controls"
+            },
+            {
+              "kind": "split",
+              "direction": "column",
+              "children": [
+                {
+                  "kind": "split",
+                  "direction": "row",
+                  "children": [
+                    {
+                      "kind": "pane",
+                      "panelId": "line"
+                    },
+                    {
+                      "kind": "pane",
+                      "panelId": "scatter"
+                    }
+                  ]
+                },
+                {
+                  "kind": "pane",
+                  "panelId": "time"
+                }
+              ],
+              "sizes": [
+                74,
+                26
+              ]
+            }
+          ],
+          "sizes": [
+            18,
+            82
+          ]
+        },
+        "activePanelId": "controls"
+      }
+    }
+  },
+  "graph": {
+    "nodes": [
+      {
+        "id": "clock",
+        "blockType": "gr::blocks::basic::ClockSource",
+        "title": "Sample clock",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "n_samples_max": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "x",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "X",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 0
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Sin"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "100"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.85"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "y",
+        "blockType": "gr::blocks::basic::SignalGenerator<float32>",
+        "title": "Y",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 260,
+          "y": 220
+        },
+        "parameters": {
+          "sample_rate": {
+            "kind": "expression",
+            "expr": "sample_rate"
+          },
+          "chunk_size": {
+            "kind": "literal",
+            "value": "256"
+          },
+          "signal_type": {
+            "kind": "literal",
+            "value": "Sin"
+          },
+          "tone_frequency": {
+            "kind": "literal",
+            "value": "150.07"
+          },
+          "amplitude": {
+            "kind": "literal",
+            "value": "0.85"
+          },
+          "offset": {
+            "kind": "literal",
+            "value": "0"
+          },
+          "phase": {
+            "kind": "literal",
+            "value": "0.35"
+          },
+          "seed": {
+            "kind": "literal",
+            "value": "0"
+          }
+        }
+      },
+      {
+        "id": "xy",
+        "blockType": "gr::blocks::basic::RealImagToComplex<float32>",
+        "title": "X + jY",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 540,
+          "y": 80
+        },
+        "parameters": {}
+      },
+      {
+        "id": "line",
+        "blockType": "gr::studio::Studio2DSeriesSink<complex<float32>>",
+        "title": "XY trace",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 0
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "2048"
+          },
+          "render_mode": {
+            "kind": "literal",
+            "value": "line"
+          },
+          "point_size": {
+            "kind": "literal",
+            "value": "3"
+          },
+          "point_alpha": {
+            "kind": "literal",
+            "value": "0.35"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "x_min": {
+            "kind": "literal",
+            "value": "-1"
+          },
+          "x_max": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-1"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "1"
+          }
+        }
+      },
+      {
+        "id": "scatter",
+        "blockType": "gr::studio::Studio2DSeriesSink<complex<float32>>",
+        "title": "XY points",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 250
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "2048"
+          },
+          "render_mode": {
+            "kind": "literal",
+            "value": "scatter"
+          },
+          "point_size": {
+            "kind": "literal",
+            "value": "3"
+          },
+          "point_alpha": {
+            "kind": "literal",
+            "value": "0.35"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "x_min": {
+            "kind": "literal",
+            "value": "-1"
+          },
+          "x_max": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-1"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "1"
+          }
+        }
+      },
+      {
+        "id": "time",
+        "blockType": "gr::studio::StudioSeriesSink<float32>",
+        "title": "X and Y",
+        "executionMode": "active",
+        "rotation": 0,
+        "position": {
+          "x": 850,
+          "y": 500
+        },
+        "parameters": {
+          "transport": {
+            "kind": "literal",
+            "value": "websocket"
+          },
+          "update_ms": {
+            "kind": "literal",
+            "value": "50"
+          },
+          "window_size": {
+            "kind": "literal",
+            "value": "512"
+          },
+          "n_inputs": {
+            "kind": "literal",
+            "value": "2"
+          },
+          "window_mode": {
+            "kind": "literal",
+            "value": "buffered"
+          },
+          "autoscale": {
+            "kind": "literal",
+            "value": false
+          },
+          "y_min": {
+            "kind": "literal",
+            "value": "-1"
+          },
+          "y_max": {
+            "kind": "literal",
+            "value": "1"
+          },
+          "x_label": {
+            "kind": "literal",
+            "value": "Sample"
+          },
+          "y_label": {
+            "kind": "literal",
+            "value": "Amplitude"
+          },
+          "series_labels": {
+            "kind": "literal",
+            "value": "X,Y"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "clock-out-x-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "x",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "clock-out-y-clk_in",
+        "source": {
+          "nodeId": "clock",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "y",
+          "portId": "clk_in"
+        }
+      },
+      {
+        "id": "x-out-xy-real",
+        "source": {
+          "nodeId": "x",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "xy",
+          "portId": "real"
+        }
+      },
+      {
+        "id": "y-out-xy-imag",
+        "source": {
+          "nodeId": "y",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "xy",
+          "portId": "imag"
+        }
+      },
+      {
+        "id": "xy-out-line-in",
+        "source": {
+          "nodeId": "xy",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "line",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "xy-out-scatter-in",
+        "source": {
+          "nodeId": "xy",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "scatter",
+          "portId": "in"
+        }
+      },
+      {
+        "id": "x-out-time-in#0",
+        "source": {
+          "nodeId": "x",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "time",
+          "portId": "in#0"
+        }
+      },
+      {
+        "id": "y-out-time-in#1",
+        "source": {
+          "nodeId": "y",
+          "portId": "out"
+        },
+        "target": {
+          "nodeId": "time",
+          "portId": "in#1"
+        }
+      }
+    ]
+  }
+}
