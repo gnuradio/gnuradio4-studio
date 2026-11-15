@@ -3,6 +3,7 @@ import type { BlockCatalogItem } from '../../lib/api/blocks';
 export type ParsedTypeId = {
   moduleName: string;
   familyName: string;
+  templateArgs: string[];
   variantLabel: string;
 };
 
@@ -80,13 +81,14 @@ export function parseTypeId(blockTypeId: string): ParsedTypeId {
         : core;
 
   const topLevelArgs = templateArgs ? splitTopLevelTemplateArgs(templateArgs) : [];
-  const primaryArg = topLevelArgs[0] ?? '';
-  const compactPrimaryArg = primaryArg ? stripScopedTypeNames(primaryArg) : '';
 
   return {
     moduleName,
     familyName: familyName || blockTypeId,
-    variantLabel: compactPrimaryArg ? `<${compactPrimaryArg}>` : '(default)',
+    templateArgs: topLevelArgs,
+    variantLabel: topLevelArgs.length > 0
+      ? `<${topLevelArgs.map(stripScopedTypeNames).join(', ')}>`
+      : '(default)',
   };
 }
 

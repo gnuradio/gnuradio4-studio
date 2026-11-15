@@ -67,25 +67,33 @@ function BlockFamilyCard({ name, variants }: { name: string; variants: BlockCata
       )}
       <div className="mt-2 flex flex-wrap gap-1">
         {variants.map((block) => {
-          const { variantLabel } = parseTypeId(block.blockTypeId);
-          const variantType = variantLabel === '(default)' ? undefined : variantLabel.slice(1, -1);
-          const label =
-            variantType === undefined ? variantLabel : abbreviateTypeExpr(variantType);
-          const typeColor = variantType === undefined ? undefined : getPortTypeColor(variantType);
+          const { templateArgs } = parseTypeId(block.blockTypeId);
           return (
             <button
               key={block.blockTypeId}
-              className="rounded border border-slate-600 bg-slate-900 px-2 py-0.5 text-xs text-slate-200 hover:border-accent transition"
-              style={typeColor && {
-                backgroundColor: typeColor.background,
-                borderColor: typeColor.border,
-                color: typeColor.text,
-              }}
+              className="inline-flex overflow-hidden rounded border border-slate-600 bg-slate-900 text-xs text-slate-200 hover:border-accent transition"
               onClick={() => addNodeFromCatalogItem(toEditorCatalogBlock(block))}
               title={block.blockTypeId}
               type="button"
             >
-              {label}
+              {templateArgs.length === 0 ? (
+                <span className="px-2 py-0.5">(default)</span>
+              ) : templateArgs.map((typeArg, index) => {
+                const typeColor = getPortTypeColor(typeArg);
+                return (
+                  <span
+                    key={index}
+                    className="border-r px-2 py-0.5 last:border-r-0"
+                    style={{
+                      backgroundColor: typeColor.background,
+                      borderColor: typeColor.border,
+                      color: typeColor.text,
+                    }}
+                  >
+                    {abbreviateTypeExpr(typeArg)}{index < templateArgs.length - 1 ? ', ' : ''}
+                  </span>
+                );
+              })}
             </button>
           );
         })}

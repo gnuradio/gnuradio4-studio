@@ -58,13 +58,41 @@ describe('catalog tree helpers', () => {
     expect(normalizeCategoryPath(block)).toBe('testing');
   });
 
-  it('parses family name and first template variant label', () => {
+  it('preserves all template arguments in the variant label', () => {
     const parsed = parseTypeId(
       'gr::basic::StreamFilterImpl<pmtcomplex<float32>, true, gr::trigger::BasicTriggerNameCtxMatcher>',
     );
 
     expect(parsed.familyName).toBe('StreamFilterImpl');
-    expect(parsed.variantLabel).toBe('<pmtcomplex<float32>>');
+    expect(parsed.templateArgs).toEqual([
+      'pmtcomplex<float32>', 'true', 'gr::trigger::BasicTriggerNameCtxMatcher',
+    ]);
+    expect(parsed.variantLabel).toBe('<pmtcomplex<float32>, true, BasicTriggerNameCtxMatcher>');
+  });
+
+  it('distinguishes variants with the same first type and different second types', () => {
+    const labels = ['float32', 'int16', 'int32', 'uint8'].map((outputType) => {
+      const parsed = parseTypeId(`gr::basic::Convert<float32, ${outputType}>`);
+      expect(parsed.templateArgs).toEqual(['float32', outputType]);
+      return parsed.variantLabel;
+    });
+
+    expect(new Set(labels).size).toBe(4);
+  });
+
+  it('keeps nested template arguments together and preserves their qualified names', () => {
+    const parsed = parseTypeId('example::Pair<std::pair<float32, int16>, std::complex<float64>>');
+
+    expect(parsed.templateArgs).toEqual(['std::pair<float32, int16>', 'std::complex<float64>']);
+    expect(parsed.templateArgs.map(abbreviateTypeExpr)).toEqual(['pair<f32, i16>', 'c<f64>']);
+    expect(parsed.variantLabel).toBe('<pair<float32, int16>, complex<float64>>');
+  });
+
+  it('handles a single template argument and non-template blocks', () => {
+    expect(parseTypeId('example::Source<float32>').templateArgs).toEqual(['float32']);
+    const plain = parseTypeId('example::Source');
+    expect(plain.templateArgs).toEqual([]);
+    expect(plain.variantLabel).toBe('(default)');
   });
 
   it('builds nested category tree nodes from slash-delimited categories', () => {
