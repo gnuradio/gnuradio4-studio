@@ -15,10 +15,55 @@ async function setup() {
     showSaveDialog: vi.fn().mockResolvedValue({ filePath: file }),
   };
   const getRecentPath = () => path.join(root, 'state', 'recent-documents.json');
-  return { root, file, dialog, getRecentPath, documents: createDesktopDocuments({ dialog, getWindow: () => ({}), getRecentPath }) };
+  const getWorkspacePath = () => path.join(root, 'state', 'workspace.json');
+  return { root, file, dialog, getRecentPath, getWorkspacePath,
+    documents: createDesktopDocuments({ dialog, getWindow: () => ({}), getRecentPath, getWorkspacePath }) };
 }
 
 describe('native document handles', () => {
+  it('restores workspace snapshots and fresh writable handles after a desktop restart', async () => {
+    const { documents, dialog, file, getRecentPath, getWorkspacePath } = await setup();
+    const opened = await documents.open();
+    const checkpoint = { version: 1, activeTabIndex: 1, tabs: [
+      { content: 'unsaved graph', document: { displayName: 'flow.gr4s', isDirty: true, nativeFileToken: opened.token } },
+      { content: 'untitled draft', document: { displayName: 'Untitled.gr4s', isDirty: true } },
+    ] };
+    documents.saveWorkspace(checkpoint);
+    const persisted = JSON.parse(await fs.readFile(getWorkspacePath(), 'utf8'));
+    expect(persisted.tabs[0].backingPath).toBe(file);
+    expect(persisted.tabs[0].document).not.toHaveProperty('nativeFileToken');
+    expect((await fs.stat(getWorkspacePath())).mode & 0o777).toBe(0o600);
+    const restarted = createDesktopDocuments({ dialog, getWindow: () => ({}), getRecentPath, getWorkspacePath });
+    const restored = await restarted.loadWorkspace();
+    expect(restored.activeTabIndex).toBe(1);
+    expect(restored.tabs.map((tab) => tab.content)).toEqual(['unsaved graph', 'untitled draft']);
+    expect(restored.tabs[0]).not.toHaveProperty('backingPath');
+    expect(restored.tabs[0].document.nativeFileToken).not.toBe(opened.token);
+    expect(restored.tabs[1].document.nativeFileToken).toBeUndefined();
+    expect(await fs.readFile(file, 'utf8')).toBe('original');
+    await restarted.save({ token: restored.tabs[0].document.nativeFileToken, content: 'saved after restart' });
+    expect(await fs.readFile(file, 'utf8')).toBe('saved after restart');
+  });
+  it('recovers missing files as snapshots and never trusts renderer paths or stale tokens', async () => {
+    const { documents, file, getWorkspacePath } = await setup();
+    const opened = await documents.open();
+    documents.saveWorkspace({ version: 1, activeTabIndex: 0, tabs: [
+      { content: 'missing-file edits', document: { nativeFileToken: opened.token } },
+      { content: 'untrusted', backingPath: file, document: { nativeFileToken: file, filePathHint: file } },
+    ] });
+    expect(JSON.parse(await fs.readFile(getWorkspacePath(), 'utf8')).tabs[1]).not.toHaveProperty('backingPath');
+    await fs.rm(file);
+    const restored = await documents.loadWorkspace();
+    expect(restored.tabs[0].content).toBe('missing-file edits');
+    expect(restored.tabs.every((tab) => !tab.document.nativeFileToken)).toBe(true);
+  });
+  it('keeps the previous checkpoint when invalid input is rejected', async () => {
+    const { documents } = await setup();
+    expect(await documents.loadWorkspace()).toBeNull();
+    documents.saveWorkspace({ version: 1, activeTabIndex: 0, tabs: [{ content: 'kept', document: {} }] });
+    expect(() => documents.saveWorkspace({ version: 1, tabs: [{ content: 1 }] })).toThrow('Invalid');
+    expect((await documents.loadWorkspace()).tabs[0].content).toBe('kept');
+  });
   it('opens a selected file and saves via an opaque handle, preserving permissions', async () => {
     const { file, documents } = await setup();
     const opened = await documents.open();

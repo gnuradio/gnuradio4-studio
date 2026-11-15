@@ -10,6 +10,7 @@ import { installWasmApiTransport } from './lib/wasm/wasm-api-transport';
 import { installWasmSinkTransport } from './lib/wasm/wasm-sink-transport';
 import './styles/index.css';
 import { themeManager } from './features/themes/theme-store';
+import { initializeWorkspaceRecovery } from './features/document-file/workspace-recovery';
 
 if (import.meta.env.VITE_CONTROL_PLANE_TRANSPORT === 'wasm') {
   installWasmApiTransport(import.meta.env.VITE_CONTROL_PLANE_WASM_URL);
@@ -252,6 +253,8 @@ window.addEventListener('unhandledrejection', (event) => {
 
 async function startStudio() {
   await themeManager.initialize();
+  const isDisplayApplicationRoute = window.location.pathname.startsWith('/app-runtime/') || window.location.hash.startsWith('#/app-runtime/');
+  if (!isDisplayApplicationRoute) await initializeWorkspaceRecovery(window);
   document.documentElement.dataset.themeReady = 'true';
   try {
     ReactDOM.createRoot(document.getElementById('root')!).render(

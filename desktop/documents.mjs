@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createRecentDocuments } from './recent-documents.mjs';
+import { createDesktopWorkspace } from './workspace.mjs';
 
 async function writeDocument(filePath, content) {
   if (typeof content !== 'string') throw new Error('Document content must be text.');
@@ -24,7 +25,7 @@ async function writeDocument(filePath, content) {
 }
 
 // File access uses opaque handles or stored recent IDs. The renderer cannot choose a path via IPC.
-export function createDesktopDocuments({ dialog, getWindow, getRecentPath }) {
+export function createDesktopDocuments({ dialog, getWindow, getRecentPath, getWorkspacePath }) {
   const files = new Map();
   let lastDirectory;
   const directoryFor = (token) => {
@@ -39,8 +40,11 @@ export function createDesktopDocuments({ dialog, getWindow, getRecentPath }) {
     return { token, name: path.basename(filePath) };
   };
   const filters = [{ name: 'Studio documents', extensions: ['gr4s'] }, { name: 'All files', extensions: ['*'] }];
+  const workspace = createDesktopWorkspace({ getPath: getWorkspacePath, resolveToken: (token) => files.get(token), rememberFile: remember });
   return {
     clear() { files.clear(); },
+    loadWorkspace: () => workspace.load(),
+    saveWorkspace: (input) => workspace.save(input),
     listRecent: () => recent.list(),
     clearRecent: () => recent.clear(),
     removeRecent: ({ id }) => recent.remove(id),

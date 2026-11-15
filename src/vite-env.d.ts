@@ -27,6 +27,9 @@ interface Window {
       openRecent: (input: { id: string }) => Promise<{ token: string; name: string; content: string }>;
       removeRecent: (input: { id: string }) => Promise<void>;
       clearRecent: () => Promise<void>;
+      loadWorkspace: () => Promise<unknown>;
+      saveWorkspace: (input: import('./features/document-file/workspace-recovery').WorkspaceCheckpoint) => Promise<void>;
+      saveWorkspaceSync: (input: import('./features/document-file/workspace-recovery').WorkspaceCheckpoint) => void;
     };
     readonly setMenuState?: (state: { commands: import('./lib/commands/studio-commands').StudioCommandState; editingText: boolean }) => void;
     readonly getBootStatus?: () => Promise<{

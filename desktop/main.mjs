@@ -128,6 +128,7 @@ function updateApplicationMenu() {
 const desktopDocuments = createDesktopDocuments({
   dialog, getWindow: () => mainWindow,
   getRecentPath: () => path.join(app.getPath('userData'), 'state', 'recent-documents.json'),
+  getWorkspacePath: () => path.join(app.getPath('userData'), 'state', 'workspace.json'),
 });
 const desktopThemes = createDesktopThemes({ getUserData: () => app.getPath('userData') });
 for (const action of ['load', 'put', 'delete', 'readSelected', 'writeSelected']) {
@@ -140,7 +141,7 @@ for (const action of ['load', 'put', 'delete', 'readSelected', 'writeSelected'])
     return desktopThemes[action](input);
   });
 }
-for (const action of ['open', 'saveAs', 'save', 'listRecent', 'rememberRecent', 'openRecent', 'removeRecent', 'clearRecent']) {
+for (const action of ['open', 'saveAs', 'save', 'listRecent', 'rememberRecent', 'openRecent', 'removeRecent', 'clearRecent', 'loadWorkspace', 'saveWorkspace']) {
   ipcMain.handle(`gr4-studio:document:${action}`, (event, input) => {
     if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
       throw new Error('Document access is limited to the Studio editor.');
@@ -148,6 +149,19 @@ for (const action of ['open', 'saveAs', 'save', 'listRecent', 'rememberRecent', 
     return desktopDocuments[action](input);
   });
 }
+
+ipcMain.on('gr4-studio:document:saveWorkspaceSync', (event, input) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
+    event.returnValue = { error: 'Document access is limited to the Studio editor.' };
+    return;
+  }
+  try {
+    desktopDocuments.saveWorkspace(input);
+    event.returnValue = {};
+  } catch (error) {
+    event.returnValue = { error: error.message };
+  }
+});
 
 function attachWindowMenu(win) {
   win.on('focus', updateApplicationMenu);
@@ -737,7 +751,10 @@ async function createWindow(startUrl, runtimeConfig) {
   });
 
   attachWindowMenu(mainWindow);
-  mainWindow.webContents.on('did-start-loading', () => {
+  mainWindow.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+    // BrowserRouter can update history without replacing the editor document.
+    // Keep restored handles alive across those same-document navigations.
+    if (!isMainFrame || isInPlace) return;
     desktopDocuments.clear();
     editorMenuState = { commands: {}, editingText: false };
     updateApplicationMenu();
@@ -746,9 +763,9 @@ async function createWindow(startUrl, runtimeConfig) {
     const choice = dialog.showMessageBoxSync(mainWindow, {
       type: 'warning',
       title: 'Unsaved Studio documents',
-      message: 'Close Studio and discard unsaved changes?',
-      detail: 'Choose Cancel to return to your documents and save them.',
-      buttons: ['Cancel', 'Discard Changes'],
+      message: 'Close Studio with unsaved changes?',
+      detail: 'Studio keeps recovery copies of open tabs. Choose Cancel to save changes to the original files first.',
+      buttons: ['Cancel', 'Close Studio'],
       defaultId: 0,
       cancelId: 0,
       noLink: true,
