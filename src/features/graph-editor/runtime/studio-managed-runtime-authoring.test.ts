@@ -3,7 +3,6 @@ import {
   buildStudioDescriptorAuthoringView,
   buildStudioAuthoringBindingView,
   getAuthoringParameterLabel,
-  getDescriptorBindingAuthoringMessage,
   isDescriptorBindingHiddenParameter,
   isDescriptorBasedBindingFamily,
 } from './studio-managed-runtime-authoring';
@@ -22,8 +21,6 @@ describe('descriptor-based authoring helpers', () => {
     ).toMatchObject({
       status: 'configured',
       transport: 'websocket',
-      reason:
-        'The running session provides the connection address.',
     });
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioSeriesSink<float32>', {
@@ -84,9 +81,6 @@ describe('descriptor-based authoring helpers', () => {
   it('keeps StudioWaterfallSink transport-authored while ignoring authored endpoint in the descriptor view', () => {
     expect(isDescriptorBasedBindingFamily('gr::studio::StudioWaterfallSink<float32>')).toBe(true);
     expect(isDescriptorBindingHiddenParameter('gr::studio::StudioWaterfallSink<float32>', 'endpoint')).toBe(true);
-    expect(getDescriptorBindingAuthoringMessage('gr::studio::StudioWaterfallSink<float32>')).toBe(
-      'The running session provides the connection address.',
-    );
 
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioWaterfallSink<float32>', {
@@ -100,8 +94,6 @@ describe('descriptor-based authoring helpers', () => {
       transport: 'http_poll',
       updateMs: 175,
       sampleRate: 48000,
-      reason:
-        'The running session provides the connection address.',
     });
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioWaterfallSink<float32>', {
@@ -124,8 +116,6 @@ describe('descriptor-based authoring helpers', () => {
       transport: 'websocket',
       updateMs: 210,
       sampleRate: 96000,
-      reason:
-        'The running session provides the connection address.',
     });
   });
 
@@ -149,8 +139,6 @@ describe('descriptor-based authoring helpers', () => {
       sampleRate: 48000,
       channels: 1,
       bufferMs: 140,
-      reason:
-        'The running session provides the connection address.',
     });
     expect(
       buildStudioAuthoringBindingView('gr::studio::StudioAudioSink<float32>', {
@@ -179,8 +167,6 @@ describe('descriptor-based authoring helpers', () => {
       transport: 'http_poll',
       updateMs: 200,
       channels: 2,
-      reason:
-        'The running session provides the connection address.',
     });
     expect(scalar.endpoint).toBeUndefined();
 

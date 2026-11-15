@@ -30,7 +30,6 @@ import {
   buildStudioAuthoringBindingView,
   getAuthoringParameterLabel,
   isDescriptorBindingHiddenParameter,
-  getDescriptorBindingAuthoringMessage,
 } from '../graph-editor/runtime/studio-managed-runtime-authoring';
 import {
   getEditorVirtualRouteIssues,
@@ -539,9 +538,6 @@ function SelectionTab({
         : null,
     [effectiveParameterValues, selectedBlock],
   );
-  const descriptorBindingAuthoringMessage = selectedBlock
-    ? getDescriptorBindingAuthoringMessage(selectedBlock.blockTypeId)
-    : null;
 
   const renderedPorts =
     blockDetailsQuery.data && selectedBlock
@@ -705,10 +701,6 @@ function SelectionTab({
 
             {studioBinding.reason && (
               <p className="text-xs text-slate-300 break-words">{studioBinding.reason}</p>
-            )}
-
-            {descriptorBindingAuthoringMessage && descriptorBindingAuthoringMessage !== studioBinding.reason && (
-              <p className="text-[11px] text-sky-200 break-words">{descriptorBindingAuthoringMessage}</p>
             )}
           </div>
         </SectionCard>
