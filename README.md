@@ -104,6 +104,26 @@ Remove the profile with
 `gr4-studio-sandbox-setup --remove`. Do not make `--no-sandbox` part of a normal
 launcher configuration; Electron documents that option as testing-only.
 
+#### Upgrading a source install
+
+Earlier builds installed the shared Studio blocks plugin directly into
+`<libdir>`; it now installs into `<libdir>/gnuradio-4/plugins`, next to the
+static plugin and the gnuradio4-blocks plugins. Reinstalling into the same
+prefix does not remove the old copy, and the launcher searches both
+directories. If the old copy was built against an incompatible ABI,
+`gr4cp_server` exits before it serves the block catalog, even though the new
+plugin loads.
+
+If you're upgrading a source install in the same prefix, install the new build,
+then verify that `<libdir>/gnuradio-4/plugins/libGr4StudioBlocksPlugin.so`
+exists. Remove the obsolete `<libdir>/libGr4StudioBlocksPlugin.so` before
+restarting Studio. Use the libdir configured for your build (for example
+`lib` or `lib64`), or install into a fresh prefix instead.
+
+Package upgrades should remove the obsolete file the package owns. In either
+case, verify the upgrade by starting Studio in local mode and confirming that
+the block catalog includes the Studio Series Sink.
+
 ### Linux application icon
 
 The installer writes `share/applications/gr4-studio.desktop` with the GR4 logo
