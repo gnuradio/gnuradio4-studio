@@ -7,7 +7,8 @@ target_include_directories(gr-studio INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT
                                                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(gr-studio INTERFACE gnuradio4::gnuradio-core gnuradio4::gnuradio-algorithm)
 if(NOT EMSCRIPTEN)
-  target_link_libraries(gr-studio INTERFACE httplib::httplib OpenSSL::Crypto)
+  # the websocket transport talks to Winsock directly on Windows
+  target_link_libraries(gr-studio INTERFACE httplib::httplib OpenSSL::Crypto $<$<PLATFORM_ID:Windows>:ws2_32>)
 endif()
 
 install(TARGETS gr-studio EXPORT gnuradio4StudioBlocksTargets)
