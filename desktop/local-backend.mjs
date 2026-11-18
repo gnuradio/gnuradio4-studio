@@ -52,13 +52,25 @@ function prependEnvironmentPath(environment, name, entries) {
   return [...new Set(values)].join(path.delimiter);
 }
 
-export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.env) {
+// Windows environment names are case-insensitive and PATH usually arrives as "Path". Updating that key,
+// rather than adding a "PATH" beside it, keeps the child from seeing two variables of which Node passes
+// only one.
+function environmentKey(environment, name, platform) {
+  if (platform !== 'win32') {
+    return name;
+  }
+  return Object.keys(environment).find((key) => key.toUpperCase() === name) ?? name;
+}
+
+export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.env, platform = process.platform) {
   const environment = { ...baseEnvironment };
   if (!prefix) {
     return environment;
   }
 
-  environment.PATH = prependEnvironmentPath(environment, 'PATH', [path.join(prefix, 'bin')]);
+  // Windows has no RPATH: the backend and the plugins find the prefix's DLLs through PATH
+  const pathKey = environmentKey(environment, 'PATH', platform);
+  environment[pathKey] = prependEnvironmentPath(environment, pathKey, [path.join(prefix, 'bin')]);
   environment.CMAKE_PREFIX_PATH = prependEnvironmentPath(environment, 'CMAKE_PREFIX_PATH', [prefix]);
   environment.PKG_CONFIG_PATH = prependEnvironmentPath(environment, 'PKG_CONFIG_PATH', [
     path.join(prefix, 'lib', 'pkgconfig'),

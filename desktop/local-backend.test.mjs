@@ -35,12 +35,20 @@ describe('managed local backend', () => {
       GNURADIO4_PLUGIN_DIRECTORIES: '/custom/plugins',
     });
 
-    expect(environment.PATH?.split(path.delimiter)).toEqual(['/opt/gr4/bin', '/usr/bin']);
+    expect(environment.PATH?.split(path.delimiter)).toEqual([path.join('/opt/gr4', 'bin'), '/usr/bin']);
     expect(environment.GNURADIO4_PLUGIN_DIRECTORIES?.split(path.delimiter)).toEqual([
-      '/opt/gr4/lib/gnuradio-4/plugins',
-      '/opt/gr4/lib',
+      path.join('/opt/gr4', 'lib', 'gnuradio-4', 'plugins'),
+      path.join('/opt/gr4', 'lib'),
       '/custom/plugins',
     ]);
+  });
+
+  it('extends the existing Windows Path variable instead of adding a second PATH', () => {
+    const systemDirectory = path.join('/windows', 'system32');
+    const environment = buildLocalBackendEnvironment('/opt/gr4', { Path: systemDirectory }, 'win32');
+
+    expect(Object.keys(environment).filter((key) => key.toUpperCase() === 'PATH')).toEqual(['Path']);
+    expect(environment.Path?.split(path.delimiter)).toEqual([path.join('/opt/gr4', 'bin'), systemDirectory]);
   });
 
   it('captures output and stops the process it owns', async () => {
