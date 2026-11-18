@@ -46,20 +46,21 @@ async function appendLifecycleLog(logPath, message, onOutput) {
   emitOutput(onOutput, 'lifecycle', text);
 }
 
-function prependEnvironmentPath(environment, name, entries) {
-  const existing = environment[name];
-  const values = [...entries, ...(existing ? existing.split(path.delimiter) : [])].filter(Boolean);
-  return [...new Set(values)].join(path.delimiter);
-}
-
-// Windows environment names are case-insensitive and PATH usually arrives as "Path". Updating that key,
+// Windows environment names are case-insensitive and PATH usually arrives as "Path". Extending that key,
 // rather than adding a "PATH" beside it, keeps the child from seeing two variables of which Node passes
-// only one.
+// only one: the first in sort order, so that is the key to extend when several spellings are present.
 function environmentKey(environment, name, platform) {
   if (platform !== 'win32') {
     return name;
   }
-  return Object.keys(environment).find((key) => key.toUpperCase() === name) ?? name;
+  return Object.keys(environment).filter((key) => key.toUpperCase() === name).sort()[0] ?? name;
+}
+
+function prependEnvironmentPath(environment, name, entries, platform) {
+  const key = environmentKey(environment, name, platform);
+  const existing = environment[key];
+  const values = [...entries, ...(existing ? existing.split(path.delimiter) : [])].filter(Boolean);
+  environment[key] = [...new Set(values)].join(path.delimiter);
 }
 
 export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.env, platform = process.platform) {
@@ -69,29 +70,22 @@ export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.e
   }
 
   // Windows has no RPATH: the backend and the plugins find the prefix's DLLs through PATH
-  const pathKey = environmentKey(environment, 'PATH', platform);
-  environment[pathKey] = prependEnvironmentPath(environment, pathKey, [path.join(prefix, 'bin')]);
-  environment.CMAKE_PREFIX_PATH = prependEnvironmentPath(environment, 'CMAKE_PREFIX_PATH', [prefix]);
-  environment.PKG_CONFIG_PATH = prependEnvironmentPath(environment, 'PKG_CONFIG_PATH', [
-    path.join(prefix, 'lib', 'pkgconfig'),
-    path.join(prefix, 'lib64', 'pkgconfig'),
-    path.join(prefix, 'share', 'pkgconfig'),
-  ]);
-  environment.LD_LIBRARY_PATH = prependEnvironmentPath(environment, 'LD_LIBRARY_PATH', [
-    path.join(prefix, 'lib'),
-    path.join(prefix, 'lib64'),
-  ]);
-  environment.DYLD_LIBRARY_PATH = prependEnvironmentPath(environment, 'DYLD_LIBRARY_PATH', [
-    path.join(prefix, 'lib'),
-    path.join(prefix, 'lib64'),
-  ]);
-  environment.PYTHONPATH = prependEnvironmentPath(environment, 'PYTHONPATH', [
-    path.join(prefix, 'lib', 'python3', 'site-packages'),
-  ]);
-  environment.GNURADIO4_PLUGIN_DIRECTORIES = prependEnvironmentPath(
+  prependEnvironmentPath(environment, 'PATH', [path.join(prefix, 'bin')], platform);
+  prependEnvironmentPath(environment, 'CMAKE_PREFIX_PATH', [prefix], platform);
+  prependEnvironmentPath(
+    environment,
+    'PKG_CONFIG_PATH',
+    [path.join(prefix, 'lib', 'pkgconfig'), path.join(prefix, 'lib64', 'pkgconfig'), path.join(prefix, 'share', 'pkgconfig')],
+    platform,
+  );
+  prependEnvironmentPath(environment, 'LD_LIBRARY_PATH', [path.join(prefix, 'lib'), path.join(prefix, 'lib64')], platform);
+  prependEnvironmentPath(environment, 'DYLD_LIBRARY_PATH', [path.join(prefix, 'lib'), path.join(prefix, 'lib64')], platform);
+  prependEnvironmentPath(environment, 'PYTHONPATH', [path.join(prefix, 'lib', 'python3', 'site-packages')], platform);
+  prependEnvironmentPath(
     environment,
     'GNURADIO4_PLUGIN_DIRECTORIES',
     [path.join(prefix, 'lib', 'gnuradio-4', 'plugins'), path.join(prefix, 'lib')],
+    platform,
   );
   environment.GR4_STUDIO_PREFIX = prefix;
   return environment;

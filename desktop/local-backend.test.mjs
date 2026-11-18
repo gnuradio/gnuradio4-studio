@@ -51,6 +51,13 @@ describe('managed local backend', () => {
     expect(environment.Path?.split(path.delimiter)).toEqual([path.join('/opt/gr4', 'bin'), systemDirectory]);
   });
 
+  it('extends the spelling Node passes to the child when Path and PATH are both present', () => {
+    const environment = buildLocalBackendEnvironment('/opt/gr4', { Path: '/stale', PATH: '/used' }, 'win32');
+
+    expect(environment.PATH?.split(path.delimiter)).toEqual([path.join('/opt/gr4', 'bin'), '/used']);
+    expect(environment.Path).toBe('/stale');
+  });
+
   it('captures output and stops the process it owns', async () => {
     const paths = await createBackendPaths();
     const capturedOutput = [];
