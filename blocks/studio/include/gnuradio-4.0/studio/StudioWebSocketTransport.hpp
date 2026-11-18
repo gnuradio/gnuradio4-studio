@@ -195,7 +195,11 @@ inline bool sendAll(Handle handle, std::string_view payload) {
     return true;
 }
 
-inline long receive(Handle handle, char* buffer, std::size_t size) { return static_cast<long>(::recv(handle, buffer, static_cast<int>(size), 0)); }
+inline long receive(Handle handle, char* buffer, std::size_t size) {
+    // Winsock takes an int length; reading less than size is fine for a stream socket
+    const auto chunk = static_cast<int>(std::min<std::size_t>(size, static_cast<std::size_t>(std::numeric_limits<int>::max())));
+    return static_cast<long>(::recv(handle, buffer, chunk, 0));
+}
 
 } // namespace socket_api
 
@@ -555,10 +559,10 @@ private:
 
             if (!writeFrame(clientFd, pending.payload, pending.kind)) {
                 std::lock_guard lock(_mutex);
+                // a client the accept loop or stop() has since replaced is closed already, and its
+                // handle may belong to another socket by now
                 if (_clientFd == clientFd) {
                     socket_api::close(_clientFd);
-                } else {
-                    socket_api::close(clientFd);
                 }
             }
         }
