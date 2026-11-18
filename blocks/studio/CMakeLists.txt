@@ -45,6 +45,7 @@ gr4_studio_add_block_plugin(
   PLUGIN_SOURCES src/StudioPlugin.cpp
   LINK_LIBRARIES gr-studio)
 
-if(ENABLE_TESTING AND NOT EMSCRIPTEN)
+# the tests load the blocks through the plugin, which a build without block registration lacks
+if(ENABLE_TESTING AND NOT EMSCRIPTEN AND TARGET Gr4StudioBlocksPlugin)
   add_subdirectory(test)
 endif()

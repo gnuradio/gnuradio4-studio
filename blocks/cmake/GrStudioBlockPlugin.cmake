@@ -66,6 +66,12 @@ function(gr4_studio_add_block_plugin name)
     SOURCES ${arg_SOURCES} ${arg_PLUGIN_SOURCES}
     LINK_LIBRARIES ${arg_LINK_LIBRARIES})
 
+  # gr_add_block_plugin makes no target when the block registry or the compiled block libraries are
+  # turned off (GR_ENABLE_BLOCK_REGISTRY, GR_BLOCKLIB_BUILD_LIBS)
+  if(NOT TARGET ${name}Plugin)
+    return()
+  endif()
+
   # the import library MSVC writes beside the DLL is of no use to anyone loading a plugin
   install(
     TARGETS ${name}Plugin
