@@ -133,8 +133,8 @@ private:
 };
 
 // Drop-in stand-in for the sinks' cpp-httplib SnapshotHttpService. start() is templated on the
-// endpoint struct because each sink declares its own ParsedHttpEndpoint in its own namespace; all
-// of them expose the same host/port/path members.
+// endpoint struct because ParsedHttpEndpoint is declared in StudioHttpSnapshot.hpp, which includes
+// this header; any struct with host/port/path members works.
 class InProcessSnapshotHttpService {
 public:
     using JsonProvider = std::function<std::string()>;

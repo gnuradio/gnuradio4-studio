@@ -74,8 +74,8 @@ void testDefaultTransportAndCadence() {
 #if !defined(_WIN32)
 void testWebSocketStopUnblocksIncompleteHandshake() {
     const auto endpoint = gr::studio::detail::parseHttpEndpoint("ws://127.0.0.1:0/stream");
-    gr::studio::detail::SnapshotWebSocketService service{};
-    assert(service.start(endpoint));
+    gr::studio::websocket_transport::SnapshotWebSocketService service{};
+    assert(service.start(endpoint.host, endpoint.port, endpoint.path));
     const auto port = service.boundPort();
     assert(port != 0U);
 

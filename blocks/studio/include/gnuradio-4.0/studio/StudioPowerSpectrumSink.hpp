@@ -12,25 +12,18 @@
 #include <array>
 #include <bit>
 #include <chrono>
-#include <condition_variable>
-#include <cctype>
 #include <cmath>
 #include <complex>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <deque>
 #include <functional>
-#include <limits>
-#include <memory>
 #include <mutex>
 #include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <thread>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -424,23 +417,6 @@ private:
     std::deque<std::vector<value_type>> _history{};
 };
 
-// Streams the latest spectrum frame as binary WebSocket messages. A slow client never sees a backlog:
-// the shared service holds one pending frame and replaces it with each newer one.
-class SnapshotWebSocketService {
-public:
-    [[nodiscard]] bool start(const ParsedHttpEndpoint& endpoint) { return _service.start(endpoint.host, endpoint.port, endpoint.path); }
-
-    void stop() { _service.stop(); }
-
-    [[nodiscard]] bool          isRunning() const noexcept { return _service.isRunning(); }
-    [[nodiscard]] std::uint16_t boundPort() const noexcept { return _service.boundPort(); }
-
-    void publish(std::string payload) { _service.publishBinary(std::move(payload)); }
-
-private:
-    websocket_transport::SnapshotWebSocketService _service;
-};
-
 inline bool isHttpPollTransport(const PowerSpectrumTransport transport) {
     return transport == PowerSpectrumTransport::http_poll;
 }
@@ -596,8 +572,12 @@ private:
 
         if (detail::isWebSocketTransport(transport.value)) {
             const auto parsed = detail::parseHttpEndpoint(endpoint.value);
-            if (!_websocket.start(parsed)) {
-                throw gr::exception("StudioPowerSpectrumSink failed to start websocket transport endpoint.");
+            if (!_websocket.start(parsed.host, parsed.port, parsed.path)) {
+                std::string message = "StudioPowerSpectrumSink failed to start websocket transport endpoint.";
+                if (const auto& reason = _websocket.lastErrorMessage(); !reason.empty()) {
+                    message += " " + reason;
+                }
+                throw gr::exception(message);
             }
             return;
         }
@@ -614,7 +594,8 @@ private:
 
     detail::PowerSpectrumWindow<T> _window{};
     detail::SnapshotHttpService _http{};
-    detail::SnapshotWebSocketService _websocket{};
+    // holds one pending frame and replaces it with each newer one, so a slow client never sees a backlog
+    websocket_transport::SnapshotWebSocketService _websocket{};
     std::chrono::steady_clock::time_point _lastWebSocketPublishAt{};
     std::chrono::steady_clock::time_point _lastFrameProcessAt{};
     std::vector<T> _sampleCache{};
@@ -687,7 +668,7 @@ private:
         }
         _lastWebSocketPublishAt = now;
         const auto payload = _window.snapshotWebSocketBinaryFrame();
-        _websocket.publish(payload);
+        _websocket.publishBinary(payload);
     }
 
     void syncInputPortConstraints() {

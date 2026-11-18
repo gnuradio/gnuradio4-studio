@@ -14,8 +14,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
-#include <functional>
-#include <memory>
 #include <mutex>
 #include <limits>
 #include <optional>
@@ -24,7 +22,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <utility>
 #include <vector>
 
