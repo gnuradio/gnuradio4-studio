@@ -118,24 +118,19 @@ public:
     [[nodiscard]] bool start(const ParsedHttpEndpoint& endpoint, JsonProvider provider) {
         stop();
 
-        _host      = endpoint.host;
-        _port      = endpoint.port;
-        _path      = endpoint.path;
-        _provider  = std::move(provider);
-        _boundPort = 0U;
+        _provider = std::move(provider);
 
         _server = std::make_unique<httplib::Server>();
-        _server->Get(_path, [this](const httplib::Request&, httplib::Response& res) {
+        _server->Get(endpoint.path, [this](const httplib::Request&, httplib::Response& res) {
             res.set_header("Cache-Control", "no-store");
             res.set_content(_provider ? _provider() : std::string("{}"), "application/json");
         });
 
-        const int bound = _server->bind_to_port(_host, static_cast<int>(_port));
-        if (bound < 0) {
+        // bind_to_port() returns bool, not the bound port
+        if (!_server->bind_to_port(endpoint.host, static_cast<int>(endpoint.port))) {
             _server.reset();
             return false;
         }
-        _boundPort = static_cast<std::uint16_t>(bound);
 
         _serverThread = std::thread([this]() {
             if (_server) {
@@ -159,10 +154,6 @@ public:
     }
 
 private:
-    std::string                      _host{"127.0.0.1"};
-    std::uint16_t                    _port{8080U};
-    std::uint16_t                    _boundPort{0U};
-    std::string                      _path{"/snapshot"};
     JsonProvider                     _provider;
     std::unique_ptr<httplib::Server> _server;
     std::thread                      _serverThread;
