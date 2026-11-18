@@ -142,6 +142,9 @@ public:
                 _server->listen_after_bind();
             }
         });
+        // httplib's stop() does nothing until the server is listening, so a stop() that came first would
+        // leave the thread listening and stop()'s join waiting for it forever
+        _server->wait_until_ready();
         return true;
     }
 
