@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, existsSync, readdirSync, readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { finished } from 'node:stream/promises';
@@ -80,14 +80,64 @@ export async function chooseWritableLogPath(candidates) {
   throw new Error(`None of these log directories is writable: ${candidates.map((c) => path.dirname(c)).join(', ')}`);
 }
 
+function samePath(a, b, platform) {
+  const [left, right] = [path.resolve(a), path.resolve(b)];
+  return platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
+// The shared plugin trees gr-core's Windows and macOS installers put plugins in, outside the install
+// root. Each installation records its root and its plugin tree in a manifest per plugin ABI,
+// <base>/.gnuradio-4/manifest/v<api>/manifest.json; the trees of the manifests naming this prefix hold
+// its plugins. They have to be listed alongside the prefix's own directories because setting
+// GNURADIO4_PLUGIN_DIRECTORIES replaces the loader's own search, which would otherwise include them.
+export function sharedPluginDirectories(prefix, environment = process.env, platform = process.platform) {
+  let bases = [];
+  if (platform === 'win32') {
+    bases = ['LOCALAPPDATA', 'PROGRAMDATA'].map((name) => environment[environmentKey(environment, name, platform)]);
+  } else if (platform === 'darwin') {
+    bases = ['/Library/Application Support'];
+  }
+
+  const directories = [];
+  for (const base of bases.filter(Boolean)) {
+    const manifestRoot = path.join(base, '.gnuradio-4', 'manifest');
+    let versions;
+    try {
+      versions = readdirSync(manifestRoot).filter((name) => /^v\d+$/.test(name));
+    } catch {
+      continue;
+    }
+    for (const version of versions) {
+      try {
+        // the Windows installers write the manifest with PowerShell, which adds a byte order mark
+        const text = readFileSync(path.join(manifestRoot, version, 'manifest.json'), 'utf8').replace(/^\uFEFF/, '');
+        const manifest = JSON.parse(text);
+        const installRoot = manifest['install-root'];
+        const pluginRoot = manifest['plugin-root'];
+        if (installRoot && pluginRoot && samePath(installRoot, prefix, platform) && existsSync(pluginRoot)) {
+          directories.push(pluginRoot);
+        }
+      } catch {
+        // not a manifest this version of Studio can read
+      }
+    }
+  }
+  return directories;
+}
+
 export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.env, platform = process.platform) {
   const environment = { ...baseEnvironment };
   if (!prefix) {
     return environment;
   }
 
-  // Windows has no RPATH: the backend and the plugins find the prefix's DLLs through PATH
-  prependEnvironmentPath(environment, 'PATH', [path.join(prefix, 'bin')], platform);
+  // Windows has no RPATH: the backend and the plugins find the prefix's DLLs through PATH. The block
+  // libraries beside the plugins are on it too, as gr-core's gr4-env scripts put them.
+  const pathEntries = [path.join(prefix, 'bin')];
+  if (platform === 'win32') {
+    pathEntries.push(path.join(prefix, 'lib', 'gnuradio-4', 'plugins'));
+  }
+  prependEnvironmentPath(environment, 'PATH', pathEntries, platform);
   prependEnvironmentPath(environment, 'CMAKE_PREFIX_PATH', [prefix], platform);
   prependEnvironmentPath(
     environment,
@@ -101,7 +151,11 @@ export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.e
   prependEnvironmentPath(
     environment,
     'GNURADIO4_PLUGIN_DIRECTORIES',
-    [path.join(prefix, 'lib', 'gnuradio-4', 'plugins'), path.join(prefix, 'lib')],
+    [
+      ...sharedPluginDirectories(prefix, baseEnvironment, platform),
+      path.join(prefix, 'lib', 'gnuradio-4', 'plugins'),
+      path.join(prefix, 'lib'),
+    ],
     platform,
   );
   environment.GR4_STUDIO_PREFIX = prefix;
