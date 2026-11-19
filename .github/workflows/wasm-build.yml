@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_call:
   workflow_dispatch:
 
@@ -234,3 +236,30 @@ jobs:
             { cat old.md; printf '%s\n' "$NEW_LINE"; } > body.md
             gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@body.md
           fi
+
+  release-web:
+    name: Attach the web app to the release
+    needs: studio-web
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the web app
+        uses: actions/download-artifact@v4
+        with:
+          name: gr4-studio-web
+          path: dist
+
+      # A static deployment can then come from a release rather than a commit's bucket URL. When the
+      # release does not exist yet it is created as a draft, for a maintainer to write up and publish.
+      - name: Upload the zip to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          zip_name="gr4-studio-web-${TAG#v}.zip"
+          (cd dist && zip -qr "../${zip_name}" .)
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --verify-tag --title "$TAG" --notes ""
+          gh release upload "$TAG" "$zip_name" --clobber
