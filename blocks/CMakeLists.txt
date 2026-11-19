@@ -17,6 +17,7 @@ include(CMakePackageConfigHelpers)
 include(GrStudioCompilerLauncher)
 
 option(ENABLE_TESTING "Build Studio block tests" OFF)
+option(GR_PACKAGING "Allow the Studio blocks to be packaged with CPack" OFF)
 
 # Every dependency is found as an installed package. Build the third-party ones with gr-deps
 # (TARGET_GR_STUDIO) and the GNU Radio ones with gr-core and gr-blocks, then point
@@ -51,11 +52,18 @@ write_basic_package_version_file(
   VERSION "${PROJECT_VERSION}"
   COMPATIBILITY SameMinorVersion)
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/gnuradio4StudioBlocksConfig.cmake"
-              "${CMAKE_CURRENT_BINARY_DIR}/gnuradio4StudioBlocksConfigVersion.cmake"
-        DESTINATION "${GR4_STUDIO_CMAKE_INSTALL_DIR}")
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/gnuradio4StudioBlocksConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/gnuradio4StudioBlocksConfigVersion.cmake"
+  DESTINATION "${GR4_STUDIO_CMAKE_INSTALL_DIR}"
+  COMPONENT DEVELOP)
 
 install(
   EXPORT gnuradio4StudioBlocksTargets
   NAMESPACE gnuradio4::
-  DESTINATION "${GR4_STUDIO_CMAKE_INSTALL_DIR}")
+  DESTINATION "${GR4_STUDIO_CMAKE_INSTALL_DIR}"
+  COMPONENT DEVELOP)
+
+if(GR_PACKAGING)
+  include(GrStudioCPack)
+endif()

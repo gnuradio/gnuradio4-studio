@@ -11,9 +11,11 @@ if(NOT EMSCRIPTEN)
   target_link_libraries(gr-studio INTERFACE httplib::httplib OpenSSL::Crypto $<$<PLATFORM_ID:Windows>:ws2_32>)
 endif()
 
-install(TARGETS gr-studio EXPORT gnuradio4StudioBlocksTargets)
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gnuradio-4.0")
+install(TARGETS gr-studio EXPORT gnuradio4StudioBlocksTargets COMPONENT DEVELOP)
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gnuradio-4.0"
+  COMPONENT DEVELOP)
 
 set(GR4_STUDIO_BLOCK_HEADERS
     include/gnuradio-4.0/studio/Studio2DSeriesSink.hpp
