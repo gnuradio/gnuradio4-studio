@@ -1,7 +1,8 @@
-name: Studio blocks (native)
+name: Studio native builds and packages
 
-# Builds and tests the Studio blocks natively, on Linux and on Windows with MSVC, and packages them:
-# a .deb and an Inno Setup installer, uploaded as artifacts. The WebAssembly build is wasm-build.yml.
+# Builds and tests the Studio blocks natively, on Linux and on Windows with MSVC, and packages them and
+# the desktop app: .debs and Inno Setup installers, uploaded as artifacts. The WebAssembly build is
+# wasm-build.yml.
 
 on:
   pull_request:
@@ -67,11 +68,32 @@ jobs:
         working-directory: build
         run: cpack
 
-      - name: Upload the package
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # dpkg-shlibdeps resolves the bundled Electron's dependencies against the installed system
+      # libraries, so the ones it links have to be present here
+      - name: Install the Electron runtime libraries
+        run: >
+          apt-get install -y --no-install-recommends
+          libgtk-3-0t64 libnss3 libasound2t64 libgbm1 libxss1 libxtst6 libnotify4
+          libsecret-1-0 libcups2t64 libdrm2 libxkbcommon0 libxrandr2 libxdamage1 libxcomposite1
+
+      - name: Package the desktop app
+        run: |
+          cmake -S packaging/desktop -B build-desktop -G Ninja -DCMAKE_BUILD_TYPE=Release -DGR_PACKAGING=ON
+          cmake --build build-desktop
+          cd build-desktop && cpack
+
+      - name: Upload the packages
         uses: actions/upload-artifact@v4
         with:
-          name: gnuradio4-studio-blocks-deb
-          path: build/*.deb
+          name: gnuradio4-studio-deb
+          path: |
+            build/*.deb
+            build-desktop/*.deb
           if-no-files-found: error
 
   windows:
@@ -188,9 +210,28 @@ jobs:
         working-directory: build
         run: cpack -C Release
 
-      - name: Upload the installer
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # the desktop app's installer takes its install root and Start Menu folder from gr-core's helpers
+      - name: Package the desktop app
+        run: |
+          cmake -S packaging/desktop -B build-desktop -G Ninja -DCMAKE_BUILD_TYPE=Release -DGR_PACKAGING=ON `
+            "-DCMAKE_PREFIX_PATH=${{ steps.gr4.outputs.prefix }};${{ steps.deps.outputs.install-prefix }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Set-Location build-desktop
+          cpack -C Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload the installers
         uses: actions/upload-artifact@v4
         with:
-          name: gnuradio4-studio-blocks-win64
-          path: build/*.exe
+          name: gnuradio4-studio-win64
+          path: |
+            build/*.exe
+            build-desktop/*.exe
           if-no-files-found: error
