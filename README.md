@@ -108,21 +108,13 @@ launcher configuration; Electron documents that option as testing-only.
 
 Earlier builds installed the shared Studio blocks plugin directly into
 `<libdir>`; it now installs into `<libdir>/gnuradio-4/plugins`, next to the
-static plugin and the gnuradio4-blocks plugins. Reinstalling into the same
-prefix does not remove the old copy, and the launcher searches both
-directories. If the old copy was built against an incompatible ABI,
-`gr4cp_server` exits before it serves the block catalog, even though the new
-plugin loads.
+static plugin and the gnuradio4-blocks plugins. The launcher searches both
+directories, and an old copy built against an incompatible ABI makes
+`gr4cp_server` exit before it serves the block catalog. Installing a new build
+into the same prefix removes the old copy from `<libdir>`.
 
-If you're upgrading a source install in the same prefix, install the new build,
-then verify that `<libdir>/gnuradio-4/plugins/libGr4StudioBlocksPlugin.so`
-exists. Remove the obsolete `<libdir>/libGr4StudioBlocksPlugin.so` before
-restarting Studio. Use the libdir configured for your build (for example
-`lib` or `lib64`), or install into a fresh prefix instead.
-
-Package upgrades should remove the obsolete file the package owns. In either
-case, verify the upgrade by starting Studio in local mode and confirming that
-the block catalog includes the Studio Series Sink.
+Verify the upgrade by starting Studio in local mode and confirming that the
+block catalog includes the Studio Series Sink.
 
 ### Linux application icon
 

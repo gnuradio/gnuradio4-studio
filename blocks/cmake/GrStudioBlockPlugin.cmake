@@ -78,4 +78,11 @@ function(gr4_studio_add_block_plugin name)
     RUNTIME DESTINATION "${GR4_STUDIO_PLUGIN_INSTALL_DIR}"
     LIBRARY DESTINATION "${GR4_STUDIO_PLUGIN_INSTALL_DIR}"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT Development EXCLUDE_FROM_ALL)
+
+  # Earlier builds installed the plugin straight into <libdir>, under the same file name. The desktop
+  # launcher lists <libdir> in GNURADIO4_PLUGIN_DIRECTORIES, so a copy left there by an upgrade in
+  # place would load beside this one.
+  if(NOT GR4_STUDIO_PLUGIN_INSTALL_DIR STREQUAL CMAKE_INSTALL_LIBDIR)
+    install(CODE "file(REMOVE \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/$<TARGET_FILE_NAME:${name}Plugin>\")")
+  endif()
 endfunction()
