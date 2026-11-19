@@ -132,6 +132,33 @@ previously pinned. The registration remains valid across rebuilds at the same
 prefix; rerun it after moving or switching prefixes. Use
 `gr4-studio-desktop-setup --remove` to remove this prefix's user registration.
 
+### Packaging
+
+The Studio blocks and the desktop app each build an installer with CPack and
+gr-core's installer helpers, so they install into the same root, manifest and
+plugin tree as the rest of GNU Radio 4: a `.deb` on Linux, an Inno Setup
+installer on Windows and a component package on macOS.
+
+```sh
+# the Studio blocks: gnuradio4-studio-blocks
+cmake -S blocks -B build-blocks -DCMAKE_BUILD_TYPE=Release -DGR_PACKAGING=ON \
+  -DCMAKE_PREFIX_PATH=/path/to/prefix
+cmake --build build-blocks && (cd build-blocks && cpack)
+
+# the desktop app: gnuradio4-studio (needs Node 22 or later and npm to build)
+cmake -S packaging/desktop -B build-desktop -DCMAKE_BUILD_TYPE=Release -DGR_PACKAGING=ON \
+  -DCMAKE_PREFIX_PATH=/path/to/prefix
+cmake --build build-desktop && (cd build-desktop && cpack)
+```
+
+The version comes from `package.json`. On Windows and macOS the block plugin
+goes to GNU Radio 4's shared plugin tree. The desktop app finds that tree
+through the install manifest when it starts its local `gr4cp_server`. The
+Windows installer adds a **GNU Radio Studio** entry to the GNU Radio 4 Start
+Menu folder. The `.deb` loads the AppArmor profile itself where AppArmor
+restricts user namespaces, so `gr4-studio-sandbox-setup` is only needed for
+installs from source.
+
 ### Desktop menus and workspace
 
 Electron uses native File, Edit, View, Run, Window, and Help menus. The document
