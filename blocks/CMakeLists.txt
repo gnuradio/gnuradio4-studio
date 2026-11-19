@@ -2,9 +2,12 @@
 
 cmake_minimum_required(VERSION 3.27)
 
+# the version comes from package.json, shared with the desktop app
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/GrStudioVersion.cmake")
+
 project(
   gnuradio4StudioBlocks
-  VERSION 0.1.0
+  VERSION ${GR4_STUDIO_NUMERIC_VERSION}
   LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
