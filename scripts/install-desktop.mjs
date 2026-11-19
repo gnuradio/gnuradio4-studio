@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { desktopEntry } from './desktop-entry.mjs';
+import { thirdPartyNotices } from './third-party-notices.mjs';
 import { sandboxProfile, sandboxSetupScript } from './desktop-sandbox.mjs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -194,6 +195,9 @@ async function main() {
   await fs.mkdir(binDir, { recursive: true });
 
   await fs.cp(distDir, appDir, { recursive: true, force: true });
+  const docDir = path.join(prefix, 'share', 'doc', 'gr4-studio');
+  await fs.mkdir(docDir, { recursive: true });
+  await fs.writeFile(path.join(docDir, 'THIRD_PARTY_NOTICES.txt'), await thirdPartyNotices(projectRoot), 'utf8');
   await fs.cp(path.join(projectRoot, 'desktop'), path.join(appDir, 'desktop'), { recursive: true, force: true });
   await fs.cp(electronDistDir, electronRuntimeDir, {
     recursive: true,
