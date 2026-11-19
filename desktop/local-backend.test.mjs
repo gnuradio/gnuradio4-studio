@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildLocalBackendEnvironment, parsePublishedPort, startLocalBackend } from './local-backend.mjs';
+import { buildLocalBackendEnvironment, chooseWritableLogPath, parsePublishedPort, startLocalBackend } from './local-backend.mjs';
 
 const temporaryDirectories = [];
 const runningBackends = [];
@@ -49,6 +49,20 @@ describe('managed local backend', () => {
 
     expect(Object.keys(environment).filter((key) => key.toUpperCase() === 'PATH')).toEqual(['Path']);
     expect(environment.Path?.split(path.delimiter)).toEqual([path.join('/opt/gr4', 'bin'), systemDirectory]);
+  });
+
+  it('falls back to the next log directory when the first cannot be created', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'gr4-studio-log-'));
+    temporaryDirectories.push(directory);
+    // a directory below a regular file can be created on no platform
+    const blocker = path.join(directory, 'not-a-directory');
+    await fs.writeFile(blocker, '');
+    const unwritable = path.join(blocker, 'var', 'logs', 'gr4cp_server.log');
+    const fallback = path.join(directory, 'user-logs', 'gr4cp_server.log');
+
+    expect(await chooseWritableLogPath([unwritable, fallback])).toBe(fallback);
+    expect(await chooseWritableLogPath([null, fallback])).toBe(fallback);
+    await expect(chooseWritableLogPath([unwritable])).rejects.toThrow('writable');
   });
 
   it('extends the spelling Node passes to the child when Path and PATH are both present', () => {

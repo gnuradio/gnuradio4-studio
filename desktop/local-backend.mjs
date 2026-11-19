@@ -63,6 +63,23 @@ function prependEnvironmentPath(environment, name, entries, platform) {
   environment[key] = [...new Set(values)].join(path.delimiter);
 }
 
+// The first of the candidate log files whose directory can be created and written to. A system-wide
+// install (/usr from a .deb, /usr/local/gnuradio4 on macOS, an all-users Windows install) has a
+// prefix the user cannot write, so its var/logs is followed by a per-user fallback.
+export async function chooseWritableLogPath(candidates) {
+  for (const candidate of candidates.filter(Boolean)) {
+    const directory = path.dirname(candidate);
+    try {
+      await fs.mkdir(directory, { recursive: true });
+      await fs.access(directory, fs.constants.W_OK);
+      return candidate;
+    } catch {
+      // try the next one
+    }
+  }
+  throw new Error(`None of these log directories is writable: ${candidates.map((c) => path.dirname(c)).join(', ')}`);
+}
+
 export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.env, platform = process.platform) {
   const environment = { ...baseEnvironment };
   if (!prefix) {

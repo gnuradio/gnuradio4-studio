@@ -11,7 +11,7 @@ import { probeBackendReady, startDesktopAppServer } from './app-server.mjs';
 import { createBackendConsoleBuffer, BACKEND_CONSOLE_MAX_CHARACTERS } from './backend-console.mjs';
 import { readBackendLogTail, sanitizeBackendLogText } from './backend-diagnostics.mjs';
 import { normalizeBackendUrl, parseLaunchArgs } from './launch-args.mjs';
-import { buildLocalBackendEnvironment, startLocalBackend } from './local-backend.mjs';
+import { buildLocalBackendEnvironment, chooseWritableLogPath, startLocalBackend } from './local-backend.mjs';
 
 const APP_NAME = 'gr4-studio';
 const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8080';
@@ -462,12 +462,10 @@ async function startManagedLocalBackend() {
   const executable =
     process.env.GR4_STUDIO_CONTROL_PLANE_EXECUTABLE ||
     (prefix ? path.join(prefix, 'bin', localBackendExecutableName()) : localBackendExecutableName());
-  const logPath = path.resolve(
-    process.env.GR4_STUDIO_BACKEND_LOG_FILE ||
-      (prefix
-        ? path.join(prefix, 'var', 'logs', 'gr4cp_server.log')
-        : path.join(app.getPath('logs'), 'gr4cp_server.log')),
-  );
+  const userLogPath = path.join(app.getPath('logs'), 'gr4cp_server.log');
+  const logPath = process.env.GR4_STUDIO_BACKEND_LOG_FILE
+    ? path.resolve(process.env.GR4_STUDIO_BACKEND_LOG_FILE)
+    : await chooseWritableLogPath([prefix && path.join(prefix, 'var', 'logs', 'gr4cp_server.log'), userLogPath]);
   const portFilePath = path.join(
     app.getPath('temp'),
     `gr4-studio-control-plane-${process.pid}-${randomUUID()}.port`,
