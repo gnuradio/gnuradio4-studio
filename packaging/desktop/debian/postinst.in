@@ -1,0 +1,18 @@
+#!/bin/sh
+# Loads the AppArmor profile the bundled Electron needs where AppArmor restricts unprivileged user
+# namespaces (Ubuntu 23.10 and later). Elsewhere there is nothing to do: older AppArmor has no such
+# restriction and cannot parse the profile, which uses abi 4.0 and a userns rule.
+#
+# Never fails the install. Without the profile Studio reports what is missing when it starts, and
+# running the setup command below as root loads it.
+set -e
+
+SETUP="@GR4_STUDIO_PACKAGE_PREFIX@/bin/gr4-studio-sandbox-setup"
+RESTRICTION=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+
+if [ "$1" = configure ] && [ -x "$SETUP" ] && [ -r "$RESTRICTION" ] && [ "$(cat "$RESTRICTION")" = 1 ] &&
+  command -v apparmor_parser >/dev/null 2>&1; then
+  "$SETUP" --install || echo "gr4-studio: the AppArmor profile was not loaded; run $SETUP as root to load it" >&2
+fi
+
+exit 0
