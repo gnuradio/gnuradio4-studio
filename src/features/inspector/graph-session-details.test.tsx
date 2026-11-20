@@ -6,7 +6,7 @@ import { SessionDetails, SessionError } from './session-details';
 import { compactTime, schedulerDisplayName, validTimestamp } from './inspector-formatting';
 
 const runtimeView: TabRuntimeView = {executionState:'stopped',operationState:'none',graphDriftState:'in-sync',graphSubmissionState:'none',graphSubmissionUpdatedAt:null,runIntent:'create-session'};
-const context: TabExecutionContext = {sessionId:'session_123',session:{id:'session_123',name:'receiver.gr4s',state:'stopped',createdAt:'2026-11-15T10:15:00Z',updatedAt:'2026-11-15T10:16:00Z',lastError:null,schedulerId:'gr::scheduler::SimpleMulti'},lastSubmittedHash:null,graphSubmissionUpdatedAt:null,lastAction:null,lastActionStatus:'idle',busy:false,lastError:null,lastUpdatedAt:null,sessionRefreshedAt:null,activity:[]};
+const context: TabExecutionContext = {sessionId:'session_123',session:{id:'session_123',name:'receiver.gr4s',state:'stopped',createdAt:'2026-11-15T10:15:00Z',updatedAt:'2026-11-15T10:16:00Z',lastError:null,schedulerId:'gr::scheduler::SimpleMulti'},lastSubmittedHash:null,submittedNodeIdentities:null,graphSubmissionUpdatedAt:null,lastAction:null,lastActionStatus:'idle',busy:false,lastError:null,lastUpdatedAt:null,sessionRefreshedAt:null,activity:[]};
 const graphProps = {name:'Untitled.gr4s',description:'',onDescriptionChange:()=>{},blockCount:0,connectionCount:0,schedulers:['gr::scheduler::SimpleMulti'],schedulersPending:false,schedulersError:false,onSchedulerChange:()=>{},mode:'in_app' as const,displayTitle:'',displayTitlePlaceholder:'Untitled.gr4s',inProcessControlPlane:false,onModeChange:()=>{},onDisplayTitleChange:()=>{},runtimeView,canExport:true,onExport:()=>{},exportError:null};
 
 describe('Graph inspector', () => {
@@ -79,7 +79,7 @@ describe('Session inspector', () => {
   });
   it('shows five newest events initially with access to the entire retained history', () => {
     const activity = Array.from({length:9},(_,i)=>({timestamp:`2026-11-15T10:15:0${i}Z`,action:'refresh',level:'info' as const,message:`Event ${i}`}));
-    const html = renderToStaticMarkup(<SessionDetails context={{...context,activity}} runtimeView={{...runtimeView,graphDriftState:'out-of-sync'}} canRefresh onRefresh={()=>{}} />);
+    const html = renderToStaticMarkup(<SessionDetails context={{...context,activity}} runtimeView={{...runtimeView,graphDriftState:'out-of-sync',graphSubmissionState:'stale'}} canRefresh onRefresh={()=>{}} />);
     expect(html).toContain('Out of sync');
     expect(html).toContain('Event 0');
     expect(html).toContain('Event 4');

@@ -221,6 +221,37 @@ function makeFloatScalarDetails(): BlockDetails {
 }
 
 describe('toGrctrlContentSubmission', () => {
+  it.each([
+    ['[Draft RF capture', '"[Draft RF capture"'],
+    ['true', '"true"'],
+    ['  Récepteur 📻\r\n\n  "Gain" \\ # notes\t  ', '"  Récepteur 📻\\r\\n\\n  \\"Gain\\" \\\\ # notes\\t  "'],
+    ['page\f\u0000\u007f', '"page\\x0c\\x00\\x7f"'],
+  ])('exports description %j as a YAML string without changing its text', (description, encoded) => {
+    const document = makeDocument('RF capture', '{}');
+    document.metadata.description = description;
+
+    const { content } = toGrctrlContentSubmission(document);
+    expect(content.split('\n')).toContain('  description: ' + encoded);
+  });
+
+  it('quotes scalar-looking instance IDs in block names and on both ends of connections', () => {
+    const document = makeDocument('RF capture', '{}');
+    document.graph.nodes = [
+      { id: 'true', blockType: 'gr::testing::NullSource<float32>', position: { x: 0, y: 0 }, parameters: {} },
+      { id: '0xFF', blockType: 'gr::testing::NullSink<float32>', position: { x: 100, y: 0 }, parameters: {} },
+    ];
+    document.graph.edges = [{
+      id: 'edge',
+      source: { nodeId: 'true', portId: 'out' },
+      target: { nodeId: '0xFF', portId: 'in' },
+    }];
+
+    const { content } = toGrctrlContentSubmission(document);
+    expect(content.split('\n')).toContain('      name: "true"');
+    expect(content.split('\n')).toContain('      name: "0xFF"');
+    expect(content.split('\n')).toContain('  - ["true", out, "0xFF", in]');
+  });
+
   it('omits read-only defaults and persisted values from runtime settings', () => {
     const document = makeDocument('readonly-fields', '{}');
     const node = document.graph.nodes[0];
@@ -249,7 +280,7 @@ describe('toGrctrlContentSubmission', () => {
     });
     expect(submission.content).not.toMatch(/(?:stride|input_chunk_size|output_chunk_size|unique_name):/);
     expect(submission.content).toContain('bind_port: 8080');
-    expect(submission.content).toContain('name: http_sink_1');
+    expect(submission.content).toContain('name: "http_sink_1"');
   });
 
   it('emits runtime importer block shape with block type in id and instance name in parameters.name', () => {
@@ -287,10 +318,10 @@ describe('toGrctrlContentSubmission', () => {
     const submission = toGrctrlContentSubmission(document);
     expect(submission.content).toContain('- id: "gr::testing::NullSink<float32>"');
     expect(submission.content).toContain('- id: "gr::testing::NullSource<float32>"');
-    expect(submission.content).toContain('name: gr__testing__NullSink_float32__5');
-    expect(submission.content).toContain('name: gr__testing__NullSource_float32__2');
+    expect(submission.content).toContain('name: "gr__testing__NullSink_float32__5"');
+    expect(submission.content).toContain('name: "gr__testing__NullSource_float32__2"');
     expect(submission.content).toContain(
-      '- [gr__testing__NullSource_float32__2, out, gr__testing__NullSink_float32__5, in]',
+      '- ["gr__testing__NullSource_float32__2", out, "gr__testing__NullSink_float32__5", in]',
     );
     expect(submission.content).not.toContain('  block:');
     expect(submission.content).not.toContain('  title:');
@@ -660,9 +691,9 @@ describe('toGrctrlContentSubmission', () => {
     const submission = toGrctrlContentSubmission(document);
     expect(submission.content).not.toContain('mid');
     expect(submission.content).not.toContain('disabled');
-    expect(submission.content).toContain('- [source, out, sink, in]');
-    expect(submission.content).toContain('- [sink, out, tail, in]');
-    expect(submission.content).not.toContain('- [source, out, mid, in]');
+    expect(submission.content).toContain('- ["source", out, "sink", in]');
+    expect(submission.content).toContain('- ["sink", out, "tail", in]');
+    expect(submission.content).not.toContain('- ["source", out, "mid", in]');
   });
 
   it('expands matching virtual sink and source blocks into direct runtime connections', () => {
@@ -720,7 +751,7 @@ describe('toGrctrlContentSubmission', () => {
 
     expect(submission.content).not.toContain(VIRTUAL_SINK_BLOCK_TYPE);
     expect(submission.content).not.toContain(VIRTUAL_SOURCE_BLOCK_TYPE);
-    expect(submission.content).toContain('- [source, out, sink, in]');
+    expect(submission.content).toContain('- ["source", out, "sink", in]');
     expect(submission.content).not.toContain('route_sink');
     expect(submission.content).not.toContain('route_source');
   });
@@ -797,8 +828,8 @@ describe('toGrctrlContentSubmission', () => {
 
     const submission = toGrctrlContentSubmission(document);
 
-    expect(submission.content).toContain('- [source, out, sink_a, in]');
-    expect(submission.content).toContain('- [source, out, sink_b, in]');
+    expect(submission.content).toContain('- ["source", out, "sink_a", in]');
+    expect(submission.content).toContain('- ["source", out, "sink_b", in]');
   });
 
   it('rejects duplicate virtual sinks for the same stream id', () => {

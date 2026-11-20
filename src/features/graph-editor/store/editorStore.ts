@@ -18,6 +18,7 @@ import {
   pasteGraphClipboardPayload,
   type GraphClipboardPayload,
 } from '../model/clipboard';
+import { editorNodeIdentity } from '../model/types';
 import type {
   EditorCatalogBlock,
   EditorGraphEdge,
@@ -32,6 +33,19 @@ type AddEdgeInput = {
   sourcePort?: string;
   targetPort?: string;
 };
+
+function advanceNodeSequence(sequence: number): number {
+  const next = sequence + 1;
+  return Number.isSafeInteger(next) ? next : 1;
+}
+
+function nodeSequenceAfterInstanceId(instanceId: string): number {
+  return advanceNodeSequence(Number(instanceId.match(/_(\d+)$/)?.[1] ?? 0));
+}
+
+function ensureEditorNodeIdentity(node: EditorGraphNode): EditorGraphNode {
+  return node[editorNodeIdentity] ? node : { ...node, [editorNodeIdentity]: Symbol() };
+}
 
 type EditorState = {
   nodes: EditorGraphNode[];
@@ -212,18 +226,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
   replaceGraph: ({ nodes, edges, metadata }) => {
-    const maxSuffix = nodes.reduce((max, node) => {
-      const match = node.instanceId.match(/_(\d+)$/);
-      if (!match) {
-        return max;
-      }
-
-      const value = Number.parseInt(match[1], 10);
-      return Number.isFinite(value) ? Math.max(max, value) : max;
-    }, 0);
+    const nextNodeSequence = nodes.reduce(
+      (next, node) => Math.max(next, nodeSequenceAfterInstanceId(node.instanceId)),
+      nodes.length + 1,
+    );
 
     set((state) => ({
-      nodes,
+      nodes: nodes.map(ensureEditorNodeIdentity),
       edges,
       documentName: metadata.name,
       documentDescription: metadata.description,
@@ -236,19 +245,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       clipboard: state.clipboard,
       clipboardPasteSequence: 0,
       selectedNodeId: null,
-      nextNodeSequence: Math.max(maxSuffix + 1, nodes.length + 1, 1),
+      nextNodeSequence,
     }));
   },
   addNodeFromCatalogItem: (block, dropPosition) => {
-    const { nextNodeSequence, nodes } = get();
-    const position = dropPosition ?? getNextNodePosition(nodes.length);
-    const node = createEditorNode(block, nextNodeSequence, position);
+    set((state) => {
+      const position = dropPosition ?? getNextNodePosition(state.nodes.length);
+      const existingIds = new Set(state.nodes.map((node) => node.instanceId));
+      let sequence = state.nextNodeSequence;
+      let node = createEditorNode(block, sequence, position);
+      while (existingIds.has(node.instanceId)) {
+        sequence = advanceNodeSequence(sequence);
+        node = createEditorNode(block, sequence, position);
+      }
 
-    set((state) => ({
-      nodes: [...state.nodes, node],
-      selectedNodeId: node.instanceId,
-      nextNodeSequence: state.nextNodeSequence + 1,
-    }));
+      return {
+        nodes: [...state.nodes, ensureEditorNodeIdentity(node)],
+        selectedNodeId: node.instanceId,
+        nextNodeSequence: advanceNodeSequence(sequence),
+      };
+    });
   },
   applyFlowNodeChanges: (changes) => {
     if (changes.length === 0) {
@@ -368,7 +384,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const state = get();
     const instanceId = value.trim();
     if (!instanceId) return { ok: false, error: 'Enter an instance ID.' };
-    if (/[\u0000-\u001f\u007f]/.test(instanceId)) return { ok: false, error: 'Instance IDs cannot contain control characters.' };
+    if (!/^[A-Za-z0-9_]+$/.test(instanceId)) return { ok: false, error: 'Use only ASCII letters (A–Z, a–z), digits (0–9), and underscores (_).' };
     if (!state.nodes.some((node) => node.instanceId === nodeId)) return { ok: false, error: 'The block no longer exists.' };
     if (instanceId === nodeId) return { ok: true, instanceId };
     if (state.nodes.some((node) => node.instanceId === instanceId)) return { ok: false, error: 'Another block already uses this instance ID.' };
@@ -385,9 +401,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         widget.binding.kind === 'parameter' && widget.binding.nodeId === nodeId
           ? { ...widget, binding: { ...widget.binding, nodeId: instanceId } } : widget) } : {}),
     }));
-    const suffix = Number(instanceId.match(/_(\d+)$/)?.[1]);
-    const nextNodeSequence = Number.isSafeInteger(suffix) && suffix < Number.MAX_SAFE_INTEGER
-      ? Math.max(state.nextNodeSequence, suffix + 1) : state.nextNodeSequence;
     set({
       nodes: state.nodes.map((node) => node.instanceId === nodeId ? { ...node, instanceId } : node),
       edges: state.edges.map((edge) => {
@@ -403,7 +416,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedNodeId: state.selectedNodeId === nodeId ? instanceId : state.selectedNodeId,
       studioPanels: studioPanels.length > 0 ? studioPanels : state.studioPanels,
       studioLayout,
-      nextNodeSequence,
+      nextNodeSequence: Math.max(state.nextNodeSequence, nodeSequenceAfterInstanceId(instanceId)),
     });
     return { ok: true, instanceId };
   },
@@ -673,7 +686,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
 
     set((current) => ({
-      nodes: [...current.nodes, ...pasted.nodes],
+      nodes: [...current.nodes, ...pasted.nodes.map(ensureEditorNodeIdentity)],
       edges: [...current.edges, ...pasted.edges],
       selectedNodeId: pasted.selectedNodeIds[0] ?? current.selectedNodeId,
       clipboardPasteSequence: current.clipboardPasteSequence + 1,

@@ -53,11 +53,10 @@ import { useEditorStore } from '../features/graph-editor/store/editorStore';
 import { getVirtualRoutingBlockDetails } from '../features/graph-editor/model/virtual-routing';
 import { InspectorPanel } from '../features/inspector/inspector-panel';
 import { GlobalSessionsDrawer } from '../features/runtime-session/components/global-sessions-drawer';
+import { propagateRuntimeSettings } from '../features/runtime-session/model/propagate-runtime-settings';
 import { resolveCurrentSessionStudioBindingView } from '../features/runtime-session/model/runtime-binding-resolution';
 import { useRuntimeSessionStore } from '../features/runtime-session/store/runtimeSessionStore';
-import { setBlockSettings } from '../lib/api/block-settings';
 import { buildCurrentGraphSubmissionFromEditorSnapshot } from '../features/runtime-submission/model/current-graph-submission';
-import { shouldPropagateResolvedRuntimeSetting } from '../features/inspector/runtime-settings-model';
 import { WorkspaceView, type WorkspacePanelViewModel } from '../features/workspace/workspace-view';
 import { resolveGraphVariables } from '../features/variables/model/resolveGraphVariables';
 import { deriveDefaultStudioPanelsFromNodes } from '../features/workspace/model/panel-derivation';
@@ -108,6 +107,14 @@ type ConnectionStatus = 'idle' | 'loading' | 'connected' | 'error';
 type CenterViewMode = 'graph' | 'variables' | 'workspace' | 'application';
 type LaunchableApplicationMode = Extract<ApplicationMode, 'new_tab' | 'popout'>;
 type PendingDestructiveAction = { type: 'close-tab'; tabId: string } | null;
+
+function getSubmissionContent(snapshot: EditorSnapshot, blockDetailsByType: ReadonlyMap<string, BlockDetails>): string | null {
+  try {
+    return buildCurrentGraphSubmissionFromEditorSnapshot(snapshot, { blockDetailsByType }).content;
+  } catch {
+    return null;
+  }
+}
 
 function runButtonTitle(runIntent: 'none' | 'create-session' | 'replace-session-from-edits' | 'start-linked-session'): string {
   if (runIntent === 'create-session') {
@@ -380,15 +387,13 @@ export function StudioPage() {
     });
     return map;
   }, [blockDetailQueries, uniqueBlockTypes]);
-  const currentSubmissionContent = useMemo(() => {
-    try {
-      return buildCurrentGraphSubmissionFromEditorSnapshot(currentSnapshot, { blockDetailsByType }).content;
-    } catch {
-      return null;
-    }
-  }, [blockDetailsByType, currentSnapshot]);
-  const runtimeView = activeTabId ? getTabRuntimeView(activeTabId, currentSubmissionContent, schedulerId) : null;
+  const currentSubmissionContent = useMemo(
+    () => getSubmissionContent(currentSnapshot, blockDetailsByType),
+    [blockDetailsByType, currentSnapshot],
+  );
+  const runtimeView = activeTabId ? getTabRuntimeView(activeTabId, currentSubmissionContent, schedulerId, nodes) : null;
   const activeRuntimeContext = activeTabId ? runtimeContextsByTabId[activeTabId] : null;
+  const variableTargetsKnown = Boolean(currentSubmissionContent && activeRuntimeContext?.submittedNodeIdentities);
   const resolvedGraph = useMemo(
     () => resolveGraphVariables(serializedSnapshot.document),
     [serializedSnapshot.document],
@@ -433,6 +438,7 @@ export function StudioPage() {
       }
 
       if (activeTabId && activeRuntimeContext?.sessionId && runtimeView?.executionState === 'running') {
+        if (!variableTargetsKnown) return;
         setRuntimeVariableOverridesByTabId((current) => {
           const existing = current[activeTabId];
           const valuesByName =
@@ -455,7 +461,7 @@ export function StudioPage() {
 
       updateVariable(targetVariable.id, { binding });
     },
-    [activeRuntimeContext?.sessionId, activeTabId, runtimeView?.executionState, studioVariables, updateVariable],
+    [activeRuntimeContext, activeTabId, runtimeView?.executionState, studioVariables, updateVariable, variableTargetsKnown],
   );
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -468,33 +474,9 @@ export function StudioPage() {
       if (command.sourceTabId !== activeTabId) {
         return;
       }
-      const targetVariable = (studioVariables ?? []).find((variable) => variable.name === command.variableName);
-      if (!targetVariable) {
-        return;
-      }
-      if (activeRuntimeContext?.sessionId && runtimeView?.executionState === 'running') {
-        setRuntimeVariableOverridesByTabId((current) => {
-          const existing = current[activeTabId];
-          const valuesByName =
-            existing && existing.sessionId === activeRuntimeContext.sessionId
-              ? existing.valuesByName
-              : {};
-          return {
-            ...current,
-            [activeTabId]: {
-              sessionId: activeRuntimeContext.sessionId as string,
-              valuesByName: {
-                ...valuesByName,
-                [command.variableName]: command.binding,
-              },
-            },
-          };
-        });
-        return;
-      }
-      updateVariable(targetVariable.id, { binding: command.binding });
+      updateVariableValueByName(command.variableName, command.binding);
     });
-  }, [activeRuntimeContext?.sessionId, activeTabId, runtimeView?.executionState, studioVariables, updateVariable]);
+  }, [activeTabId, updateVariableValueByName]);
   useEffect(() => {
     setRuntimeVariableOverridesByTabId((current) => {
       let changed = false;
@@ -577,6 +559,7 @@ export function StudioPage() {
       sessionId: string | null;
       session: SessionRecord | null;
       executionState: NonNullable<typeof runtimeView>['executionState'];
+      variableTargetsKnown: boolean;
       graphDriftState: NonNullable<typeof runtimeView>['graphDriftState'];
     } | null): WorkspacePanelViewModel[] => {
       const nodeById = new Map(nodes.map((node) => [node.instanceId, node]));
@@ -587,14 +570,6 @@ export function StudioPage() {
           displayName: node.displayName,
         })),
       );
-      const controlRuntime = runtime
-        ? {
-            sessionId: runtime.sessionId,
-            executionState: runtime.executionState,
-            graphDriftState: runtime.graphDriftState,
-          }
-        : null;
-
       return mergedWorkspacePanels.map((panel) => {
         if (!panel.nodeId) {
           if (panel.kind === 'control') {
@@ -605,7 +580,7 @@ export function StudioPage() {
                 nodeById,
                 blockDetailsByType,
                 resolvedGraph: resolvedGraphForRuntime,
-                runtime: controlRuntime,
+                runtime,
               }),
             };
           }
@@ -622,7 +597,7 @@ export function StudioPage() {
                 nodeById,
                 blockDetailsByType,
                 resolvedGraph: resolvedGraphForRuntime,
-                runtime: controlRuntime,
+                runtime,
               }),
             };
           }
@@ -651,7 +626,7 @@ export function StudioPage() {
                 nodeById,
                 blockDetailsByType,
                 resolvedGraph: resolvedGraphForRuntime,
-                runtime: controlRuntime,
+                runtime,
               })
             : undefined;
 
@@ -688,10 +663,11 @@ export function StudioPage() {
               session: activeRuntimeContext.session,
               executionState: runtimeView.executionState,
               graphDriftState: runtimeView.graphDriftState,
+              variableTargetsKnown,
             }
           : null,
       ),
-    [activeRuntimeContext, buildWorkspacePanelEntriesForRuntime, runtimeView],
+    [activeRuntimeContext, buildWorkspacePanelEntriesForRuntime, runtimeView, variableTargetsKnown],
   );
 
   const activeAudioSessionKeys = useMemo(() => {
@@ -714,88 +690,46 @@ export function StudioPage() {
     useAudioSessionStore.getState().cleanupMissingSessions(new Set(activeAudioSessionKeys));
   }, [activeAudioSessionKeys]);
 
+  const runtimeSessionId = activeRuntimeContext?.sessionId;
+  const submittedNodeIdentities = activeRuntimeContext?.submittedNodeIdentities;
+  const executionState = runtimeView?.executionState;
   useEffect(() => {
-    if (!activeTabId || !activeRuntimeContext?.sessionId || !runtimeView) {
+    if (!activeTabId || !runtimeSessionId || !submittedNodeIdentities || !currentSubmissionContent || executionState !== 'running') {
       return;
     }
 
-    if (runtimeView.executionState !== 'running') {
-      return;
-    }
-
-    const propagationKey = `${activeTabId}:${activeRuntimeContext.sessionId}:${serializedSnapshot.contentHash}:${runtimeVariableOverrideKey}`;
+    const propagationKey = `${activeTabId}:${runtimeSessionId}:${serializedSnapshot.contentHash}:${runtimeVariableOverrideKey}`;
     if (lastPropagatedRuntimeSnapshotRef.current === propagationKey) {
       return;
     }
 
     let cancelled = false;
-    const pushResolvedValues = async () => {
-      const updates = nodes.flatMap((node) => {
-        const blockDetails = blockDetailsByType.get(node.blockTypeId);
-        if (!blockDetails) {
-          return [];
-        }
-
-        const resolvedParameters = resolvedGraphForRuntime.parametersByNodeId[node.instanceId];
-        if (!resolvedParameters) {
-          return [];
-        }
-
-        const patch: Record<string, string | number | boolean | null> = {};
-        blockDetails.parameters.forEach((parameter) => {
-          if (parameter.readOnly || !parameter.mutable) {
-            return;
-          }
-          const resolvedParameter = resolvedParameters[parameter.name];
-          if (!resolvedParameter || resolvedParameter.state !== 'resolved' || resolvedParameter.value === undefined) {
-            return;
-          }
-          if (
-            !shouldPropagateResolvedRuntimeSetting({
-              name: parameter.name,
-              bindingKind: resolvedParameter.binding.kind,
-            })
-          ) {
-            return;
-          }
-          patch[parameter.name] = resolvedParameter.value;
-        });
-
-        if (Object.keys(patch).length === 0) {
-          return [];
-        }
-
-        return [{ nodeId: node.instanceId, patch }];
-      });
-
-      await Promise.all(
-        updates.map(async ({ nodeId, patch }) => {
-          if (cancelled) {
-            return;
-          }
-          await setBlockSettings(activeRuntimeContext.sessionId as string, nodeId, patch, 'staged');
-        }),
-      );
-
+    void propagateRuntimeSettings({
+      sessionId: runtimeSessionId,
+      submittedNodeIdentities,
+      nodes,
+      blockDetailsByType,
+      parametersByNodeId: resolvedGraphForRuntime.parametersByNodeId,
+    }).then(() => {
       if (!cancelled) {
         lastPropagatedRuntimeSnapshotRef.current = propagationKey;
       }
-    };
-
-    void pushResolvedValues();
+    });
 
     return () => {
       cancelled = true;
     };
   }, [
-    activeRuntimeContext?.sessionId,
     activeTabId,
     blockDetailsByType,
+    currentSubmissionContent,
+    executionState,
     nodes,
     resolvedGraphForRuntime.parametersByNodeId,
-    runtimeView,
+    runtimeSessionId,
     runtimeVariableOverrideKey,
     serializedSnapshot.contentHash,
+    submittedNodeIdentities,
   ]);
 
   const renderedWorkspacePanelEntries = useMemo(
@@ -1220,16 +1154,11 @@ export function StudioPage() {
     mode: LaunchableApplicationMode;
     tabId: string;
     session: SessionRecord;
+    panelEntries: WorkspacePanelViewModel[];
   }) => {
-    const displayPanelEntries = buildWorkspacePanelEntriesForRuntime({
-      sessionId: params.session.id,
-      session: params.session,
-      executionState: 'running',
-      graphDriftState: 'in-sync',
-    }).filter((entry) => shouldShowPanelInRenderedLayout(entry.panel));
     const displayLayout = buildEffectiveRenderedStudioLayout(
       studioLayout,
-      displayPanelEntries.map((entry) => entry.panel),
+      params.panelEntries.map((entry) => entry.panel),
     );
     const snapshot = writeDisplayApplicationLaunchSnapshot({
       sourceTabId: params.tabId,
@@ -1237,7 +1166,7 @@ export function StudioPage() {
       title: applicationTitle,
       mode: params.mode,
       executionState: 'running',
-      panelEntries: displayPanelEntries,
+      panelEntries: params.panelEntries,
       layout: displayLayout,
     });
     const url = buildDisplayApplicationUrl(snapshot.launchId);
@@ -1287,6 +1216,7 @@ export function StudioPage() {
       tabId: activeTabId,
       mode: applicationMode,
       session: activeRuntimeContext.session,
+      panelEntries: renderedWorkspacePanelEntries,
     });
   };
 
@@ -1321,8 +1251,9 @@ export function StudioPage() {
     }
 
     const latestTab = useGraphTabsStore.getState().tabs.find((tab) => tab.id === activeTabId);
-    const document = graphDocumentFromEditor(latestTab?.snapshot ?? currentSnapshot);
-    const result = await runTab(activeTabId, document, { blockDetailsByType });
+    const submissionSnapshot = latestTab?.snapshot ?? currentSnapshot;
+    const document = graphDocumentFromEditor(submissionSnapshot);
+    const result = await runTab(activeTabId, document, { blockDetailsByType, editorNodes: submissionSnapshot.nodes });
     if (!result.ok) {
       displayLaunchWindowRef.current?.close();
       displayLaunchWindowRef.current = null;
@@ -1334,10 +1265,23 @@ export function StudioPage() {
       return;
     }
 
+    // Saving before Run can give the captured graph a new document name.
+    const displayContent = currentSnapshot.metadata.name === submissionSnapshot.metadata.name
+      ? currentSubmissionContent
+      : getSubmissionContent(withUpdatedSnapshotName(currentSnapshot, submissionSnapshot.metadata.name), blockDetailsByType);
+    const linked = useRuntimeSessionStore.getState().contextsByTabId[activeTabId];
+    const sameSession = linked?.sessionId === result.sessionId;
     launchDisplayApplication({
       tabId: activeTabId,
       mode: launchMode,
       session: result.session,
+      panelEntries: buildWorkspacePanelEntriesForRuntime({
+        sessionId: result.sessionId,
+        session: result.session,
+        executionState: 'running',
+        graphDriftState: sameSession ? getTabRuntimeView(activeTabId, displayContent, schedulerId, nodes).graphDriftState : 'out-of-sync',
+        variableTargetsKnown: Boolean(sameSession && displayContent && linked.submittedNodeIdentities),
+      }).filter((entry) => shouldShowPanelInRenderedLayout(entry.panel)),
     });
   };
 

@@ -71,6 +71,7 @@ function makeRuntime(overrides: Partial<RuntimeInput> = {}): RuntimeInput {
   return {
     sessionId: 'session-a',
     executionState: 'running' as const,
+    variableTargetsKnown: true,
     graphDriftState: 'in-sync' as const,
     ...overrides,
   };
@@ -230,7 +231,12 @@ describe('resolveControlPanelWidgetBindings', () => {
     expect(result[0]?.reason).toContain('stale relative to the current graph');
   });
 
-  it('resolves variable-target widgets directly', () => {
+  it.each([
+    [null, 'ready'],
+    [makeRuntime(), 'ready'],
+    [makeRuntime({ variableTargetsKnown: false }), 'stale'],
+    [makeRuntime({ variableTargetsKnown: false, executionState: 'stopped' }), 'ready'],
+  ] as const)('resolves variable control availability for %j', (runtime, expected) => {
     const result = resolveControlPanelWidgetBindings({
       panel: makeVariablePanel(),
       nodeById: new Map([['node-a', makeNode()]]),
@@ -247,10 +253,10 @@ describe('resolveControlPanelWidgetBindings', () => {
         parametersByNodeId: {},
         diagnostics: [],
       },
-      runtime: null,
+      runtime,
     });
 
-    expectState(result, 'ready');
+    expectState(result, expected);
     expect(result[0]?.currentValue).toBe('123');
     expect(result[0]?.variableName).toBe('center_freq');
   });

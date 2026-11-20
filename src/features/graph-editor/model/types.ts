@@ -21,7 +21,11 @@ export type EditorCatalogBlock = {
   description?: string;
 };
 
+// In-memory identity survives editor updates and tab switches while instance IDs can change.
+export const editorNodeIdentity = Symbol('editorNodeIdentity');
+
 export type EditorGraphNode = {
+  [editorNodeIdentity]?: symbol;
   instanceId: string;
   blockTypeId: string;
   displayName: string;

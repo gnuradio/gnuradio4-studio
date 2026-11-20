@@ -98,7 +98,7 @@ export async function runGraphSessionChecks({evaluate,waitFor,clickText,call,che
   await patchContext({lastSubmittedHash:'different-baseline'});
   check('Session: sync uses existing runtime drift state', (await text()).includes('Out of sync'));
   await patchContext({lastSubmittedHash:null});
-  check('Session: existing in-sync state shown', (await text()).includes('In sync'));
+  check('Session: sync is unknown without a submission baseline', (await text()).includes('Unknown'));
   const detail="session "+longId+" start failed: block 'waterfall' of type 'gr::studio::StudioWaterfallSink<float32>' declares no setting named 'center_freq'; the nearest are ['sample_rate']";
   const raw='app-api request failed: '+detail+': route=app-api url=/api/sessions/'+longId+'/start upstream='+JSON.stringify({error:{code:'runtime_failure',message:detail,details:{block_instance_name:'waterfall',setting:'center_freq',reason:'Unknown setting',trace:'complete diagnostic '.repeat(1500)}}});
   const activity=Array.from({length:9},(_,i)=>({timestamp:'2026-11-15T15:16:49Z',action:i===0?'start':'create',level:i===0?'error':'info',message:i===0?raw:i===1?'Created session '+longId+'.':'Informational event '+i}));
@@ -181,6 +181,27 @@ export async function runInspectorEditingChecks({evaluate,waitFor,clickText,call
   check('Block ID: typing does not rename before submission', await evaluate(`window.inspectorTest.useEditorStore.getState().selectedNodeId === 'one'`));
   await clickText('Rename');
   check('Block ID: duplicate ID rejected', await evaluate(`document.querySelector('.inspector [role="alert"]').textContent.includes('already uses')`));
+  const beforeInvalidRename = await evaluate(`JSON.stringify(window.inspectorTest.useEditorStore.getState().getGraphSnapshot())`);
+  await setId('source, left');
+  await clickText('Rename');
+  check('Block ID: invalid characters show the allowed character set inline', await evaluate(`(() => {
+    const input=document.querySelector('input[aria-label="Instance ID"]');
+    const error=document.querySelector('.inspector [role="alert"]');
+    return error.textContent.includes('ASCII letters (A–Z, a–z), digits (0–9), and underscores (_)') &&
+      input.getAttribute('aria-invalid') === 'true' && input.getAttribute('aria-describedby') === error.id;
+  })()`));
+  check('Block ID: invalid rename preserves the graph and selected block', await evaluate(`JSON.stringify(window.inspectorTest.useEditorStore.getState().getGraphSnapshot())`) === beforeInvalidRename &&
+    await evaluate(`window.inspectorTest.useEditorStore.getState().selectedNodeId === 'one'`));
+  await noOverflow('Block ID: inline validation fits the narrow Inspector');
+  for (const name of ['123','TRUE','Null','0xFF','1e3','NaN','Infinity']) {
+    await setId(name);
+    await clickText('Rename');
+    await waitFor(`document.querySelector('input[aria-label="Instance ID"]').value === ${JSON.stringify(name)} && window.inspectorTest.useEditorStore.getState().selectedNodeId === ${JSON.stringify(name)}`);
+    check(`Block ID: ${name} remains a valid string ID`, await evaluate(`window.inspectorTest.useEditorStore.getState().edges[0].sourceInstanceId === ${JSON.stringify(name)}`));
+  }
+  await setId('one');
+  await clickText('Rename');
+  await waitFor(`window.inspectorTest.useEditorStore.getState().selectedNodeId === 'one'`);
   await setId('');
   await clickText('Rename');
   check('Block ID: empty ID rejected', await evaluate(`document.querySelector('.inspector [role="alert"]').textContent.includes('Enter an instance ID')`));
@@ -221,4 +242,117 @@ export async function runInspectorEditingChecks({evaluate,waitFor,clickText,call
     window.inspectorTest.useEditorStore.getState().replaceGraph(snapshot);
     return snapshot.nodes[0].instanceId === 'oscillator' && snapshot.metadata.description.includes('Notes remain') && snapshot.edges[0].sourceInstanceId === 'oscillator';
   })()`));
+}
+
+export async function checkReopenedDisplay({evaluate, waitFor, call, check, origin}) {
+  await call('Page.addScriptToEvaluateOnNewDocument', {source: `
+    window.sessionResponse = {id:'display-session', name:'Display', state:'running', last_error:null,
+      created_at:'2026-11-15T15:00:00Z', updated_at:'2026-11-15T15:00:00Z'};
+    window.open = (url) => { window.openedDisplayUrl = url; return {}; };
+  `});
+  await call('Page.navigate', {url:origin});
+  await waitFor("!!document.querySelector('.inspector')");
+  await evaluate(`(async () => {
+    const {useGraphTabsStore} = await import('/src/features/graph-tabs/store/graphTabsStore.ts');
+    const blockTypeId = 'gr::blocks::math::Multiply<float32>';
+    const nodes = ['left','right'].map((instanceId, index) => ({
+      instanceId, blockTypeId, displayName:'Multiply', position:{x:index * 200,y:0},
+      parameters:{gain:{value:String(index + 2), bindingKind:'literal'}}
+    }));
+    useGraphTabsStore.getState().createTab({snapshot:{nodes, edges:[], metadata:{
+      name:'Display', application:{mode:'popout',renderer:'react'}, studioPanels:[{
+        id:'controls', kind:'control', nodeId:'', visible:true, widgets:[{
+          id:'gain', kind:'parameter', inputKind:'number',
+          binding:{kind:'parameter', nodeId:'left', parameterName:'gain'}
+        }]
+      }]
+    }}});
+  })()`);
+  await waitFor("!!document.querySelector('[data-id=left]')");
+  await evaluate(`(async () => {
+    const {useGraphTabsStore} = await import('/src/features/graph-tabs/store/graphTabsStore.ts');
+    const {useRuntimeSessionStore} = await import('/src/features/runtime-session/store/runtimeSessionStore.ts');
+    const {useEditorStore} = await import('/src/features/graph-editor/store/editorStore.ts');
+    const {graphDocumentFromEditor} = await import('/src/features/graph-document/model/fromEditor.ts');
+    const {getBlockDetails} = await import('/src/lib/api/block-details.ts');
+    const editor = useEditorStore.getState();
+    const snapshot = editor.getGraphSnapshot();
+    useGraphTabsStore.getState().updateActiveSnapshot(snapshot);
+    const type = snapshot.nodes[0].blockTypeId;
+    const result = await useRuntimeSessionStore.getState().runTab(useGraphTabsStore.getState().activeTabId,
+      graphDocumentFromEditor(snapshot), {editorNodes:snapshot.nodes, blockDetailsByType:new Map([[type, await getBlockDetails(type)]])});
+    if (!result.ok) throw Error(result.error);
+  })()`);
+  async function openDisplayWidget() {
+    await waitFor(`document.querySelector('button[title="Open display"]')?.disabled === false`);
+    return evaluate(`(async () => {
+      const {readDisplayApplicationLaunchSnapshot} = await import('/src/features/application/runtime/display-application-launch.ts');
+      document.querySelector('button[title="Open display"]').click();
+      const launchId = new URL(window.openedDisplayUrl).pathname.split('/').at(-1);
+      return readDisplayApplicationLaunchSnapshot(launchId).panelEntries[0].controlWidgets[0];
+    })()`);
+  }
+  const original = await openDisplayWidget();
+  check('Reopened display enables a control for its submitted block', original.state === 'ready' && original.binding.nodeId === 'left');
+  const originTabId = await evaluate(`(async () => {
+    const {useGraphTabsStore} = await import('/src/features/graph-tabs/store/graphTabsStore.ts');
+    const {useEditorStore} = await import('/src/features/graph-editor/store/editorStore.ts');
+    const {useRuntimeSessionStore} = await import('/src/features/runtime-session/store/runtimeSessionStore.ts');
+    const origin = useGraphTabsStore.getState().activeTabId;
+    const snapshot = useEditorStore.getState().getGraphSnapshot();
+    const left = snapshot.nodes[0];
+    const other = useGraphTabsStore.getState().createTab({snapshot:{...snapshot, nodes:[
+      {...left, parameters:{gain:{value:'17',bindingKind:'literal'}}}
+    ]}});
+    await useRuntimeSessionStore.getState().linkSessionToTab(other.id, 'display-session');
+    return origin;
+  })()`);
+  async function selectLeft() {
+    await evaluate(`(async () => {
+      const {useEditorStore} = await import('/src/features/graph-editor/store/editorStore.ts');
+      useEditorStore.getState().selectNode('left');
+    })()`);
+  }
+  await waitFor("document.querySelectorAll('.studio-block').length === 1");
+  await selectLeft();
+  await waitFor("document.querySelector('.inspector').innerText.includes('no verified submission')");
+  check('Inspector disables settings for the other graph with the same block name',
+    !await evaluate("Boolean(document.querySelector('[aria-label=\"About runtime edits\"]'))"));
+  const moved = await openDisplayWidget();
+  check('Reopened display disables the unverified parameter control', moved.state === 'stale' && moved.binding.nodeId === 'left');
+  await evaluate(`(async () => {
+    const {useGraphTabsStore} = await import('/src/features/graph-tabs/store/graphTabsStore.ts');
+    const {useRuntimeSessionStore} = await import('/src/features/runtime-session/store/runtimeSessionStore.ts');
+    useGraphTabsStore.getState().setActiveTab(${JSON.stringify(originTabId)});
+    await useRuntimeSessionStore.getState().linkSessionToTab(${JSON.stringify(originTabId)}, 'display-session');
+  })()`);
+  await waitFor("document.querySelectorAll('.studio-block').length === 2");
+  await selectLeft();
+  await waitFor("!!document.querySelector('[aria-label=\"About runtime edits\"]')");
+  check('Inspector restores settings on verified relink');
+  check('Reopened display restores the verified parameter control', (await openDisplayWidget()).state === 'ready');
+  await evaluate(`(async () => {
+    const {useEditorStore} = await import('/src/features/graph-editor/store/editorStore.ts');
+    const editor = useEditorStore.getState();
+    editor.addNodeFromCatalogItem({blockTypeId:'studio::VirtualSource', displayName:'Unmatched source'});
+  })()`);
+  await waitFor("document.querySelectorAll('.studio-block').length === 3");
+  await selectLeft();
+  await waitFor("document.querySelector('.inspector').innerText.includes('Graph changed since the linked runtime snapshot')");
+  check('An unmatched virtual source keeps Inspector live settings unavailable',
+    !await evaluate("Boolean(document.querySelector('[aria-label=\"About runtime edits\"]'))"));
+  check('Reopened display disables parameter controls after a failed export', (await openDisplayWidget()).state === 'stale');
+  await evaluate(`(async () => {
+    const {useEditorStore} = await import('/src/features/graph-editor/store/editorStore.ts');
+    const editor = useEditorStore.getState();
+    editor.removeNode(editor.nodes.find(node => node.blockTypeId === 'studio::VirtualSource').instanceId);
+    editor.renameNodeInstanceId('right', 'spare');
+    editor.renameNodeInstanceId('left', 'right');
+  })()`);
+  await waitFor("!!document.querySelector('[data-id=spare]')");
+  const reused = await openDisplayWidget();
+  check('Reopened display marks a reused runtime block ID stale', reused.state === 'stale' && reused.binding.nodeId === 'right');
+  await call('Page.navigate', {url:await evaluate('window.openedDisplayUrl')});
+  await waitFor(`document.querySelector('input[type="number"]')?.disabled === true`);
+  check('Detached display disables the stale parameter control');
 }

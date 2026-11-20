@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { StatusPill } from '../../../components/status-pill';
 import { ControlPlaneDiagnostics } from '../../../components/control-plane-diagnostics';
 import { formatTimestamp } from '../../../lib/utils/ui-formatting';
-import { useRuntimeSessionStore, type ExecutionState, type OperationState, type RunIntent } from '../store/runtimeSessionStore';
+import { useRuntimeSessionStore, type ExecutionState, type GraphDriftState, type OperationState, type RunIntent } from '../store/runtimeSessionStore';
 
 type GraphExecutionOverlayProps = {
   tabId: string;
@@ -53,7 +53,7 @@ function runIntentMessage(runIntent: RunIntent): string {
 
 function executionHint(params: {
   executionState: ExecutionState;
-  graphDriftState: 'in-sync' | 'out-of-sync';
+  graphDriftState: GraphDriftState;
   sessionId: string | null;
   lastError: string | null;
 }): string {
@@ -104,6 +104,7 @@ export function GraphExecutionOverlay({ tabId, onRun, currentSubmissionContent }
         sessionId: null,
         session: null,
         lastSubmittedHash: null,
+        submittedNodeIdentities: null,
         graphSubmissionUpdatedAt: null,
         lastAction: null,
         lastActionStatus: 'idle' as const,
@@ -200,7 +201,7 @@ export function GraphExecutionOverlay({ tabId, onRun, currentSubmissionContent }
             <p className="text-xs text-slate-400">session {shortId(safeContext.sessionId)}</p>
             <p className="text-xs text-slate-400">snapshot: {runtimeView.graphSubmissionState}</p>
             <p className="text-xs text-slate-400">
-              sync: {runtimeView.graphDriftState === 'in-sync' ? 'linked session in sync' : 'linked session stale'}
+              sync: {runtimeView.graphDriftState}
             </p>
             <p className="text-xs text-slate-500">submitted: {formatTimestamp(new Date(runtimeView.graphSubmissionUpdatedAt ?? '').getTime())}</p>
             {safeContext.session?.lastError && <p className="text-xs text-rose-300 break-words">backend: {safeContext.session.lastError}</p>}

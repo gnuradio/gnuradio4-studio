@@ -22,11 +22,19 @@ export function mergeSavedAndDerivedStudioPanels({
       )
     : [];
   const savedNodeIds = new Set(saved.map((panel) => panel.nodeId));
-  const savedPanelIds = new Set(saved.map((panel) => panel.id));
+  // Reserve every saved ID so workspace filtering and serialization assign the same IDs.
+  const usedPanelIds = new Set(savedPanels?.map((panel) => panel.id));
 
-  const derivedGaps = derivedPanels.filter(
-    (panel) => !savedNodeIds.has(panel.nodeId) && !savedPanelIds.has(panel.id),
-  );
+  const derivedGaps = derivedPanels
+    .filter((panel) => !savedNodeIds.has(panel.nodeId))
+    .map((panel) => {
+      let id = panel.id;
+      for (let suffix = 2; usedPanelIds.has(id); suffix += 1) {
+        id = `studio-panel-${suffix}:${panel.nodeId}`;
+      }
+      usedPanelIds.add(id);
+      return id === panel.id ? panel : { ...panel, id };
+    });
 
   return [...saved, ...derivedGaps];
 }
