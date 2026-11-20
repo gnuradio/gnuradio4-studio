@@ -46,16 +46,16 @@ export function GlobalSessionsDrawer({ open, onClose, onJumpToTab, activeTabId }
       <div className="flex-1 bg-slate-950/60" onClick={onClose} />
       <aside className="w-[30rem] max-w-full h-full border-l border-slate-700 bg-slate-900 p-4 overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-100">Global Sessions</h2>
+          <h2 className="text-base font-semibold text-slate-100">Global Sessions</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700"
+            className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200 hover:bg-slate-700"
           >
             Close
           </button>
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">Active tab: {activeTabId ?? 'none'}</p>
+        <p className="mt-2 text-xs text-slate-400">Active tab: {activeTabId ?? 'none'}</p>
 
         <div className="mt-3 space-y-2">
           {sessions.length === 0 ? (
@@ -69,12 +69,12 @@ export function GlobalSessionsDrawer({ open, onClose, onJumpToTab, activeTabId }
                 <div key={session.id} className="rounded border border-slate-700 bg-slate-800/60 p-2 space-y-2">
                   <div>
                     <p className="text-xs text-slate-100 break-all">{session.id}</p>
-                    <p className="text-[11px] text-slate-400 mt-1">name={session.name} · state={session.state}</p>
-                    <p className="text-[11px] text-slate-500 mt-1">attachment: {relationLabel(linkedTabId)}</p>
-                    {session.lastError && <p className="text-[11px] text-rose-300 mt-1 break-words">error: {session.lastError}</p>}
+                    <p className="text-xs text-slate-400 mt-1">name={session.name} · state={session.state}</p>
+                    <p className="text-xs text-slate-500 mt-1">attachment: {relationLabel(linkedTabId)}</p>
+                    {session.lastError && <p className="text-xs text-rose-300 mt-1 break-words">error: {session.lastError}</p>}
                   </div>
 
-                  <div className="grid grid-cols-4 gap-1 text-[11px]">
+                  <div className="grid grid-cols-4 gap-1 text-xs">
                     <button
                       type="button"
                       onClick={() => void startSessionById(session.id)}

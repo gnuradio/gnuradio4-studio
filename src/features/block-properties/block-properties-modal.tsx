@@ -322,7 +322,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
           disabled={disabled}
           rows={5}
           onChange={(event) => setDraftValue(parameter.name, event.target.value)}
-          className="w-full resize-y rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm leading-5 text-slate-100 disabled:opacity-60"
+          className="w-full resize-y rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base leading-5 text-slate-100 disabled:opacity-60"
         />
       );
     }
@@ -337,7 +337,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
             list={isVirtualSourceBlock && virtualSinkStreamIds.length > 0 ? listId : undefined}
             disabled={disabled}
             onChange={(event) => setDraftValue(parameter.name, event.target.value)}
-            className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 disabled:opacity-60"
+            className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 disabled:opacity-60"
           />
           {isVirtualSourceBlock && virtualSinkStreamIds.length > 0 && (
             <datalist id={listId}>
@@ -360,7 +360,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
             value={currentValue === '-1' ? 'all' : 'limit'}
             disabled={disabled}
             onChange={(event) => setDraftValue(parameter.name, event.target.value === 'all' ? '-1' : '1024')}
-            className="min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+            className="min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100"
           >
             <option value="all">All points</option>
             <option value="limit">Limit points</option>
@@ -369,7 +369,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
             aria-label="Maximum points"
             type="number" min={1} step={1} value={currentValue} disabled={disabled}
             onChange={(event) => setDraftValue(parameter.name, event.target.value)}
-            className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+            className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100"
           />}
         </div>
       );
@@ -398,7 +398,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
           value={currentValue}
           disabled={disabled}
           onChange={(event) => setDraftValue(parameter.name, event.target.value)}
-          className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 disabled:opacity-60"
+          className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 disabled:opacity-60"
         />
       );
     }
@@ -415,7 +415,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
           onChange={(event) => {
             setDraftValue(parameter.name, event.target.value);
           }}
-          className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 disabled:opacity-60"
+          className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 disabled:opacity-60"
         >
           {visibleOptions.map((option) => (
             <option key={option} value={option}>
@@ -474,7 +474,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
     >
       <div className="w-full max-w-3xl rounded-lg border border-slate-700 bg-slate-900 shadow-xl">
         <header className="border-b border-slate-700 px-4 py-3">
-          <h2 className="text-base font-semibold text-slate-100">Block Properties</h2>
+          <h2 className="text-lg font-semibold text-slate-100">Block Properties</h2>
           <p className="text-xs text-slate-400 mt-1">
             {canonicalDisplayName} · {block.instanceId}
           </p>
@@ -507,13 +507,13 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4">
               <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
                 <div className="border-b border-slate-700 px-4 py-3">
-                  <p className="text-sm font-medium text-slate-100">Choose control panel</p>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-base font-medium text-slate-100">Choose control panel</p>
+                  <p className="text-xs text-slate-400">
                     {pendingControlParameter.label} · {pendingControlParameter.name}
                   </p>
                 </div>
                 <div className="space-y-3 px-4 py-3">
-                  <p className="text-sm text-slate-400">Pick where to place this control.</p>
+                  <p className="text-base text-slate-400">Pick where to place this control.</p>
                   <div className="space-y-2">
                     {controlPanels.map((panel) => (
                       <button
@@ -523,7 +523,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                         className="flex w-full items-center justify-between rounded border border-slate-600 bg-slate-950 px-3 py-2 text-left text-sm text-slate-100 hover:border-cyan-500 hover:bg-slate-900"
                       >
                         <span className="truncate">{panel.title?.trim() || 'Controls'}</span>
-                        <span className="ml-3 shrink-0 text-[11px] text-slate-400">
+                        <span className="ml-3 shrink-0 text-xs text-slate-400">
                           {panel.widgets.length} widget{panel.widgets.length === 1 ? '' : 's'}
                         </span>
                       </button>
@@ -551,11 +551,11 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
           )}
 
           {blockDetailsQuery.isPending && (
-            <p className="text-sm text-slate-400">Loading block details...</p>
+            <p className="text-base text-slate-400">Loading block details...</p>
           )}
 
           {blockDetailsQuery.isError && (
-            <p className="text-sm text-rose-300">Failed to load block details: {blockDetailsQuery.error.message}</p>
+            <p className="text-base text-rose-300">Failed to load block details: {blockDetailsQuery.error.message}</p>
           )}
 
           {activeTab === 'general' && blockDetailsQuery.data && (
@@ -586,7 +586,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                 </div>
               )}
               {editableParameters.length === 0 ? (
-                <p className="text-sm text-slate-400">This block has no editable parameters in General.</p>
+                <p className="text-base text-slate-400">This block has no editable parameters in General.</p>
               ) : (
                 editableParameters.map((parameter, index) => {
                   const binding = findControlWidgetBinding(parameter.name);
@@ -603,7 +603,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                         <div className={PARAMETER_ROW_GRID}>
                           <label
                             title={getBlockParameterHoverTitle(parameter)}
-                            className="min-w-0 cursor-help truncate text-xs font-medium text-slate-200"
+                            className="min-w-0 cursor-help truncate text-sm font-medium text-slate-200"
                           >
                             {getAuthoringParameterLabel(block.blockTypeId, parameter.name, parameter.label)}
                           </label>
@@ -613,7 +613,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                             onChange={(event) =>
                               setDraftBindingKind(parameter.name, event.target.value as DraftValue['bindingKind'])
                             }
-                            className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 disabled:opacity-60"
+                            className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-xs text-slate-200 disabled:opacity-60"
                           >
                             <option value="literal">Literal</option>
                             <option value="expression">Expression</option>
@@ -623,7 +623,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                           </div>
                           <span
                             title={enumTypeLabel ? `enum_type: ${enumTypeLabel}` : getBlockParameterTypeLabel(parameter)}
-                            className="justify-self-end shrink-0 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-[9px] uppercase tracking-wide text-slate-200"
+                            className="min-w-0 max-w-full truncate justify-self-end rounded border border-slate-600 bg-slate-800 px-1 py-1 font-mono text-xs text-slate-300"
                           >
                             {getBlockParameterTypeLabel(parameter)}
                           </span>
@@ -653,7 +653,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
           {activeTab === 'readonly' && blockDetailsQuery.data && (
             <div className="space-y-2">
               {readOnlyParameters.length === 0 ? (
-                <p className="text-sm text-slate-400">This block has no read-only parameters.</p>
+                <p className="text-base text-slate-400">This block has no read-only parameters.</p>
               ) : (
                 readOnlyParameters.map((parameter) => {
                   const enumTypeLabel = getBlockParameterEnumTypeLabel(parameter);
@@ -666,7 +666,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                       <div className={PARAMETER_ROW_GRID}>
                         <label
                           title={getBlockParameterHoverTitle(parameter)}
-                          className="min-w-0 cursor-help truncate text-xs font-medium text-slate-200"
+                          className="min-w-0 cursor-help truncate text-sm font-medium text-slate-200"
                         >
                           {parameter.label}
                         </label>
@@ -674,7 +674,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                         <div className="min-w-0">{renderParameterValueInput(parameter, true)}</div>
                         <span
                           title={enumTypeLabel ? `enum_type: ${enumTypeLabel}` : getBlockParameterTypeLabel(parameter)}
-                          className="justify-self-end shrink-0 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-[9px] uppercase tracking-wide text-slate-200"
+                          className="min-w-0 max-w-full truncate justify-self-end rounded border border-slate-600 bg-slate-800 px-1 py-1 font-mono text-xs text-slate-300"
                         >
                           {getBlockParameterTypeLabel(parameter)}
                         </span>
@@ -690,9 +690,9 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
           {activeTab === 'advanced' && (
             <div className="space-y-2">
               {!blockDetailsQuery.data ? (
-                <p className="text-sm text-slate-400">Advanced metadata will appear when block details are available.</p>
+                <p className="text-base text-slate-400">Advanced metadata will appear when block details are available.</p>
               ) : advancedParameters.length === 0 ? (
-                <p className="text-sm text-slate-400">No advanced parameters found for this block.</p>
+                <p className="text-base text-slate-400">No advanced parameters found for this block.</p>
               ) : (
                 advancedParameters.map((parameter) => {
                   const isEditable = !parameter.readOnly && parameter.mutable;
@@ -706,7 +706,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                       <div className={PARAMETER_ROW_GRID}>
                         <label
                           title={getBlockParameterHoverTitle(parameter)}
-                          className="min-w-0 cursor-help truncate text-xs font-medium text-slate-200"
+                          className="min-w-0 cursor-help truncate text-sm font-medium text-slate-200"
                         >
                           {getAuthoringParameterLabel(block.blockTypeId, parameter.name, parameter.label)}
                         </label>
@@ -715,7 +715,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                           onChange={(event) =>
                             setDraftBindingKind(parameter.name, event.target.value as DraftValue['bindingKind'])
                           }
-                          className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
+                          className="w-full min-w-0 rounded border border-slate-600 bg-slate-900 px-1.5 py-1 text-xs text-slate-200"
                           >
                           <option value="literal">Literal</option>
                           <option value="expression">Expression</option>
@@ -725,7 +725,7 @@ export function BlockPropertiesModal({ instanceId, onClose }: BlockPropertiesMod
                         </div>
                         <span
                           title={enumTypeLabel ? `enum_type: ${enumTypeLabel}` : getBlockParameterTypeLabel(parameter)}
-                          className="justify-self-end shrink-0 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-[9px] uppercase tracking-wide text-slate-200"
+                          className="min-w-0 max-w-full truncate justify-self-end rounded border border-slate-600 bg-slate-800 px-1 py-1 font-mono text-xs text-slate-300"
                         >
                           {getBlockParameterTypeLabel(parameter)}
                         </span>

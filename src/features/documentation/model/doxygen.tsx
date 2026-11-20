@@ -221,7 +221,7 @@ function renderInlineText(text: string): ReactNode[] {
       nodes.push(
         <code
           key={`inline-code-${index}`}
-          className="rounded bg-slate-950/80 px-1 py-0.5 font-mono text-[0.85em] text-slate-100"
+          className="rounded bg-slate-950/80 px-1 py-0.5 font-mono text-xs text-slate-100"
         >
           {part}
         </code>,

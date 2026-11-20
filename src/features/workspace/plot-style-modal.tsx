@@ -63,7 +63,7 @@ function ColorListEditor({
                 [next[index - 1], next[index]] = [next[index], next[index - 1]];
                 onChange(next);
               }}
-              className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 disabled:opacity-40"
+              className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 disabled:opacity-40"
             >
               ↑
             </button>
@@ -75,7 +75,7 @@ function ColorListEditor({
                 [next[index], next[index + 1]] = [next[index + 1], next[index]];
                 onChange(next);
               }}
-              className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 disabled:opacity-40"
+              className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 disabled:opacity-40"
             >
               ↓
             </button>
@@ -86,7 +86,7 @@ function ColorListEditor({
                 const next = colors.filter((_, i) => i !== index);
                 onChange(next.length > 0 ? next : ['#22d3ee']);
               }}
-              className="rounded border border-rose-700/70 bg-rose-900/35 px-2 py-1 text-[11px] text-rose-200 disabled:opacity-40"
+              className="rounded border border-rose-700/70 bg-rose-900/35 px-2 py-1 text-sm text-rose-200 disabled:opacity-40"
             >
               Remove
             </button>
@@ -96,7 +96,7 @@ function ColorListEditor({
       <button
         type="button"
         onClick={() => onChange([...colors, '#22d3ee'])}
-        className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+        className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200"
       >
         Add color
       </button>
@@ -158,7 +158,7 @@ export function PlotStyleModal({ open, panelEntry, studioPalettes, onClose, onAp
       <div className="w-full max-w-2xl rounded-lg border border-slate-700 bg-slate-900 shadow-xl">
         <header className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
           <div>
-            <h3 className="text-sm font-semibold text-slate-100">Plot Style</h3>
+            <h3 className="text-lg font-semibold text-slate-100">Plot Style</h3>
             <p className="text-xs text-slate-400">
               {panelEntry.nodePanelTitle ?? panelEntry.panel.title ?? panelEntry.panel.nodeId}
             </p>
@@ -166,14 +166,14 @@ export function PlotStyleModal({ open, panelEntry, studioPalettes, onClose, onAp
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 hover:bg-slate-800"
           >
             Close
           </button>
         </header>
 
         <div className="space-y-4 px-4 py-4">
-          <label className="block text-xs text-slate-300">
+          <label className="block text-sm text-slate-300">
             <span className="mb-1 block text-slate-400">Palette mode</span>
             <select
               value={mode}
@@ -188,7 +188,7 @@ export function PlotStyleModal({ open, panelEntry, studioPalettes, onClose, onAp
 
           {mode === 'studio' ? (
             <div className="space-y-3 rounded border border-slate-700 bg-slate-950/30 p-3">
-              <label className="block text-xs text-slate-300">
+              <label className="block text-sm text-slate-300">
                 <span className="mb-1 block text-slate-400">Studio palette</span>
                 <select
                   value={selectedStudioPaletteId}
@@ -234,7 +234,7 @@ export function PlotStyleModal({ open, panelEntry, studioPalettes, onClose, onAp
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 hover:bg-slate-800"
           >
             Cancel
           </button>
@@ -270,7 +270,7 @@ export function PlotStyleModal({ open, panelEntry, studioPalettes, onClose, onAp
               });
               onClose();
             }}
-            className="rounded border border-emerald-700/70 bg-emerald-900/40 px-2 py-1 text-xs text-emerald-100 hover:bg-emerald-800/50 disabled:opacity-40"
+            className="rounded border border-emerald-700/70 bg-emerald-900/40 px-2 py-1 text-sm text-emerald-100 hover:bg-emerald-800/50 disabled:opacity-40"
           >
             Apply
           </button>

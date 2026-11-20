@@ -4,7 +4,7 @@ import { builtinThemes } from './builtins';
 import { MAX_THEME_BYTES, parseTheme } from './theme';
 import { themeManager } from './theme-store';
 
-const button = 'rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 hover:bg-slate-700 disabled:opacity-50';
+const button = 'rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-100 hover:bg-slate-700 disabled:opacity-50';
 
 export function ThemeManager() {
   const { active, installed, notice } = useStore(themeManager.store);
@@ -51,12 +51,12 @@ export function ThemeManager() {
     }}>
       <summary className={`${button} cursor-pointer list-none`}>Appearance</summary>
       <section aria-label="Appearance" className="fixed right-4 top-28 z-50 max-h-[70vh] w-80 overflow-auto rounded-lg border border-slate-600 bg-slate-900 p-4 text-sm text-slate-100 shadow-xl">
-        <h2 className="mb-3 font-semibold">Appearance</h2>
+        <h2 className="mb-3 text-lg font-semibold">Appearance</h2>
         <fieldset disabled={busy} className="space-y-3">
           <label className="block">
             Theme
             <select aria-label="Theme" value={active.id} onChange={(event) => void run(() => themeManager.select(event.target.value))}
-              className="mt-1 block w-full rounded border border-slate-600 bg-slate-800 p-2 text-sm text-slate-100">
+              className="mt-1 block w-full rounded border border-slate-600 bg-slate-800 p-2 text-base text-slate-100">
               <optgroup label="Built-in themes">
                 {builtinThemes.map((theme) => <option key={theme.id} value={theme.id}>{theme.name}</option>)}
               </optgroup>

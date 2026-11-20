@@ -59,7 +59,7 @@ function ApplicationPanelShell({
     return (
       <article className="h-full rounded-lg bg-slate-950/35 overflow-hidden flex flex-col min-h-0">
         <header className="px-3 py-2 border-b border-slate-800/80 bg-slate-900/55">
-          <h3 className="text-sm font-semibold text-slate-100 truncate" title={shellTitle}>
+          <h3 className="text-base font-semibold text-slate-100 truncate" title={shellTitle}>
             {shellTitle}
           </h3>
         </header>
@@ -111,7 +111,7 @@ function ApplicationPanelShell({
     <article className="h-full rounded-lg bg-slate-950/35 overflow-hidden flex flex-col min-h-0">
       {showShellHeader ? (
         <header className="px-3 py-2 border-b border-slate-800/80 bg-slate-900/55">
-          <h3 className="text-sm font-semibold text-slate-100 truncate" title={shellTitle}>
+          <h3 className="text-base font-semibold text-slate-100 truncate" title={shellTitle}>
             {shellTitle}
           </h3>
         </header>

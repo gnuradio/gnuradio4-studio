@@ -114,13 +114,13 @@ export function HttpTimeSeriesPopout({
       <div className="flex items-center justify-between border-b border-slate-700 px-3 py-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-slate-100 truncate">{displayName}</p>
-          <p className="text-[10px] text-slate-400 truncate">{instanceId}</p>
+          <p className="text-xs text-slate-400 truncate">{instanceId}</p>
         </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setShowDetails((value) => !value)}
-            className="rounded border border-slate-600 px-1.5 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
+            className="rounded border border-slate-600 px-1.5 py-0.5 text-sm text-slate-300 hover:bg-slate-800"
             title="Toggle details"
           >
             ...
@@ -128,7 +128,7 @@ export function HttpTimeSeriesPopout({
           <button
             type="button"
             onClick={onClose}
-            className="rounded border border-slate-600 px-1.5 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
+            className="rounded border border-slate-600 px-1.5 py-0.5 text-sm text-slate-300 hover:bg-slate-800"
           >
             Close
           </button>
@@ -185,7 +185,7 @@ export function HttpTimeSeriesPopout({
               {blockTypeId}
             </p>
             <p className="text-slate-400 break-all">endpoint: {endpointUrl}</p>
-            <p className="text-[10px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Direct browser fetch in prod; dev falls back to same-origin Vite proxy when blocked.
             </p>
           </div>
@@ -200,7 +200,7 @@ export function HttpTimeSeriesPopout({
 
           {snapshot && snapshot.seriesByChannel.some((series) => series.length > 0) && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <div className="flex items-center justify-between text-xs text-slate-400">
                 <span>
                   channels {snapshot.channelCount} · samples {snapshot.samplesPerChannel}
                 </span>
@@ -224,7 +224,7 @@ export function HttpTimeSeriesPopout({
                 {snapshot.seriesByChannel.map((_, index) => (
                   <span
                     key={`legend-${index}`}
-                    className="rounded border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-200"
+                    className="rounded border border-slate-700 px-1.5 py-0.5 text-xs text-slate-200"
                     style={{ borderColor: CHANNEL_COLORS[index % CHANNEL_COLORS.length] }}
                   >
                     ch{index}

@@ -69,11 +69,11 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
     <div className="h-full rounded border border-slate-700 bg-slate-950/70 p-3 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-slate-100">{liveContext.panel.title ?? 'Audio'}</p>
-        <span className="text-[10px] text-slate-400">{connectionState}</span>
+        <span className="text-xs text-slate-400">{connectionState}</span>
       </div>
 
       {!supportsLivePath && (
-        <p className="text-[11px] text-slate-400">
+        <p className="text-xs text-slate-400">
           {liveContext.binding.status === 'configured'
             ? 'Audio playback waits for a running websocket stream.'
             : 'Configure a StudioAudioSink websocket binding to enable playback.'}
@@ -89,12 +89,12 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
             }
           }}
           disabled={!supportsLivePath}
-          className="h-9 rounded border border-slate-600 bg-slate-900 px-3 text-xs font-medium text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 rounded border border-slate-600 bg-slate-900 px-3 text-sm font-medium text-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {muted ? 'Unmute' : 'Mute'}
         </button>
 
-        <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-[11px] text-slate-300">
+        <label className="grid grid-cols-[64px_1fr] items-center gap-2 text-sm text-slate-300">
           <span>Volume</span>
           <input
             type="range"
@@ -112,7 +112,7 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
         </label>
       </div>
 
-      <label className="grid gap-1 text-[11px] text-slate-300">
+      <label className="grid gap-1 text-sm text-slate-300">
         <span>Output Device</span>
         <select
           value={selectedDeviceId}
@@ -130,7 +130,7 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
         </select>
       </label>
 
-      <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+      <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
         <span>Rate {lastFrame?.sampleRate ?? sampleRate} Hz</span>
         <span>Context {stats?.contextSampleRate ?? 'n/a'} Hz</span>
         <span>Channels {lastFrame?.channels ?? channels}</span>
@@ -145,7 +145,7 @@ export function AudioLiveRenderer({ liveContext }: AudioLiveRendererProps) {
         <span>Missing frames {missingAudioFrames}</span>
       </div>
 
-      {message && <p className="text-[11px] text-amber-200 break-words">{message}</p>}
+      {message && <p className="text-xs text-amber-200 break-words">{message}</p>}
     </div>
   );
 }

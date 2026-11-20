@@ -6,7 +6,7 @@ export const darkTokens = {
   'app.hover': '#334155',
   'app.text': '#f1f5f9',
   'app.textSecondary': '#b6c2d2',
-  'app.disabled': '#8998ad',
+  'app.disabled': '#a1aec1',
   'app.border': '#526176',
   'app.borderStrong': '#8291a6',
   'app.accent': '#6ee7b7',

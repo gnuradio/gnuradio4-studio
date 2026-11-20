@@ -10,7 +10,17 @@ const statePalette = (foreground: string, surface: string) => Object.fromEntries
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
+    fontFamily: { sans: ['var(--font-ui)'], mono: ['var(--font-mono)'] },
+    fontSize: {
+      xs: ['var(--font-size-xs)', { lineHeight: 'var(--line-height-normal)' }],
+      sm: ['var(--font-size-sm)', { lineHeight: 'var(--line-height-normal)' }],
+      base: ['var(--font-size-base)', { lineHeight: 'var(--line-height-normal)' }],
+      lg: ['var(--font-size-lg)', { lineHeight: 'var(--line-height-tight)' }],
+      xl: ['var(--font-size-xl)', { lineHeight: 'var(--line-height-tight)' }],
+    },
+    fontWeight: { normal: 'var(--font-weight-regular)', medium: 'var(--font-weight-medium)', semibold: 'var(--font-weight-semibold)' },
     extend: {
+      lineHeight: { tight: 'var(--line-height-tight)', normal: 'var(--line-height-normal)', relaxed: 'var(--line-height-relaxed)' },
       colors: {
         hover: color('app.hover'),
         selected: color('app.selected'),

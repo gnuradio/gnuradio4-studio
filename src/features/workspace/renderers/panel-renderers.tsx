@@ -27,7 +27,7 @@ function RendererFrame({
         <p className="text-xs font-semibold text-slate-100">{title}</p>
         <span className={`h-2.5 w-2.5 rounded-full ${accentClassName}`} />
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">{subtitle}</p>
+      <p className="mt-2 text-xs text-slate-400">{subtitle}</p>
       <div className="mt-3 h-20 rounded border border-dashed border-slate-700 bg-slate-900/50" />
     </div>
   );

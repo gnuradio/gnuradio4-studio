@@ -249,6 +249,7 @@ describe('rendering token application and accessibility', () => {
       for (const surface of ['app.background', 'app.surface', 'app.control', 'app.selected'] as const) {
         expect(contrast(t['app.text'], t[surface])).toBeGreaterThanOrEqual(7);
         expect(contrast(t['app.textSecondary'], t[surface])).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t['app.disabled'], t[surface])).toBeGreaterThanOrEqual(4.5);
       }
       expect(contrast(t['block.text'], t['block.background'])).toBeGreaterThanOrEqual(7);
       expect(contrast(t['block.border'], t['canvas.background'])).toBeGreaterThanOrEqual(3);

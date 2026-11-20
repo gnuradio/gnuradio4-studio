@@ -177,7 +177,7 @@ export function BackendConsoleDrawer({ statusContent }: { statusContent?: ReactN
       <button
         type="button"
         onClick={() => executeStudioCommand('console')}
-        className="flex h-8 shrink-0 items-center justify-between border-t border-slate-700 bg-slate-950 px-4 text-xs text-slate-300 hover:bg-slate-900"
+        className="flex h-8 shrink-0 items-center justify-between border-t border-slate-700 bg-slate-950 px-4 text-sm text-slate-300 hover:bg-slate-900"
         aria-label="Open backend console"
         title="Expand backend console"
       >
@@ -205,7 +205,7 @@ export function BackendConsoleDrawer({ statusContent }: { statusContent?: ReactN
           {snapshot.truncated ? <span className="text-amber-300">bounded tail</span> : null}
           <span className="truncate text-slate-600">updated {formatUpdatedAt(snapshot.updatedAt)}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-2 text-[11px]">
+        <div className="flex shrink-0 items-center gap-2 text-xs">
           <label className="flex items-center gap-1 text-slate-400">
             <input
               type="checkbox"
@@ -246,11 +246,11 @@ export function BackendConsoleDrawer({ statusContent }: { statusContent?: ReactN
       </div>
       <pre
         ref={outputRef}
-        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words bg-black/40 p-3 font-mono text-[11px] leading-5 text-slate-200"
+        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words bg-black/40 p-3 font-mono text-xs leading-5 text-slate-200"
       >
         {snapshot.content || 'No backend output captured.'}
       </pre>
-      <div className="flex h-6 shrink-0 items-center justify-between border-t border-slate-800 px-3 text-[10px] text-slate-500">
+      <div className="flex h-6 shrink-0 items-center justify-between border-t border-slate-800 px-3 text-xs text-slate-500">
         <span>Unattributed stdout/stderr from the managed control plane and running blocks.</span>
         <span>{actionMessage}</span>
       </div>

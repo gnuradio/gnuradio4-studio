@@ -18,7 +18,7 @@ export function GraphDetails({ name, description, onDescriptionChange, blockCoun
   const unavailableScheduler = Boolean(schedulerId && !schedulersPending && !schedulersError && !schedulers.includes(schedulerId));
   return <>
     <header className="space-y-1 pb-3">
-      <h2 title={name} className="line-clamp-2 text-base font-semibold leading-5 text-slate-100 [overflow-wrap:anywhere]">{name}</h2>
+      <h2 title={name} className="line-clamp-2 text-lg font-semibold leading-5 text-slate-100 [overflow-wrap:anywhere]">{name}</h2>
       <p className="text-xs text-slate-400">{blockCount} {blockCount === 1 ? 'block' : 'blocks'} · {connectionCount} {connectionCount === 1 ? 'connection' : 'connections'}</p>
     </header>
     <InspectorSection title="Scheduler">
@@ -34,7 +34,7 @@ export function GraphDetails({ name, description, onDescriptionChange, blockCoun
       {unavailableScheduler && <p className="text-xs text-amber-200">The configured scheduler is not in the current catalog.</p>}
     </InspectorSection>
     <InspectorSection title="Display">
-      <label className="block space-y-1 text-xs text-slate-400">
+      <label className="block space-y-1 text-sm text-slate-400">
         <span>Mode</span>
         <select aria-label="Display mode" value={mode} disabled={inProcessControlPlane}
           title={inProcessControlPlane ? 'WASM supports in-app displays only.' : undefined}
@@ -43,8 +43,8 @@ export function GraphDetails({ name, description, onDescriptionChange, blockCoun
           {!inProcessControlPlane && <><option value="new_tab">New tab</option><option value="popout">Popout</option></>}
         </select>
       </label>
-      {inProcessControlPlane && <p className="text-[11px] text-slate-400">WASM supports in-app displays only.</p>}
-      <label className="block space-y-1 text-xs text-slate-400">
+      {inProcessControlPlane && <p className="text-xs text-slate-400">WASM supports in-app displays only.</p>}
+      <label className="block space-y-1 text-sm text-slate-400">
         <span>Title</span>
         <input type="text" aria-label="Display title" value={displayTitle} placeholder={displayTitlePlaceholder}
           onChange={(event) => onDisplayTitleChange(event.target.value)} className="inspector-input placeholder:text-slate-400" />

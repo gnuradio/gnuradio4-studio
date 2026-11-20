@@ -1,4 +1,5 @@
 import { useTheme } from '../../../themes/theme-store';
+import { canvasUiFont } from '../../../../styles/typography';
 import { useEffect, useMemo, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
@@ -225,7 +226,7 @@ function renderTagOverlay(
 
       if (index < maxLabels) {
         const label = document.createElement('div');
-        label.className = 'pointer-events-auto absolute z-10 max-w-32 truncate rounded-sm border border-amber-300/60 bg-slate-950/90 px-1 text-[10px] leading-4 text-amber-100 shadow';
+        label.className = 'pointer-events-auto absolute z-10 max-w-32 truncate rounded-sm border border-amber-300/60 bg-slate-950/90 px-1 text-xs leading-4 text-amber-100 shadow';
         label.style.left = `${Math.min(plotRight, xPos + 6)}px`;
         label.style.top = `${Math.max(plotTop, yPos - 10)}px`;
         label.title = title;
@@ -246,7 +247,7 @@ function renderTagOverlay(
 
     if (index < maxLabels) {
       const label = document.createElement('div');
-      label.className = 'pointer-events-auto absolute top-1 z-10 max-w-32 -translate-x-1/2 truncate rounded-sm border border-amber-300/60 bg-slate-950/90 px-1 text-[10px] leading-4 text-amber-100 shadow';
+      label.className = 'pointer-events-auto absolute top-1 z-10 max-w-32 -translate-x-1/2 truncate rounded-sm border border-amber-300/60 bg-slate-950/90 px-1 text-xs leading-4 text-amber-100 shadow';
       label.style.left = `${xPos}px`;
       label.style.top = `${plotTop + 4}px`;
       label.title = title;
@@ -581,6 +582,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 
         scales: buildTimeseriesScaleOptions(spec.xMode),
         axes: [
           {
+            font: canvasUiFont(), labelFont: canvasUiFont('medium'),
             ...buildPlotXAxis(spec, frame.meta?.axisMetadata),
             stroke: theme.tokens['app.textSecondary'],
             grid: {
@@ -589,6 +591,7 @@ export function TimeseriesUplotAdapter({ spec, frame, width, height, axisMode = 
             },
           },
           {
+            font: canvasUiFont(), labelFont: canvasUiFont('medium'),
             label: buildPlotYLabel(spec, frame.meta?.axisMetadata),
             stroke: theme.tokens['app.textSecondary'],
             grid: {

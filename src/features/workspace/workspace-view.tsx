@@ -160,7 +160,7 @@ function LayoutEditorPane({
         {...dragHandleProps}
       >
         <div className="min-w-0 flex items-center gap-2">
-          <span className="inline-flex h-5 w-4 items-center justify-center rounded border border-slate-600/70 bg-slate-800/70 text-[9px] leading-none text-slate-300">
+          <span className="inline-flex h-5 w-4 items-center justify-center rounded border border-slate-600/70 bg-slate-800/70 text-xs leading-none text-slate-300">
             ::
           </span>
           {panel.kind === 'control' && onRenameControlPanel ? (
@@ -175,15 +175,15 @@ function LayoutEditorPane({
                   event.currentTarget.blur();
                 }
               }}
-              className="min-w-0 max-w-[14rem] rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-semibold text-slate-100 outline-none focus:border-cyan-500"
+              className="min-w-0 max-w-[14rem] rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base font-semibold text-slate-100 outline-none focus:border-cyan-500"
             />
           ) : (
-            <h3 className="text-sm font-semibold text-slate-100 truncate" title={paneTitle}>
+            <h3 className="text-base font-semibold text-slate-100 truncate" title={paneTitle}>
               {paneTitle}
             </h3>
           )}
         </div>
-        <span className="shrink-0 rounded border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-200">
+        <span className="shrink-0 rounded border border-slate-600 bg-slate-800 px-2 py-0.5 text-xs uppercase tracking-wide text-slate-200">
           {panel.kind}
         </span>
       </header>
@@ -221,14 +221,14 @@ function LayoutEditorPane({
                 <button
                   type="button"
                   onClick={() => onOpenPanelPlotStyleEditor(entry)}
-                  className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+                  className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 hover:bg-slate-800"
                 >
                   Plot Style…
                 </button>
               </div>
             ) : null}
             <span className="text-xs text-slate-400">Pane preview</span>
-            <span className="text-[10px] text-slate-500 truncate" title={panel.nodeId}>
+            <span className="text-xs text-slate-500 truncate" title={panel.nodeId}>
               {panel.nodeId}
             </span>
           </div>
@@ -590,8 +590,8 @@ export function WorkspaceView({
     return (
       <div className="h-full w-full flex items-center justify-center p-8">
         <div className="max-w-lg rounded border border-border bg-panel p-6 text-center">
-          <h2 className="text-base font-semibold text-slate-100">Layout Editor</h2>
-          <p className="mt-2 text-sm text-slate-300">
+          <h2 className="text-lg font-semibold text-slate-100">Layout Editor</h2>
+          <p className="mt-2 text-base text-slate-300">
             No Studio panels available for this graph yet.
           </p>
           <p className="mt-1 text-xs text-slate-400">
@@ -601,7 +601,7 @@ export function WorkspaceView({
             <button
               type="button"
               onClick={onCreateControlPanel}
-              className="mt-4 rounded border border-emerald-700/70 bg-emerald-900/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-800/40"
+              className="mt-4 rounded border border-emerald-700/70 bg-emerald-900/30 px-3 py-1.5 text-sm text-emerald-100 hover:bg-emerald-800/40"
             >
               New control panel
             </button>
@@ -619,7 +619,7 @@ export function WorkspaceView({
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">Layout Editor</h2>
+            <h2 className="text-base font-semibold text-slate-100">Layout Editor</h2>
             <p className="mt-1 text-xs text-slate-400">
               {visiblePaneCount} visible panel{visiblePaneCount === 1 ? '' : 's'}
             </p>
@@ -628,7 +628,7 @@ export function WorkspaceView({
             <button
               type="button"
               onClick={onCreateControlPanel}
-              className="rounded border border-emerald-700/70 bg-emerald-900/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-800/40"
+              className="rounded border border-emerald-700/70 bg-emerald-900/30 px-3 py-1.5 text-sm text-emerald-100 hover:bg-emerald-800/40"
             >
               New control panel
             </button>

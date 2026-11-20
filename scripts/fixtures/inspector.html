@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Inspector acceptance fixture</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="/typography.css"><title>Inspector acceptance fixture</title></head>
 <body>
   <!-- Component acceptance harness. Never loaded by the Studio application. -->
   <main id="root" style="width:300px;height:100vh;margin-left:auto;background:var(--theme-app-surface)"></main>
@@ -14,6 +14,8 @@
     import { useRuntimeSessionStore } from '/src/features/runtime-session/store/runtimeSessionStore.ts';
     import { themeManager } from '/src/features/themes/theme-store.ts';
     import '/src/styles/index.css';
+    import {loadUiFont} from '/src/styles/typography.ts';
+    await loadUiFont();
     await themeManager.initialize();
     document.documentElement.dataset.themeReady = 'true';
     useGraphTabsStore.getState().initializeFromSnapshot({metadata:{name:'Inspector acceptance'},nodes:[],edges:[]});

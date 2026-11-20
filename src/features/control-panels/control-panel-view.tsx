@@ -346,7 +346,7 @@ function ControlWidgetField({
           {...dragHandleProps}
           aria-label={`Drag ${labelText}`}
           onClick={(event) => event.preventDefault()}
-          className="shrink-0 cursor-grab touch-none rounded border border-slate-600 px-1 text-xs text-slate-400 active:cursor-grabbing"
+          className="shrink-0 cursor-grab touch-none rounded border border-slate-600 px-1 text-sm text-slate-400 active:cursor-grabbing"
         >
           ::
         </button>
@@ -377,14 +377,14 @@ function ControlWidgetField({
             >
               <div className="shrink-0 border-b border-slate-700 px-3 py-2">
                 <p className="text-xs font-semibold text-slate-100">Widget actions</p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+                <p className="mt-0.5 text-xs text-slate-400">
                   {getControlWidgetTargetLabel(widget)} ·{' '}
                   {widget.binding.kind === 'parameter' ? widget.binding.parameterName : widget.binding.variableName}
                 </p>
               </div>
               <div className="min-h-0 space-y-3 overflow-y-auto p-3">
                 <div className="space-y-1">
-                  <label className="block text-[11px] uppercase tracking-wide text-slate-400">Label</label>
+                  <label className="block text-sm uppercase tracking-wide text-slate-400">Label</label>
                   <input
                     type="text"
                     value={labelDraft}
@@ -395,14 +395,14 @@ function ControlWidgetField({
                         event.currentTarget.blur();
                       }
                     }}
-                    className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                    className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500"
                   />
                 </div>
                 {widget.inputKind === 'slider' && (
                   <div className="grid grid-cols-3 gap-2">
                     {(['min', 'max', 'step'] as const).map((key) => (
                       <label key={key} className="space-y-1">
-                        <span className="block text-[11px] uppercase tracking-wide text-slate-400">{key}</span>
+                        <span className="block text-xs uppercase tracking-wide text-slate-400">{key}</span>
                         <input
                           type="number"
                           value={widget.slider?.[key] ?? ''}
@@ -418,14 +418,14 @@ function ControlWidgetField({
                               [key]: next,
                             });
                           }}
-                          className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                          className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500"
                         />
                       </label>
                     ))}
                   </div>
                 )}
                 <div className="space-y-1">
-                  <label className="block text-[11px] uppercase tracking-wide text-slate-400">Type</label>
+                  <label className="block text-sm uppercase tracking-wide text-slate-400">Type</label>
                   <select
                     value={widget.inputKind}
                     onChange={(event) =>
@@ -435,7 +435,7 @@ function ControlWidgetField({
                         event.target.value as 'text' | 'number' | 'slider' | 'boolean' | 'enum',
                       )
                     }
-                    className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                    className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500"
                   >
                     {resolvedInputKindOptions.map((option) => (
                       <option key={option} value={option}>
@@ -445,13 +445,13 @@ function ControlWidgetField({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="block text-[11px] uppercase tracking-wide text-slate-400">Move to panel</label>
+                  <label className="block text-sm uppercase tracking-wide text-slate-400">Move to panel</label>
                   <div className="flex gap-2">
                     <select
                       value={destinationPanelId}
                       onChange={(event) => setDestinationPanelId(event.target.value)}
                       disabled={destinationPanelOptions.length === 0}
-                      className="min-w-0 flex-1 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="min-w-0 flex-1 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {destinationPanelOptions.length === 0 ? (
                         <option value="">No other control panels</option>
@@ -509,7 +509,7 @@ function ControlWidgetField({
                   Remove widget
                 </button>
                 {destinationPanelOptions.length > 0 && (
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     Current target: {selectedControlPanelTitle}
                   </p>
                 )}
@@ -633,7 +633,7 @@ function ControlWidgetField({
                 event.currentTarget.blur();
               }
             }}
-            className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
           />
         )}
         <span className="justify-self-end text-xs tabular-nums text-slate-400" title={errorMessage ?? undefined}>
@@ -680,7 +680,7 @@ function ControlWidgetField({
             setDraftText(next);
             void savePatch(next);
           }}
-          className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {options.map((option) => (
             <option key={option || '__empty__'} value={option}>
@@ -749,7 +749,7 @@ function ControlWidgetField({
             event.currentTarget.blur();
           }
         }}
-        className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
       />
       <span className="justify-self-end text-xs tabular-nums text-slate-400" title={errorMessage ?? undefined}>
         {widgetValueLabel(widget, displayText) || '—'}

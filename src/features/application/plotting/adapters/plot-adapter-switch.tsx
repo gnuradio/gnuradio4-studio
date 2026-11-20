@@ -17,7 +17,7 @@ export function PlotAdapterSwitch(props: PlotAdapterProps) {
   return (
     <div className="h-full min-h-[9rem] rounded border border-slate-700 bg-slate-950/70 p-3">
       <div className="text-xs font-semibold text-slate-100">Plot adapter placeholder</div>
-      <p className="mt-2 text-[11px] text-slate-400">
+      <p className="mt-2 text-xs text-slate-400">
         Plot kind &quot;{props.spec.kind}&quot; is not wired in Step 1.
       </p>
     </div>

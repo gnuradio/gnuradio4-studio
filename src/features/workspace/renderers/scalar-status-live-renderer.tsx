@@ -227,7 +227,7 @@ export function ScalarStatusLiveRenderer({ liveContext, presentation }: ScalarSt
       </div>
 
       {!supportsLivePath && (
-        <p className="mt-2 text-[11px] text-slate-400">
+        <p className="mt-2 text-xs text-slate-400">
           {liveContext.binding.status === 'configured'
             ? 'Scalar/status renderer supports http_snapshot/http_poll/websocket.'
             : 'Configure binding transport to enable live scalar/status rendering.'}
@@ -235,13 +235,13 @@ export function ScalarStatusLiveRenderer({ liveContext, presentation }: ScalarSt
       )}
 
       {supportsLivePath && state === 'error' && !snapshot && (
-        <p className="mt-2 break-words text-[11px] text-rose-300">
+        <p className="mt-2 break-words text-xs text-rose-300">
           Error: {error ?? 'Scalar/status live request failed.'}
         </p>
       )}
 
       {supportsLivePath && state === 'no-data' && !hasDisplayValues && (
-        <p className="mt-2 text-[11px] text-slate-400">No scalar values have arrived yet.</p>
+        <p className="mt-2 text-xs text-slate-400">No scalar values have arrived yet.</p>
       )}
 
       {supportsLivePath && hasDisplayValues && (
@@ -249,10 +249,10 @@ export function ScalarStatusLiveRenderer({ liveContext, presentation }: ScalarSt
           <div className="mt-3 overflow-hidden rounded border border-slate-800">
             {rows.map((row) => (
               <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-slate-800 px-3 py-2 last:border-b-0">
-                <span className="truncate text-[11px] font-medium text-slate-300" title={row.label}>
+                <span className="truncate text-xs font-medium text-slate-300" title={row.label}>
                   {row.label}
                 </span>
-                <span className="font-mono text-[11px] text-cyan-200">{formatValue(row.value, row.unit)}</span>
+                <span className="font-mono text-xs text-cyan-200">{formatValue(row.value, row.unit)}</span>
               </div>
             ))}
           </div>
@@ -260,10 +260,10 @@ export function ScalarStatusLiveRenderer({ liveContext, presentation }: ScalarSt
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {rows.map((row) => (
               <div key={row.label} className="min-w-0 rounded border border-slate-800 bg-slate-900/45 px-3 py-2">
-                <p className="truncate text-[10px] font-medium uppercase tracking-normal text-slate-400" title={row.label}>
+                <p className="truncate text-xs font-medium uppercase tracking-normal text-slate-400" title={row.label}>
                   {row.label}
                 </p>
-                <p className="mt-1 truncate font-mono text-lg text-cyan-200" title={formatValue(row.value, row.unit)}>
+                <p className="mt-1 truncate font-mono text-xl text-cyan-200" title={formatValue(row.value, row.unit)}>
                   {formatValue(row.value, row.unit)}
                 </p>
               </div>

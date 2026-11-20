@@ -1478,20 +1478,20 @@ export function StudioPage() {
         <div className="min-w-0 flex items-center gap-3">
           <StudioMark className="h-9 w-9 shrink-0" />
           <div className="min-w-0">
-            <h1 className="text-lg font-semibold tracking-[0.22em] uppercase text-slate-100">gr4-studio</h1>
+            <h1 className="text-xl font-semibold tracking-[0.22em] uppercase text-slate-100">gr4-studio</h1>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <details data-file-menu className="relative">
-            <summary className="cursor-pointer list-none rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700">
+            <summary className="cursor-pointer list-none rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-200 hover:bg-slate-700">
               File
             </summary>
-            <div className="absolute right-0 z-40 mt-1 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto rounded border border-slate-700 bg-slate-900 p-1 shadow-lg">
+            <div className="absolute right-0 z-40 mt-1 max-h-[calc(100dvh-6rem)] w-64 overflow-y-auto rounded border border-slate-700 bg-slate-900 p-1 shadow-lg [&_button]:font-normal">
               <button
                 type="button"
                 onClick={() => executeStudioCommand('new')}
                 disabled={busy}
-                className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="w-full rounded px-2 py-1 text-left text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
                 New
               </button>
@@ -1500,7 +1500,7 @@ export function StudioPage() {
                 onClick={() => executeStudioCommand('open')}
                 disabled={busy}
                 title={openTooltip}
-                className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="w-full rounded px-2 py-1 text-left text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
                 Open...
               </button>
@@ -1510,7 +1510,7 @@ export function StudioPage() {
                 onClick={() => executeStudioCommand('save')}
                 disabled={busy || !saveEnabled}
                 title={saveTooltip}
-                className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="w-full rounded px-2 py-1 text-left text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
                 Save
               </button>
@@ -1519,7 +1519,7 @@ export function StudioPage() {
                 onClick={() => executeStudioCommand('saveAs')}
                 disabled={busy || !activeTabId}
                 title={saveAsTooltip}
-                className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="w-full rounded px-2 py-1 text-left text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
                 Save As...
               </button>
@@ -1527,11 +1527,11 @@ export function StudioPage() {
                 type="button"
                 onClick={() => executeStudioCommand('rename')}
                 disabled={busy || !activeTabId}
-                className="w-full rounded px-2 py-1 text-left text-xs text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="w-full rounded px-2 py-1 text-left text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
               >
                 Rename...
               </button>
-              <p className="mt-1 border-t border-slate-700 px-2 pt-1 text-[10px] text-slate-400">
+              <p className="mt-1 border-t border-slate-700 px-2 pt-1 text-xs text-slate-400">
                 {capabilityIndicatorText}
               </p>
             </div>
@@ -1542,7 +1542,7 @@ export function StudioPage() {
             onClick={() => executeStudioCommand('open')}
             disabled={busy}
             title={openTooltip}
-            className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+            className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-200 hover:bg-slate-700 disabled:opacity-50"
           >
             Open...
           </button>
@@ -1551,7 +1551,7 @@ export function StudioPage() {
             onClick={() => executeStudioCommand('save')}
             disabled={busy || !saveEnabled}
             title={saveTooltip}
-            className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+            className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-200 hover:bg-slate-700 disabled:opacity-50"
           >
             Save
           </button>
@@ -1560,7 +1560,7 @@ export function StudioPage() {
             onClick={() => executeStudioCommand('saveAs')}
             disabled={busy || !activeTabId}
             title={saveAsTooltip}
-            className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+            className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-sm text-slate-200 hover:bg-slate-700 disabled:opacity-50"
           >
             Save As...
           </button>
@@ -1568,7 +1568,7 @@ export function StudioPage() {
             <WasmBackendPill />
           ) : (
             <span
-              className="rounded-full border border-slate-600 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-200"
+              className="rounded-full border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200"
               title={transportDiagnosticsTitle}
             >
               {backendEndpointLabel}
@@ -1617,7 +1617,7 @@ export function StudioPage() {
               }
               setShowUnsupportedNotice(false);
             }}
-            className="rounded border border-amber-700/70 bg-amber-900/35 px-2 py-1 text-[11px] text-amber-100 hover:bg-amber-800/45"
+            className="rounded border border-amber-700/70 bg-amber-900/35 px-2 py-1 text-sm text-amber-100 hover:bg-amber-800/45"
           >
             Dismiss
           </button>
@@ -1644,11 +1644,11 @@ export function StudioPage() {
         </aside>
 
         <section className="relative min-h-0 overflow-hidden bg-slate-950 flex flex-col">
-          <div className="h-10 shrink-0 border-b border-border bg-slate-950/80 px-3 flex items-center gap-2">
+          <div className="h-10 shrink-0 overflow-x-auto [scrollbar-width:thin] border-b border-border bg-slate-950/80 px-3 flex items-center gap-1 [&>button]:shrink-0 [&>button]:whitespace-nowrap [&>div]:shrink-0">
             <button
               type="button"
               onClick={() => executeStudioCommand('graph')}
-              className={`rounded border px-2 py-1 text-xs ${
+              className={`rounded border px-2 py-1 text-sm ${
                 activeCenterView === 'graph'
                   ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
                   : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -1659,7 +1659,7 @@ export function StudioPage() {
             <button
               type="button"
               onClick={() => executeStudioCommand('variables')}
-              className={`rounded border px-2 py-1 text-xs ${
+              className={`rounded border px-2 py-1 text-sm ${
                 activeCenterView === 'variables'
                   ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
                   : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -1670,7 +1670,7 @@ export function StudioPage() {
             <button
               type="button"
               onClick={() => executeStudioCommand('workspace')}
-              className={`rounded border px-2 py-1 text-xs ${
+              className={`rounded border px-2 py-1 text-sm ${
                 activeCenterView === 'workspace'
                   ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
                   : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -1682,7 +1682,7 @@ export function StudioPage() {
               <button
                 type="button"
                 onClick={() => executeStudioCommand('application')}
-                className={`rounded border px-2 py-1 text-xs ${
+                className={`rounded border px-2 py-1 text-sm ${
                   activeCenterView === 'application'
                     ? 'border-emerald-600/70 bg-emerald-900/30 text-emerald-100'
                     : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -1831,7 +1831,7 @@ export function StudioPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70" role="dialog" aria-modal="true" aria-label="Rename document">
           <form className="w-96 rounded border border-slate-700 bg-slate-900 p-4" onSubmit={(event) => { event.preventDefault(); applyRename(); }} onKeyDown={(event) => { if (event.key === 'Escape') setRenameDocument(null); }}>
             <label className="block text-sm" htmlFor="document-name">Document name</label>
-            <input id="document-name" autoFocus value={renameDocument.name} onChange={(event) => setRenameDocument({ ...renameDocument, name: event.target.value })} className="mt-2 w-full rounded border border-slate-600 bg-slate-950 p-2 text-sm" />
+            <input id="document-name" autoFocus value={renameDocument.name} onChange={(event) => setRenameDocument({ ...renameDocument, name: event.target.value })} className="mt-2 w-full rounded border border-slate-600 bg-slate-950 p-2 text-base" />
             <div className="mt-4 flex justify-end gap-2 text-sm">
               <button type="button" onClick={() => setRenameDocument(null)} className="rounded border border-slate-600 px-3 py-1">Cancel</button>
               <button type="submit" disabled={!renameDocument.name.trim()} className="rounded border border-emerald-600 px-3 py-1 disabled:opacity-50">Rename</button>
@@ -1866,10 +1866,10 @@ export function StudioPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-slate-950/60" />
           <div className="relative w-[30rem] max-w-[calc(100%-2rem)] rounded border border-slate-700 bg-slate-900 p-4 shadow-xl">
-            <h2 className="text-sm font-semibold text-slate-100">
+            <h2 className="text-base font-semibold text-slate-100">
               Save changes to {tabs.find((tab) => tab.id === pendingDestructiveAction.tabId)?.document.displayName ?? STUDIO_UNTITLED_NAME}?
             </h2>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-2 text-base text-slate-300">
               Your changes will be lost if you don&apos;t save them.
             </p>
             <div className="mt-4 flex items-center justify-end gap-2">
@@ -1877,7 +1877,7 @@ export function StudioPage() {
                 type="button"
                 onClick={() => void onUnsavedDialogSave()}
                 disabled={busy}
-                className="rounded border border-emerald-700/70 bg-emerald-900/35 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-800/45"
+                className="rounded border border-emerald-700/70 bg-emerald-900/35 px-3 py-1.5 text-sm text-emerald-100 hover:bg-emerald-800/45"
               >
                 Save
               </button>
@@ -1889,7 +1889,7 @@ export function StudioPage() {
                   performCloseTab(targetTabId);
                 }}
                 disabled={busy}
-                className="rounded border border-amber-700/70 bg-amber-900/30 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-800/40"
+                className="rounded border border-amber-700/70 bg-amber-900/30 px-3 py-1.5 text-sm text-amber-100 hover:bg-amber-800/40"
               >
                 Don&apos;t Save
               </button>
@@ -1897,7 +1897,7 @@ export function StudioPage() {
                 type="button"
                 onClick={() => setPendingDestructiveAction(null)}
                 disabled={busy}
-                className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-100 hover:bg-slate-700"
+                className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-sm text-slate-100 hover:bg-slate-700"
               >
                 Cancel
               </button>
