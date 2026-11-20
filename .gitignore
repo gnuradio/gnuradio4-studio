@@ -5,3 +5,9 @@ dist
 .DS_Store
 *.log
 build/
+
+# Local implementation notes and generated verification artifacts.
+/.doc/
+/.evidence/
+# Guard against recreating the former artifact directory.
+/docs/evidence/

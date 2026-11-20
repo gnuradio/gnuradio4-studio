@@ -217,8 +217,6 @@ The display route is a runtime client, not an editor:
 
 Use the main Studio runtime controls to stop or delete sessions. Use **Open Display** to reopen a display client for an already running linked session.
 
-More detail: `docs/display-application-popout-plan.md`.
-
 For manual waterfall validation, the repo also ships canonical fixture payloads under `public/demo/`:
 
 - `waterfall-spectrum-json-v1.normal.json`

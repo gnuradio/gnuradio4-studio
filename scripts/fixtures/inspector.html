@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Inspector acceptance fixture</title></head>
+<body>
+  <!-- Component acceptance harness. Never loaded by the Studio application. -->
+  <main id="root" style="width:300px;height:100vh;margin-left:auto;background:var(--theme-app-surface)"></main>
+  <script type="module">
+    import React from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+    import { InspectorPanel } from '/src/features/inspector/inspector-panel.tsx';
+    import { useEditorStore } from '/src/features/graph-editor/store/editorStore.ts';
+    import { useGraphTabsStore } from '/src/features/graph-tabs/store/graphTabsStore.ts';
+    import { useRuntimeSessionStore } from '/src/features/runtime-session/store/runtimeSessionStore.ts';
+    import { themeManager } from '/src/features/themes/theme-store.ts';
+    import '/src/styles/index.css';
+    await themeManager.initialize();
+    document.documentElement.dataset.themeReady = 'true';
+    useGraphTabsStore.getState().initializeFromSnapshot({metadata:{name:'Inspector acceptance'},nodes:[],edges:[]});
+    const tabId = useGraphTabsStore.getState().activeTabId;
+    useRuntimeSessionStore.getState().ensureTabContext(tabId);
+    window.inspectorTest = {useEditorStore, useRuntimeSessionStore, themeManager, tabId};
+    let content=React.createElement(InspectorPanel);
+    if (new URLSearchParams(location.search).has('canvas')) {
+      const {ReactFlowProvider}=await import('@xyflow/react');
+      const {GraphEditorPanel}=await import('/src/features/graph-editor/graph-editor-panel.tsx');
+      document.getElementById('root').style.width='100vw';
+      content=React.createElement('div',{style:{display:'flex',height:'100%'}},
+        React.createElement('div',{style:{flex:1,minWidth:0}},React.createElement(ReactFlowProvider,null,
+          React.createElement(GraphEditorPanel,{graphId:tabId,onOpenBlockProperties:()=>{},isBlockPropertiesOpen:false}))),
+        React.createElement('aside',{style:{width:300,minWidth:0}},React.createElement(InspectorPanel)));
+    }
+    createRoot(document.getElementById('root')).render(React.createElement(QueryClientProvider,
+      {client:new QueryClient({defaultOptions:{queries:{retry:false}}})}, content));
+  </script>
+</body>
+</html>

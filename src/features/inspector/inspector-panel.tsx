@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from
 import { useQueries } from '@tanstack/react-query';
 import { PanelHeader } from '../../components/panel-header';
 import { StatusPill } from '../../components/status-pill';
-import { formatTimestamp } from '../../lib/utils/ui-formatting';
 import { isAdvancedParameterName, isAdvancedUiHint } from '../../lib/utils/parameter-groups';
 import { resolveRenderedPorts } from '../ports/model/resolveRenderedPorts';
 import type { SchemaPort } from '../ports/model/types';
@@ -25,7 +24,7 @@ import type { RuntimeSettingsValue } from '../../lib/api/block-settings';
 import { useRuntimeSessionStore } from '../runtime-session/store/runtimeSessionStore';
 import { buildCurrentGraphSubmissionFromEditorSnapshot } from '../runtime-submission/model/current-graph-submission';
 import { canDownloadCurrentGraph, downloadCurrentGraphAsGr4c } from '../document-file/gr4c-download';
-import { toCanonicalBlockDisplayName } from '../graph-editor/model/presentation';
+import { SelectionHeader, SelectionParameters, SelectionPorts, SelectionAdvanced } from './selection-details';
 import type { BlockDetails, BlockParameterMeta } from '../../lib/api/block-details';
 import { getBlockDetails } from '../../lib/api/block-details';
 import {
@@ -40,43 +39,11 @@ import {
   isVirtualRoutingBlockType,
 } from '../graph-editor/model/virtual-routing';
 import { SidePanelToggleButton } from '../../components/side-panel-toggle-button';
+import { InspectorSection } from './inspector-components';
+import { GraphDetails } from './graph-details';
+import { SessionDetails } from './session-details';
 
 type InspectorTabId = 'selection' | 'graph' | 'session';
-
-function graphSubmissionLabel(state: 'none' | 'current' | 'stale' | undefined): string {
-  if (state === 'current') {
-    return 'linked session snapshot current';
-  }
-  if (state === 'stale') {
-    return 'linked session snapshot stale';
-  }
-  return 'no snapshot baseline';
-}
-
-function runIntentLabel(state: 'none' | 'create-session' | 'replace-session-from-edits' | 'start-linked-session' | undefined): string {
-  if (state === 'create-session') {
-    return 'Run creates and starts a new session from current graph.';
-  }
-  if (state === 'replace-session-from-edits') {
-    return 'Run replaces the linked session with a new session from current graph edits.';
-  }
-  if (state === 'start-linked-session') {
-    return 'Run starts the linked session.';
-  }
-  return 'Session currently running.';
-}
-
-function SummaryLabel({ children }: { children: string }) {
-  return <p className="text-xs uppercase tracking-wide text-slate-400">{children}</p>;
-}
-
-function SummaryValue({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-slate-100 font-medium break-words">{children}</p>;
-}
-
-function SectionCard({ children }: { children: ReactNode }) {
-  return <div className="rounded-md border border-slate-700 bg-slate-900/60 p-3 space-y-2">{children}</div>;
-}
 
 const LOCAL_PLOT_SETTING_NAMES = new Set([
   'autoscale',
@@ -93,23 +60,10 @@ const LOCAL_PLOT_SETTING_NAMES = new Set([
 
 function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-md border border-dashed border-slate-700 p-3 text-sm text-slate-400">
+    <div className="py-2 text-xs text-slate-400">
       {children}
     </div>
   );
-}
-
-function bindingStateClass(state: 'unsupported' | 'unconfigured' | 'configured' | 'invalid'): string {
-  if (state === 'configured') {
-    return 'border-emerald-600/60 bg-emerald-900/20 text-emerald-200';
-  }
-  if (state === 'unconfigured') {
-    return 'border-amber-600/60 bg-amber-900/20 text-amber-200';
-  }
-  if (state === 'invalid') {
-    return 'border-rose-600/60 bg-rose-900/20 text-rose-200';
-  }
-  return 'border-slate-600 bg-slate-800/70 text-slate-300';
 }
 
 function toSchemaPorts(details: NonNullable<ReturnType<typeof useBlockDetailsQuery>['data']>): SchemaPort[] {
@@ -132,7 +86,7 @@ function toSchemaPorts(details: NonNullable<ReturnType<typeof useBlockDetailsQue
     }));
 }
 
-function RuntimeSettingsCard({
+function RuntimeSettingsSection({
   runtimeContext,
   graphDriftState,
   selectedBlock,
@@ -160,6 +114,7 @@ function RuntimeSettingsCard({
   const [draftValues, setDraftValues] = useState<Record<string, string | boolean>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (!query.data) {
@@ -312,9 +267,9 @@ function RuntimeSettingsCard({
         }
       };
       return (
-        <label key={name} className="block rounded border border-slate-700 p-2">
-          <p className="text-xs uppercase tracking-wide text-slate-400">{name}</p>
-          <p className="mb-2 text-[11px] text-slate-500">{typeLabel} · JSON list</p>
+        <label key={name} className="block space-y-1">
+          <p className="text-xs text-slate-300">{name}</p>
+          <p className="text-[11px] text-slate-400">{typeLabel} · JSON list</p>
           <input
             type="text"
             value={text}
@@ -328,7 +283,7 @@ function RuntimeSettingsCard({
                 event.currentTarget.blur();
               }
             }}
-            className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 disabled:opacity-70"
+            className="inspector-input disabled:opacity-70"
           />
         </label>
       );
@@ -337,10 +292,10 @@ function RuntimeSettingsCard({
     if (typeof value === 'boolean') {
       const checked = Boolean(draftValues[name]);
       return (
-        <label key={name} className="flex items-center justify-between gap-3 rounded border border-slate-700 p-2">
+        <label key={name} className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-            <p className="text-[11px] text-slate-500">{typeLabel}</p>
+            <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+            <p className="text-[11px] text-slate-400">{typeLabel}</p>
           </div>
           <input
             type="checkbox"
@@ -368,9 +323,9 @@ function RuntimeSettingsCard({
         const visibleChoices = inputValue && !enumChoices.includes(inputValue) ? [inputValue, ...enumChoices] : enumChoices;
 
         return (
-          <label key={name} className="block rounded border border-slate-700 p-2">
-            <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-            <p className="mb-2 text-[11px] text-slate-500">{typeLabel}</p>
+          <label key={name} className="block space-y-1">
+            <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+            <p className="text-[11px] text-slate-400">{typeLabel}</p>
             <select
               value={selectValue}
               disabled={!editable || mutation.isPending}
@@ -382,7 +337,7 @@ function RuntimeSettingsCard({
                 setDraftValues((current) => ({ ...current, [name]: nextValue }));
                 void savePatch(name, typeof value === 'number' ? Number(nextValue) : nextValue);
               }}
-              className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-70"
+              className="inspector-input disabled:opacity-70"
             >
               {visibleChoices.map((choice) => (
                 <option key={choice} value={choice}>
@@ -413,9 +368,9 @@ function RuntimeSettingsCard({
       };
 
       return (
-        <label key={name} className="block rounded border border-slate-700 p-2">
-          <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-          <p className="mb-2 text-[11px] text-slate-500">{typeLabel}</p>
+        <label key={name} className="block space-y-1">
+          <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+          <p className="text-[11px] text-slate-400">{typeLabel}</p>
           <input
             type={typeof value === 'number' ? 'number' : 'text'}
             value={inputValue}
@@ -431,17 +386,17 @@ function RuntimeSettingsCard({
               void commitScalar();
             }}
             onKeyDown={onKeyDown}
-            className="w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500 disabled:opacity-70"
+            className="inspector-input disabled:opacity-70"
           />
         </label>
       );
     }
 
     return (
-      <div key={name} className="rounded border border-slate-700 p-2">
-        <p className="text-xs uppercase tracking-wide text-slate-400">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-        <p className="mb-2 text-[11px] text-slate-500">nested object</p>
-        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded bg-slate-950/70 p-2 text-[11px] text-slate-300">
+      <div key={name} className="space-y-1">
+        <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+        <p className="text-[11px] text-slate-400">nested object</p>
+        <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] rounded bg-slate-950/70 p-2 text-[11px] text-slate-300">
           {JSON.stringify(value, null, 2)}
         </pre>
       </div>
@@ -449,40 +404,40 @@ function RuntimeSettingsCard({
   };
 
   return (
-    <SectionCard>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <SummaryLabel>Runtime Settings</SummaryLabel>
-          <p className="text-[11px] text-slate-500">
-            Live runtime edits target the linked session only. They do not change the graph document.
-          </p>
-        </div>
-        {availability.state === 'ready' && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={applyRuntimeToGraph}
-              disabled={query.isFetching || mutation.isPending || Object.keys(applicableGraphPatch).length === 0}
-              className="rounded border border-emerald-700/70 bg-emerald-900/30 px-2 py-1 text-[11px] text-emerald-100 hover:bg-emerald-800/40 disabled:opacity-50"
-            >
-              Apply To Graph
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void query.refetch();
-              }}
-              disabled={query.isFetching || mutation.isPending}
-              className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 hover:bg-slate-700 disabled:opacity-50"
-            >
-              Refresh
-            </button>
-          </div>
-        )}
+    <InspectorSection>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="inspector-heading">Runtime</h3>
+        {runtimeContext?.sessionId && <StatusPill status={runtimeContext.session?.state ?? 'unknown'} />}
       </div>
 
-      {availability.state === 'unavailable' && (
-        <p className="text-sm text-slate-400">{availability.reason}</p>
+      {!runtimeContext?.sessionId ? (
+        <p className="text-xs text-slate-400"><span aria-hidden="true">○ </span>No active session</p>
+      ) : availability.state === 'unavailable' ? (
+        <p className="text-xs text-slate-400">{availability.reason}</p>
+      ) : null}
+
+      {availability.state === 'ready' && (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-400" title="Edits target the linked session. Use Apply to graph to copy editable values to the document. Tab-local plot settings retain their existing synchronization behavior.">
+              Live session settings
+            </span>
+            <button type="button" className="inspector-button" aria-label="About runtime edits"
+              title="Edits target the linked session. Apply to graph copies editable values into the document. Tab-local plot settings also synchronize with the graph."
+              onClick={() => setShowHelp((current) => !current)} aria-expanded={showHelp}>?</button>
+          </div>
+          {showHelp && <p className="text-[11px] text-slate-400">
+            Edits target the linked session. Apply to graph copies editable values into the document.
+            Tab-local plot settings also synchronize with the graph.
+          </p>}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={applyRuntimeToGraph}
+              disabled={query.isFetching || mutation.isPending || Object.keys(applicableGraphPatch).length === 0}
+              className="inspector-button">Apply to graph</button>
+            <button type="button" onClick={() => { void query.refetch(); }}
+              disabled={query.isFetching || mutation.isPending} className="inspector-button">Refresh</button>
+          </div>
+        </>
       )}
 
       {availability.state === 'ready' && query.isPending && (
@@ -503,11 +458,9 @@ function RuntimeSettingsCard({
 
       {availability.state === 'ready' && query.data && (
         <div className="space-y-3">
-          <div className="rounded border border-slate-700 bg-slate-950/50 px-2 py-1 text-[11px] text-slate-400">
-            target: {uniqueName}
-            {query.isFetching && ' · loading'}
-            {mutation.isPending && ' · saving'}
-          </div>
+          {(query.isFetching || mutation.isPending) && <p role="status" className="text-[11px] text-slate-400">
+            {mutation.isPending ? 'Saving…' : 'Refreshing…'}
+          </p>}
 
           {editableEntries.length === 0 && advancedEntries.length === 0 && (
             <p className="text-sm text-slate-400">No live-editable runtime settings available for this block.</p>
@@ -515,15 +468,14 @@ function RuntimeSettingsCard({
 
           {editableEntries.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">Editable</p>
               {editableEntries.map(([name, value]) => renderRuntimeValue(name, value, true))}
             </div>
           )}
 
           {advancedEntries.length > 0 && (
-            <details className="rounded border border-slate-700 bg-slate-950/30 p-2">
-              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                Advanced ({advancedEntries.length})
+            <details className="inspector-disclosure">
+              <summary className="text-xs text-slate-400">
+                Runtime metadata ({advancedEntries.length})
               </summary>
               <div className="mt-2 space-y-2">
                 {advancedEntries.map(([name, value]) => renderRuntimeValue(name, value, false))}
@@ -532,7 +484,7 @@ function RuntimeSettingsCard({
           )}
         </div>
       )}
-    </SectionCard>
+    </InspectorSection>
   );
 }
 
@@ -546,9 +498,6 @@ function SelectionTab({
   const selectedBlock = useEditorStore((state) =>
     state.nodes.find((block) => block.instanceId === state.selectedNodeId),
   );
-  const canonicalDisplayName = selectedBlock
-    ? toCanonicalBlockDisplayName(selectedBlock.displayName, selectedBlock.blockTypeId)
-    : '';
   const isVirtualRouting = selectedBlock ? isVirtualRoutingBlockType(selectedBlock.blockTypeId) : false;
   const isNote = selectedBlock ? isNoteBlockType(selectedBlock.blockTypeId) : false;
   const blockDetailsQuery = useBlockDetailsQuery(selectedBlock?.blockTypeId);
@@ -600,32 +549,40 @@ function SelectionTab({
 
   return (
     <>
-      <SectionCard>
-        <div>
-          <SummaryLabel>Instance ID</SummaryLabel>
-          <SummaryValue>{selectedBlock.instanceId}</SummaryValue>
-        </div>
-        <div>
-          <SummaryLabel>Block Type ID</SummaryLabel>
-          <SummaryValue>{selectedBlock.blockTypeId}</SummaryValue>
-        </div>
-        <div>
-          <SummaryLabel>Display Name</SummaryLabel>
-          <SummaryValue>{canonicalDisplayName}</SummaryValue>
-        </div>
-      </SectionCard>
+      <SelectionHeader block={selectedBlock} details={blockDetailsQuery.data} />
+
+      {blockDetailsQuery.isPending && <EmptyState>Loading block properties…</EmptyState>}
+      {blockDetailsQuery.isError && (
+        <p role="alert" className="inspector-section text-xs text-rose-300 [overflow-wrap:anywhere]">
+          Failed to load block properties: {blockDetailsQuery.error.message}
+        </p>
+      )}
+      {blockDetailsQuery.data && <SelectionParameters key={`parameters:${selectedBlock.instanceId}`} block={selectedBlock} details={blockDetailsQuery.data} />}
+      {studioBinding && (studioBinding.status === 'invalid' || studioBinding.status === 'unconfigured') && (
+        <p role="alert" className="rounded border border-amber-600 bg-amber-900/20 p-2 text-xs text-amber-200 [overflow-wrap:anywhere]">
+          Studio display binding: {studioBinding.reason}
+        </p>
+      )}
+
+      <InspectorSection>
+        <h3 className="inspector-heading">Ports</h3>
+        {blockDetailsQuery.isPending && <p className="text-xs text-slate-400">Loading ports…</p>}
+        {blockDetailsQuery.isError && <p className="text-xs text-slate-400">Ports unavailable.</p>}
+        {blockDetailsQuery.data && <SelectionPorts ports={renderedPorts} />}
+      </InspectorSection>
 
       {isVirtualRouting || isNote ? (
-        <SectionCard>
-          <SummaryLabel>{isNote ? 'Note' : 'Virtual Route'}</SummaryLabel>
-          <p className="text-sm text-slate-300">
-            {isNote
-              ? 'This block is editor-only. It displays text on the graph canvas and is removed before runtime submission.'
-              : 'This block is editor-only. It is removed before runtime submission and replaced with direct graph connections through its matching stream_id.'}
+        <InspectorSection>
+          <h3 className="inspector-heading">Runtime</h3>
+          <p className="text-xs text-slate-400" title={isNote
+            ? 'Notes are removed before runtime submission.'
+            : 'Virtual routes become direct graph connections before runtime submission.'}>
+            Editor-only {isNote ? 'note' : 'virtual route'}
           </p>
-        </SectionCard>
+        </InspectorSection>
       ) : (
-        <RuntimeSettingsCard
+        <RuntimeSettingsSection
+          key={`runtime:${selectedBlock.instanceId}`}
           runtimeContext={runtimeContext}
           graphDriftState={graphDriftState}
           selectedBlock={selectedBlock}
@@ -633,120 +590,8 @@ function SelectionTab({
         />
       )}
 
-      <SectionCard>
-        <SummaryLabel>Resolved Ports</SummaryLabel>
-
-        {blockDetailsQuery.isPending && <p className="text-sm text-slate-400">Loading port schema...</p>}
-        {blockDetailsQuery.isError && (
-          <p className="text-sm text-rose-300">Failed to resolve ports: {blockDetailsQuery.error.message}</p>
-        )}
-
-        {blockDetailsQuery.data && renderedPorts.inputs.length === 0 && renderedPorts.outputs.length === 0 && (
-          <p className="text-sm text-slate-400">No ports available for this block.</p>
-        )}
-
-        {renderedPorts.inputs.length > 0 && (
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Inputs</p>
-            <ul className="space-y-1">
-              {renderedPorts.inputs.map((port) => (
-                <li key={port.key} className="text-xs text-slate-300">
-                  {port.displayLabel} · {port.inference}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {renderedPorts.outputs.length > 0 && (
-          <div>
-            <p className="text-xs text-slate-400 mb-1">Outputs</p>
-            <ul className="space-y-1">
-              {renderedPorts.outputs.map((port) => (
-                <li key={port.key} className="text-xs text-slate-300">
-                  {port.displayLabel} · {port.inference}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </SectionCard>
-
-      {studioBinding && (
-        <SectionCard>
-          <SummaryLabel>Studio Binding</SummaryLabel>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs uppercase tracking-wide text-slate-400">State</p>
-              <span
-                className={`rounded border px-2 py-0.5 text-[11px] font-medium ${bindingStateClass(studioBinding.status)}`}
-              >
-                {studioBinding.status}
-              </span>
-            </div>
-
-            {studioBinding.family && (
-              <div>
-                <SummaryLabel>Binding Kind</SummaryLabel>
-                <SummaryValue>{studioBinding.family}</SummaryValue>
-              </div>
-            )}
-
-            {studioBinding.transport && (
-              <div>
-                <SummaryLabel>Transport</SummaryLabel>
-                <SummaryValue>{studioBinding.transport}</SummaryValue>
-              </div>
-            )}
-
-            {studioBinding.endpoint && (
-              <div>
-                <SummaryLabel>Endpoint</SummaryLabel>
-                <SummaryValue>{studioBinding.endpoint}</SummaryValue>
-              </div>
-            )}
-
-            {typeof studioBinding.updateMs === 'number' && (
-              <div>
-                <SummaryLabel>Update Interval (ms)</SummaryLabel>
-                <SummaryValue>{String(studioBinding.updateMs)}</SummaryValue>
-              </div>
-            )}
-
-            {typeof studioBinding.sampleRate === 'number' && (
-              <div>
-                <SummaryLabel>Sample Rate</SummaryLabel>
-                <SummaryValue>{String(studioBinding.sampleRate)}</SummaryValue>
-              </div>
-            )}
-
-            {typeof studioBinding.channels === 'number' && (
-              <div>
-                <SummaryLabel>Channels</SummaryLabel>
-                <SummaryValue>{String(studioBinding.channels)}</SummaryValue>
-              </div>
-            )}
-
-            {studioBinding.topic && (
-              <div>
-                <SummaryLabel>Topic</SummaryLabel>
-                <SummaryValue>{studioBinding.topic}</SummaryValue>
-              </div>
-            )}
-
-            {studioBinding.payloadFormat && (
-              <div>
-                <SummaryLabel>Payload Format</SummaryLabel>
-                <SummaryValue>{studioBinding.payloadFormat}</SummaryValue>
-              </div>
-            )}
-
-            {studioBinding.reason && (
-              <p className="text-xs text-slate-300 break-words">{studioBinding.reason}</p>
-            )}
-          </div>
-        </SectionCard>
-      )}
+      <SelectionAdvanced block={selectedBlock} binding={studioBinding}
+        ports={renderedPorts} details={blockDetailsQuery.data} />
     </>
   );
 }
@@ -765,6 +610,7 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
 
   const documentName = useEditorStore((state) => state.documentName);
   const documentDescription = useEditorStore((state) => state.documentDescription);
+  const setDocumentDescription = useEditorStore((state) => state.setDocumentDescription);
   const schedulerId = useEditorStore((state) => state.schedulerId);
   const setDocumentSchedulerId = useEditorStore((state) => state.setDocumentSchedulerId);
   const studioPanels = useEditorStore((state) => state.studioPanels);
@@ -880,7 +726,6 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
     [],
   );
 
-  const recentActivity = runtimeContext?.activity.slice(0, 15) ?? [];
   const inProcessControlPlane = isControlPlaneWasmEnabled();
   const applicationMode = effectiveApplicationMode(application?.mode ?? 'in_app', { inProcessControlPlane });
   const applicationTitle = application?.title ?? '';
@@ -900,7 +745,7 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
   };
 
   return (
-    <div className="h-full min-h-0 flex flex-col">
+    <div className="inspector h-full min-h-0 min-w-0 flex flex-col" aria-label="Inspector">
       <PanelHeader title="Inspector">
         {onCollapse ? (
           <SidePanelToggleButton direction="right" label="Collapse inspector" onClick={onCollapse} />
@@ -927,7 +772,7 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 p-3 space-y-3 overflow-y-auto">
+      <div className="inspector-content min-h-0 min-w-0 flex-1 px-3 py-3 overflow-y-auto [overflow-wrap:anywhere]">
         {activeTab === 'selection' && (
           <SelectionTab
             runtimeContext={runtimeContext}
@@ -936,200 +781,30 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
         )}
 
         {activeTab === 'graph' && (
-          <>
-            <SectionCard>
-              <SummaryLabel>Local Graph</SummaryLabel>
-              <div className="space-y-2">
-                <div>
-                  <SummaryLabel>Name</SummaryLabel>
-                  <SummaryValue>{documentName}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Description</SummaryLabel>
-                  <SummaryValue>{documentDescription || 'N/A'}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Scheduler</SummaryLabel>
-                  <select
-                    value={schedulerId ?? ''}
-                    onChange={(event) => setDocumentSchedulerId(event.target.value || undefined)}
-                    disabled={schedulersQuery.isPending || schedulersQuery.isError}
-                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">Default scheduler</option>
-                    {schedulerOptions.map((id) => (
-                      <option key={id} value={id}>
-                        {id}
-                      </option>
-                    ))}
-                  </select>
-                  {schedulersQuery.isError && <SummaryValue>Failed to load schedulers.</SummaryValue>}
-                </div>
-                <div>
-                  <SummaryLabel>Display Mode</SummaryLabel>
-                  {inProcessControlPlane ? (
-                    <p className="mt-1 text-xs text-slate-400">
-                      Other display modes require a native backend, WASM only supports in-app displays.
-                    </p>
-                  ) : (
-                    <select
-                      value={applicationMode}
-                      onChange={(event) => updateApplicationMode(event.target.value as ApplicationMode)}
-                      className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100"
-                    >
-                      <option value="in_app">In-app</option>
-                      <option value="new_tab">New tab</option>
-                      <option value="popout">Popout</option>
-                    </select>
-                  )}
-                </div>
-                <div>
-                  <SummaryLabel>Display Title</SummaryLabel>
-                  <input
-                    type="text"
-                    value={applicationTitle}
-                    onChange={(event) => updateApplicationTitle(event.target.value)}
-                    placeholder={activeGraphTab?.document.displayName || documentName || 'Application'}
-                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100 placeholder:text-slate-500"
-                  />
-                </div>
-                <div>
-                  <SummaryLabel>Blocks</SummaryLabel>
-                  <SummaryValue>{String(nodes.length)}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Connections</SummaryLabel>
-                  <SummaryValue>{String(edges.length)}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Submission Snapshot</SummaryLabel>
-                  <SummaryValue>{graphSubmissionLabel(runtimeView?.graphSubmissionState)}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Submitted At</SummaryLabel>
-                  <SummaryValue>{formatTimestamp(new Date(runtimeView?.graphSubmissionUpdatedAt ?? '').getTime())}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Run Intent</SummaryLabel>
-                  <SummaryValue>{runIntentLabel(runtimeView?.runIntent)}</SummaryValue>
-                </div>
-              </div>
-              {(virtualRouteIssues.length > 0 || currentSubmissionResult.error) && (
-                <div className="space-y-2 rounded border border-slate-700 bg-slate-950/50 p-2">
-                  <SummaryLabel>Graph Issues</SummaryLabel>
-                  {currentSubmissionResult.error && (
-                    <p className="text-xs text-rose-300">{currentSubmissionResult.error}</p>
-                  )}
-                  {virtualRouteIssues.map((issue) => (
-                    <p
-                      key={`${issue.severity}:${issue.message}:${issue.nodeIds.join(',')}`}
-                      className={`text-xs ${issue.severity === 'error' ? 'text-rose-300' : 'text-amber-200'}`}
-                    >
-                      {issue.message}
-                    </p>
-                  ))}
-                </div>
-              )}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleDownloadGrc}
-                  disabled={!canExportCurrentGraph}
-                  title={canExportCurrentGraph ? 'Download the current graph as a .gr4c file.' : 'No active graph to export.'}
-                  className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Download .gr4c
-                </button>
-              </div>
-              {downloadError && <p className="text-sm text-rose-300">{downloadError}</p>}
-            </SectionCard>
-          </>
+          <GraphDetails key={`graph:${activeGraphTabId}`} name={documentName} description={documentDescription} onDescriptionChange={setDocumentDescription}
+            blockCount={nodes.length} connectionCount={edges.length} schedulerId={schedulerId} schedulers={schedulerOptions}
+            schedulersPending={schedulersQuery.isPending} schedulersError={schedulersQuery.isError}
+            onSchedulerChange={setDocumentSchedulerId} mode={applicationMode} displayTitle={applicationTitle}
+            displayTitlePlaceholder={activeGraphTab?.document.displayName || documentName || 'Application'}
+            inProcessControlPlane={inProcessControlPlane} onModeChange={updateApplicationMode} onDisplayTitleChange={updateApplicationTitle}
+            runtimeView={runtimeView} canExport={canExportCurrentGraph} onExport={handleDownloadGrc} exportError={downloadError}
+            issues={(virtualRouteIssues.length > 0 || currentSubmissionResult.error) && (
+              <InspectorSection title="Graph issues">
+                {currentSubmissionResult.error && <p role="alert" className="text-xs text-rose-300">{currentSubmissionResult.error}</p>}
+                {virtualRouteIssues.map((issue) => <p key={`${issue.severity}:${issue.message}:${issue.nodeIds.join(',')}`}
+                  className={`text-xs ${issue.severity === 'error' ? 'text-rose-300' : 'text-amber-200'}`}>{issue.message}</p>)}
+              </InspectorSection>
+            )}
+          />
         )}
 
         {activeTab === 'session' && (
-          <>
-            <SectionCard>
-              <SummaryLabel>Session</SummaryLabel>
-              <div className="space-y-2">
-                <div>
-                  <SummaryLabel>Session ID</SummaryLabel>
-                  <SummaryValue>{runtimeContext?.sessionId ?? 'none'}</SummaryValue>
-                </div>
-                <div className="flex items-center gap-2">
-                  <SummaryLabel>State</SummaryLabel>
-                  <StatusPill status={runtimeContext?.session?.state ?? (runtimeContext?.sessionId ? 'unknown' : 'unlinked')} />
-                </div>
-                <div>
-                  <SummaryLabel>Session Name</SummaryLabel>
-                  <SummaryValue>{runtimeContext?.session?.name ?? 'N/A'}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Scheduler</SummaryLabel>
-                  <SummaryValue>{runtimeContext?.session?.schedulerId ?? 'default'}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Session Created</SummaryLabel>
-                  <SummaryValue>{formatTimestamp(new Date(runtimeContext?.session?.createdAt ?? '').getTime())}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Session Updated</SummaryLabel>
-                  <SummaryValue>{formatTimestamp(new Date(runtimeContext?.session?.updatedAt ?? '').getTime())}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Session Refreshed</SummaryLabel>
-                  <SummaryValue>{formatTimestamp(new Date(runtimeContext?.sessionRefreshedAt ?? '').getTime())}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Graph/Session Sync</SummaryLabel>
-                  <SummaryValue>{runtimeView?.graphDriftState === 'out-of-sync' ? 'linked session stale' : 'linked session in sync'}</SummaryValue>
-                </div>
-                <div>
-                  <SummaryLabel>Last Error</SummaryLabel>
-                  <SummaryValue>{runtimeContext?.lastError ?? runtimeContext?.session?.lastError ?? 'none'}</SummaryValue>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  disabled={!activeGraphTabId || !runtimeContext?.sessionId || runtimeContext?.busy}
-                  onClick={() => {
-                    if (activeGraphTabId) {
-                      void refreshSessionStateForTab(activeGraphTabId);
-                    }
-                  }}
-                  className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-xs text-slate-100 hover:bg-slate-700 disabled:opacity-50"
-                >
-                  Refresh Session
-                </button>
-              </div>
-            </SectionCard>
-
-            {!runtimeContext?.sessionId && <EmptyState>No session linked to this tab yet.</EmptyState>}
-
-            {runtimeContext?.sessionId && (
-              <SectionCard>
-                <SummaryLabel>Recent Activity</SummaryLabel>
-                {recentActivity.length === 0 ? (
-                  <p className="text-sm text-slate-400">No activity yet.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {recentActivity.map((entry, index) => (
-                      <li key={`${entry.timestamp}-${index}`} className="rounded border border-slate-700 p-2">
-                        <p className="text-[11px] text-slate-400">{formatTimestamp(new Date(entry.timestamp).getTime())}</p>
-                        <p className="text-xs text-slate-100 break-words">{entry.message}</p>
-                        <p className={`text-[11px] ${entry.level === 'error' ? 'text-rose-300' : 'text-slate-500'}`}>action: {entry.action}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </SectionCard>
-            )}
-          </>
+          <SessionDetails key={`session:${activeGraphTabId}:${runtimeContext?.sessionId ?? 'unlinked'}`} context={runtimeContext}
+            runtimeView={runtimeView} canRefresh={Boolean(activeGraphTabId)}
+            onRefresh={() => { if (activeGraphTabId) void refreshSessionStateForTab(activeGraphTabId); }} />
         )}
 
         {!activeGraphTabId && <EmptyState>No active graph tab selected.</EmptyState>}
-        {activeGraphTabId && !runtimeContext && <EmptyState>Execution context not initialized for this tab yet.</EmptyState>}
       </div>
     </div>
   );

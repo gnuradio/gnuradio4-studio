@@ -20,6 +20,9 @@ import {
   stopSession,
 } from '../../../lib/api/sessionsApi';
 import { useRuntimeSessionStore } from './runtimeSessionStore';
+import { useEditorStore } from '../../graph-editor/store/editorStore';
+import { graphDocumentFromEditor } from '../../graph-document/model/fromEditor';
+import { buildCurrentGraphSubmissionFromEditorSnapshot } from '../../runtime-submission/model/current-graph-submission';
 
 function graphDocument(name: string) {
   return {
@@ -536,5 +539,27 @@ describe('runtimeSessionStore (sessions-only model)', () => {
     expect(view.executionState).toBe('idle');
     expect(view.graphSubmissionState).toBe('none');
     expect(view.runIntent).toBe('create-session');
+  });
+
+  it('treats an instance ID rename as a graph edit without renaming or replacing the linked runtime', async () => {
+    const session = {id:'session-1',name:'demo',state:'running' as const,createdAt:'',updatedAt:'',lastError:null};
+    vi.mocked(createSession).mockResolvedValue({...session,state:'stopped'});
+    vi.mocked(startSession).mockResolvedValue(session);
+    useEditorStore.getState().replaceGraph({metadata:{name:'demo'},nodes:[{
+      instanceId:'source',blockTypeId:'gr::testing::NullSource<float32>',displayName:'Source',parameters:{},position:{x:0,y:0},
+    }],edges:[]});
+    await useRuntimeSessionStore.getState().runTab('tab-1',graphDocumentFromEditor(useEditorStore.getState().getGraphSnapshot()));
+    const submission = () => buildCurrentGraphSubmissionFromEditorSnapshot(useEditorStore.getState().getGraphSnapshot()).content;
+    expect(useRuntimeSessionStore.getState().getTabRuntimeView('tab-1',submission()).graphDriftState).toBe('in-sync');
+    const linkedContext = useRuntimeSessionStore.getState().contextsByTabId['tab-1'];
+    useEditorStore.getState().renameNodeInstanceId('source','oscillator');
+    expect(useRuntimeSessionStore.getState().contextsByTabId['tab-1']).toBe(linkedContext);
+    expect(useRuntimeSessionStore.getState().getTabRuntimeView('tab-1',submission())).toMatchObject({
+      graphDriftState:'out-of-sync',executionState:'running',runIntent:'none',
+    });
+    expect(createSession).toHaveBeenCalledTimes(1);
+    expect(startSession).toHaveBeenCalledTimes(1);
+    expect(stopSession).not.toHaveBeenCalled();
+    expect(deleteSession).not.toHaveBeenCalled();
   });
 });

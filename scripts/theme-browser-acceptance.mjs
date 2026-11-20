@@ -8,7 +8,7 @@ import path from 'node:path';
 
 const origin = process.env.STUDIO_URL ?? 'http://127.0.0.1:5173';
 const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const output = process.env.THEME_EVIDENCE_DIR ?? 'docs/evidence/theme-1';
+const output = process.env.THEME_EVIDENCE_DIR ?? '.evidence/theme-1';
 const profile = await mkdtemp(path.join(tmpdir(), 'studio-theme-chrome-'));
 const browser = spawn(chrome, ['--headless=new', '--no-first-run', '--no-default-browser-check',
   '--disable-background-networking', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'],

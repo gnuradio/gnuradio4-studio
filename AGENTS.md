@@ -191,3 +191,9 @@ Prefer:
 And always align with:
 
 > "The correct direction is simpler, not more abstract."
+
+## Local Artifacts
+
+* Store implementation plans, working notes, and audits under `.doc/`.
+* Store generated screenshots, validation reports, and other evidence under `.evidence/`.
+* Keep both directories ignored. Never stage or commit their contents.
