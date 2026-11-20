@@ -22,6 +22,65 @@ html:not([data-theme-ready]) #root { visibility: hidden; }
 
 button:disabled, select:disabled { cursor: not-allowed; }
 input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-accent); }
+
+/* A continuous properties inspector, with theme-aware controls and disclosures. */
+.inspector-section {
+  min-width: 0;
+  border-top: 1px solid var(--theme-app-border);
+  padding-block: 12px;
+}
+.inspector-section > * + * { margin-top: 8px; }
+.inspector-heading {
+  color: var(--theme-app-textSecondary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.inspector-disclosure > summary {
+  cursor: pointer;
+  border-radius: 2px;
+}
+.inspector-button {
+  border: 1px solid var(--theme-app-borderStrong);
+  border-radius: 4px;
+  background: var(--theme-app-control);
+  padding: 3px 7px;
+  color: var(--theme-app-text);
+  font-size: 11px;
+  line-height: 16px;
+}
+.inspector-button:hover { background: var(--theme-app-hover); }
+.inspector-button:disabled { opacity: 0.6; }
+.inspector-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--theme-app-borderStrong);
+  border-radius: 4px;
+  background: var(--theme-app-control);
+  padding: 4px 7px;
+  color: var(--theme-app-text);
+  font-size: 13px;
+  line-height: 20px;
+}
+.inspector :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.inspector-diagnostics {
+  max-width: 100%;
+  max-height: 15rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--theme-app-border);
+  border-radius: 4px;
+  background: var(--theme-app-control);
+  padding: 8px;
+  color: var(--theme-app-textSecondary);
+  font-size: 11px;
+  line-height: 16px;
+  user-select: text;
+}
+
 [class~='hover:bg-slate-700']:hover,
 [class~='hover:bg-slate-800']:hover { background-color: var(--theme-app-hover); }
 [class*='shadow-'] {

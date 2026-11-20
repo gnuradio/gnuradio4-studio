@@ -186,6 +186,8 @@ files, and require Chrome plus a display for Electron.
 Drag empty canvas to select blocks, middle-drag to pan, and Ctrl+wheel to zoom.
 Right-click blocks or the canvas for editing actions and properties.
 
+Use **Appearance** to import a custom color theme. The [theme authoring guide](docs/theme-system.md) includes the file format, supported colors, and an example.
+
 Use Ctrl/Cmd+C and Ctrl/Cmd+V to copy selected blocks and their internal
 connections within a flowgraph or between Studio tabs. Rotation applies to the
 selected group. Text fields keep normal editing shortcuts; graph undo/redo is

@@ -4,6 +4,8 @@ import type { EdgeChange, NodeChange } from '@xyflow/react';
 import type { ExpressionBinding } from '../../variables/model/types';
 import { createNextVariableName, createUniqueVariableName } from '../../variables/model/variable-binding';
 import type { BlockDetails } from '../../../lib/api/block-details';
+import { deriveDefaultStudioPanelsFromNodes } from '../../workspace/model/panel-derivation';
+import { mergeSavedAndDerivedStudioPanels, resolveStudioPanelLayout } from '../../workspace/model/panel-merge';
 import type { ApplicationSpec, StudioLayoutSpec, StudioPanelSpec, StudioPlotPaletteSpec, StudioVariable } from '../../graph-document/model/studio-workspace';
 import {
   buildInitialParameterDrafts,
@@ -73,6 +75,7 @@ type EditorState = {
   }) => void;
   setStudioPanels: (panels: StudioPanelSpec[]) => void;
   setDocumentSchedulerId: (schedulerId?: string) => void;
+  setDocumentDescription: (description: string) => void;
   setStudioVariables: (variables: StudioVariable[]) => void;
   setStudioPlotPalettes: (palettes: StudioPlotPaletteSpec[]) => void;
   setStudioLayout: (layout: StudioLayoutSpec) => void;
@@ -96,6 +99,7 @@ type EditorState = {
   applyFlowNodeChanges: (changes: NodeChange[]) => void;
   applyFlowEdgeChanges: (changes: EdgeChange[]) => void;
   selectNode: (nodeId: string | null) => void;
+  renameNodeInstanceId: (nodeId: string, instanceId: string) => { ok: true; instanceId: string } | { ok: false; error: string };
   setNodePosition: (nodeId: string, position: GraphPoint) => void;
   setNodeExecutionMode: (nodeId: string, executionMode: 'active' | 'disabled' | 'bypassed') => void;
   rotateNodes: (nodeIds: readonly string[], direction: 'left' | 'right', sizes?: ReadonlyMap<string, { width: number; height: number }>) => void;
@@ -172,6 +176,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       schedulerId,
     });
   },
+  setDocumentDescription: (description) => set({ documentDescription: description }),
   setStudioVariables: (variables) => {
     set({
       studioVariables: variables,
@@ -358,6 +363,49 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
   selectNode: (nodeId) => {
     set({ selectedNodeId: nodeId });
+  },
+  renameNodeInstanceId: (nodeId, value) => {
+    const state = get();
+    const instanceId = value.trim();
+    if (!instanceId) return { ok: false, error: 'Enter an instance ID.' };
+    if (/[\u0000-\u001f\u007f]/.test(instanceId)) return { ok: false, error: 'Instance IDs cannot contain control characters.' };
+    if (!state.nodes.some((node) => node.instanceId === nodeId)) return { ok: false, error: 'The block no longer exists.' };
+    if (instanceId === nodeId) return { ok: true, instanceId };
+    if (state.nodes.some((node) => node.instanceId === instanceId)) return { ok: false, error: 'Another block already uses this instance ID.' };
+
+    // Keep panel/widget identities stable, including generated panels that only exist
+    // implicitly so far. Layouts refer to those identities, not the block instance ID.
+    const derivedPanels = deriveDefaultStudioPanelsFromNodes(state.nodes);
+    const panels = mergeSavedAndDerivedStudioPanels({ savedPanels: state.studioPanels, derivedPanels, preserveSavedPanels: true });
+    const studioLayout = resolveStudioPanelLayout(state.studioLayout, panels, derivedPanels);
+    const studioPanels = panels.map((panel) => ({
+      ...panel,
+      ...(panel.nodeId === nodeId ? { nodeId: instanceId } : {}),
+      ...(panel.kind === 'control' ? { widgets: panel.widgets.map((widget) =>
+        widget.binding.kind === 'parameter' && widget.binding.nodeId === nodeId
+          ? { ...widget, binding: { ...widget.binding, nodeId: instanceId } } : widget) } : {}),
+    }));
+    const suffix = Number(instanceId.match(/_(\d+)$/)?.[1]);
+    const nextNodeSequence = Number.isSafeInteger(suffix) && suffix < Number.MAX_SAFE_INTEGER
+      ? Math.max(state.nextNodeSequence, suffix + 1) : state.nextNodeSequence;
+    set({
+      nodes: state.nodes.map((node) => node.instanceId === nodeId ? { ...node, instanceId } : node),
+      edges: state.edges.map((edge) => {
+        if (edge.sourceInstanceId !== nodeId && edge.targetInstanceId !== nodeId) return edge;
+        const sourceInstanceId = edge.sourceInstanceId === nodeId ? instanceId : edge.sourceInstanceId;
+        const targetInstanceId = edge.targetInstanceId === nodeId ? instanceId : edge.targetInstanceId;
+        // Only regenerate IDs created by our endpoint-based factory; authored IDs remain stable.
+        const candidateId = edge.id === createEdgeId(edge.sourceInstanceId, edge.targetInstanceId, edge.sourcePort, edge.targetPort)
+          ? createEdgeId(sourceInstanceId, targetInstanceId, edge.sourcePort, edge.targetPort) : edge.id;
+        const id = state.edges.some((other) => other !== edge && other.id === candidateId) ? edge.id : candidateId;
+        return { ...edge, id, sourceInstanceId, targetInstanceId };
+      }),
+      selectedNodeId: state.selectedNodeId === nodeId ? instanceId : state.selectedNodeId,
+      studioPanels: studioPanels.length > 0 ? studioPanels : state.studioPanels,
+      studioLayout,
+      nextNodeSequence,
+    });
+    return { ok: true, instanceId };
   },
   setNodePosition: (nodeId, position) => {
     set((state) => ({

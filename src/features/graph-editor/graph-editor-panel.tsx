@@ -26,6 +26,7 @@ import type { EditorCatalogBlock, EditorGraphEdge, EditorGraphNode, FlowNodeData
 import { CATALOG_BLOCK_DRAG_MIME } from './model/catalog-drag';
 import { getNodeExecutionMode, isLinearBypassableBlock } from './model/node-execution';
 import { contextSelection, createSelectionCommands } from './model/selection-commands';
+import { mergeFlowNodes } from './model/flow-node-reconciliation';
 import { GraphContextMenu } from './graph-context-menu';
 import {
   getVirtualRoutingBlockDetails,
@@ -382,26 +383,6 @@ function buildFallbackPortMap(edges: EditorGraphEdge[]): Map<string, { inputs: R
   );
 }
 
-function mergeFlowNodes(current: FlowGraphNode[], next: FlowGraphNode[]): FlowGraphNode[] {
-  const currentById = new Map(current.map((node) => [node.id, node]));
-
-    return next.map((node) => {
-      const previous = currentById.get(node.id);
-      if (!previous) {
-        return node;
-      }
-
-    // Preserve React Flow-managed internals like measured dimensions while refreshing semantic data.
-      return {
-        ...previous,
-        ...node,
-        position: node.position,
-        selected: previous.selected,
-        data: node.data,
-      };
-    });
-  }
-
 function buildStoreNodeSignature(nodes: EditorGraphNode[]): string {
   return JSON.stringify(
     nodes.map((node) => ({
@@ -562,6 +543,7 @@ export function GraphEditorPanel({
   const renderedNodeSignature = useMemo(() => buildRenderedNodeSignature(nodes), [nodes]);
   const [flowNodes, setFlowNodes] = useState<FlowGraphNode[]>(nodes);
   const latestSemanticNodesRef = useRef(nodes);
+  const latestSelectedNodeIdRef = useRef(selectedNodeId);
   const latestFlowNodesRef = useRef(flowNodes);
   const pendingPasteSelectionRef = useRef<string[] | null>(null);
   const selectedFlowNodeIds = useMemo(
@@ -572,11 +554,12 @@ export function GraphEditorPanel({
   useEffect(() => {
     // Keep the most recent semantic node payload available without forcing a local-flow reset every render.
     latestSemanticNodesRef.current = nodes;
-  }, [nodes]);
+    latestSelectedNodeIdRef.current = selectedNodeId;
+  }, [nodes, selectedNodeId]);
 
   useEffect(() => {
     // Merge persisted graph changes and async-rendered node metadata into the local React Flow nodes.
-    setFlowNodes((current) => mergeFlowNodes(current, latestSemanticNodesRef.current));
+    setFlowNodes((current) => mergeFlowNodes(current, latestSemanticNodesRef.current, latestSelectedNodeIdRef.current));
   }, [renderedNodeSignature, storeNodeSignature]);
 
   useEffect(() => {
