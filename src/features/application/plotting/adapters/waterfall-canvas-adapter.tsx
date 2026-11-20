@@ -170,7 +170,7 @@ export function WaterfallCanvasAdapter({ frame, width, height }: PlotAdapterProp
 
       {raster ? (
         <div
-          className="pointer-events-none absolute bottom-2 right-2 w-32 max-w-[calc(100%-1rem)] rounded border border-slate-700/80 bg-slate-950/80 px-2 py-1 text-[10px] text-slate-300"
+          className="pointer-events-none absolute bottom-2 right-2 w-32 max-w-[calc(100%-1rem)] rounded border border-slate-700/80 bg-slate-950/80 px-2 py-1 text-xs text-slate-300"
           role="img"
           aria-label={`Intensity: ${formatValue(raster.minValue)} to ${formatValue(raster.maxValue)} ${image?.signalUnit ?? ''}`}
         >
@@ -190,7 +190,7 @@ export function WaterfallCanvasAdapter({ frame, width, height }: PlotAdapterProp
       ) : null}
 
       {hover ? (
-        <div className="pointer-events-none absolute right-3 top-3 max-w-[16rem] rounded-md border border-cyan-500/30 bg-slate-950/90 px-2 py-1 text-[10px] shadow-xl backdrop-blur">
+        <div className="pointer-events-none absolute right-3 top-3 max-w-[16rem] rounded-md border border-cyan-500/30 bg-slate-950/90 px-2 py-1 text-xs shadow-xl backdrop-blur">
           <div className="font-mono text-slate-200">
             f={formatAxisValue(hover.frequency)} {image?.axisUnit ?? ''} · {formatValue(hover.value)} {image?.signalUnit ?? ''}
           </div>

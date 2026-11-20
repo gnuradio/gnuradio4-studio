@@ -50,7 +50,7 @@ export function LayoutDropTarget({
     >
       {active && (
         <span
-          className={`absolute rounded border border-emerald-300/70 bg-slate-900/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-100 ${
+          className={`absolute rounded border border-emerald-300/70 bg-slate-900/85 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-emerald-100 ${
             position === 'left'
               ? 'left-1 top-1/2 -translate-y-1/2'
               : position === 'right'

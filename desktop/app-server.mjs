@@ -53,6 +53,8 @@ function getContentType(filePath) {
       return 'text/javascript; charset=utf-8';
     case '.css':
       return 'text/css; charset=utf-8';
+    case '.woff2':
+      return 'font/woff2';
     case '.json':
       return 'application/json; charset=utf-8';
     case '.png':

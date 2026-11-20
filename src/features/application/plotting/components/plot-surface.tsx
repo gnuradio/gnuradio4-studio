@@ -236,7 +236,7 @@ export function PlotSurface({
         />
       ) : null}
       {isPaused ? (
-        <div className="pointer-events-none absolute left-2 top-2 z-20 rounded border border-amber-500/50 bg-slate-950/85 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-200 shadow-lg shadow-slate-950/30">
+        <div className="pointer-events-none absolute left-2 top-2 z-20 rounded border border-amber-500/50 bg-slate-950/85 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-amber-200 shadow-lg shadow-slate-950/30">
           Paused
         </div>
       ) : null}
@@ -256,7 +256,7 @@ export function PlotSurface({
               onClick={togglePaused}
             >
               <span>{isPaused ? 'Resume updates' : 'Pause updates'}</span>
-              <span className="text-[10px] text-slate-500">{isPaused ? 'running' : 'freeze'}</span>
+              <span className="text-xs text-slate-500">{isPaused ? 'running' : 'freeze'}</span>
             </button>
           ) : null}
           {onViewReset ? (
@@ -267,7 +267,7 @@ export function PlotSurface({
               onClick={resetView}
             >
               <span>Reset view</span>
-              <span className="text-[10px] text-slate-500">autoscale</span>
+              <span className="text-xs text-slate-500">autoscale</span>
             </button>
           ) : null}
           {onAxisModeChange ? (
@@ -282,7 +282,7 @@ export function PlotSurface({
                   onClick={() => selectAxisMode(mode)}
                 >
                   <span>{mode === 'x' ? 'X axis' : mode === 'y' ? 'Y axis' : 'X/Y axes'}</span>
-                  <span className="text-[10px] text-slate-500">{axisMode === mode ? 'selected' : ''}</span>
+                  <span className="text-xs text-slate-500">{axisMode === mode ? 'selected' : ''}</span>
                 </button>
               ))}
             </div>
@@ -293,14 +293,14 @@ export function PlotSurface({
         <div
           className={
             diagnosticsCollapsed
-              ? 'absolute right-2 top-2 z-20 rounded border border-slate-700/80 bg-slate-950/90 p-1 text-[10px] text-slate-200 shadow-lg shadow-slate-950/40 backdrop-blur'
-              : 'absolute right-2 top-2 z-20 max-w-[70%] rounded border border-slate-700/80 bg-slate-950/90 px-2 py-1 text-[10px] text-slate-200 shadow-lg shadow-slate-950/40 backdrop-blur'
+              ? 'absolute right-2 top-2 z-20 rounded border border-slate-700/80 bg-slate-950/90 p-1 text-xs text-slate-200 shadow-lg shadow-slate-950/40 backdrop-blur'
+              : 'absolute right-2 top-2 z-20 max-w-[70%] rounded border border-slate-700/80 bg-slate-950/90 px-2 py-1 text-xs text-slate-200 shadow-lg shadow-slate-950/40 backdrop-blur'
           }
         >
           {diagnosticsCollapsed ? (
             <button
               type="button"
-              className="flex h-5 w-5 items-center justify-center rounded border border-slate-700/70 bg-slate-950/70 text-[10px] leading-none text-slate-300/90 opacity-70 shadow-sm shadow-slate-950/30 transition hover:opacity-100 hover:border-slate-500 hover:bg-slate-900/90"
+              className="flex h-5 w-5 items-center justify-center rounded border border-slate-700/70 bg-slate-950/70 text-sm leading-none text-slate-300/90 opacity-70 shadow-sm shadow-slate-950/30 transition hover:opacity-100 hover:border-slate-500 hover:bg-slate-900/90"
               onClick={() => setDiagnosticsCollapsed(false)}
               aria-label="Expand diagnostics"
               title="Expand diagnostics"
@@ -327,7 +327,7 @@ export function PlotSurface({
               </div>
               <button
                 type="button"
-                className="shrink-0 rounded border border-slate-700 bg-slate-900/80 px-1.5 py-0.5 text-[10px] leading-none text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+                className="shrink-0 rounded border border-slate-700 bg-slate-900/80 px-1.5 py-0.5 text-sm leading-none text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
                 onClick={() => setDiagnosticsCollapsed(true)}
                 aria-label="Collapse diagnostics"
                 title="Collapse diagnostics"
@@ -341,7 +341,7 @@ export function PlotSurface({
       {!showAdapter ? (
         <div className="absolute inset-0 flex items-center justify-center rounded border border-slate-800/90 bg-slate-950/70 p-3 text-center">
           <div className="max-w-full">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {titleByState[visibleState]}
             </p>
             {!isCompactPlaceholder ? (
@@ -354,12 +354,12 @@ export function PlotSurface({
               >
                 <p>{message}</p>
                 {binding?.transport || endpointLabel ? (
-                  <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">
+                  <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
                     {endpointLabel ? `${binding?.transport ?? 'n/a'} · ${binding?.endpoint ?? 'n/a'}` : (binding?.transport ?? 'n/a')}
                   </p>
                 ) : null}
                 {frame.meta?.state ? (
-                  <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">
+                  <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
                     frame state: {frame.meta.state}
                   </p>
                 ) : null}

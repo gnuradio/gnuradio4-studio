@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
 import { createDesktopDocuments } from './documents.mjs';
 import { createDesktopThemes } from './themes.mjs';
+import { loadPickerTypography } from './typography.mjs';
 import { buildMenuTemplate, sanitizeMenuState } from './application-menu.mjs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -197,7 +198,7 @@ ipcMain.on('gr4-studio:menu-state', (event, value) => {
   else updateMenuCommandState();
 });
 
-function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
+function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl, typography) {
   const nonce = randomBytes(16).toString('base64');
   const options = recentEndpoints
     .map((endpoint) => `<option value="${escapeHtml(endpoint)}">${escapeHtml(endpoint)}</option>`)
@@ -211,26 +212,27 @@ function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src file:; base-uri 'none'; form-action 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; font-src data:; img-src file:; base-uri 'none'; form-action 'none'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Connect to gr4cp</title>
     <style nonce="${nonce}">
-      :root { color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      ${typography}
+      :root { color-scheme: dark; font-family: var(--font-ui); font-size: var(--font-size-base); font-weight: var(--font-weight-regular); line-height: var(--line-height-normal); }
   body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, #09111f, #0f172a 55%, #111827); color: #e5eefb; }
   .card { width: min(560px, calc(100vw - 48px)); border: 1px solid rgba(148,163,184,.24); border-radius: 18px; padding: 24px; background: rgba(15,23,42,.94); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
   .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
   .brand-mark { width: 40px; height: 40px; flex: 0 0 auto; }
-  .brand-name { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
-      h1 { margin: 0 0 8px; font-size: 22px; }
-      p { margin: 0 0 18px; color: #94a3b8; line-height: 1.5; }
-      label { display: block; margin: 12px 0 8px; font-size: 13px; color: #cbd5e1; }
-      input, select { width: 100%; box-sizing: border-box; border: 1px solid #334155; border-radius: 10px; background: #020617; color: #e5eefb; padding: 12px 14px; font-size: 14px; }
+  .brand-name { margin: 0; font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); letter-spacing: 0.2em; text-transform: uppercase; }
+      h1 { margin: 0 0 8px; font-size: var(--font-size-xl); font-weight: var(--font-weight-semibold); }
+      p { margin: 0 0 18px; color: #94a3b8; line-height: var(--line-height-relaxed); }
+      label { display: block; margin: 12px 0 8px; font-size: var(--font-size-sm); color: #cbd5e1; }
+      input, select { width: 100%; box-sizing: border-box; border: 1px solid #334155; border-radius: 10px; background: #020617; color: #e5eefb; padding: 12px 14px; font-family: var(--font-ui); font-size: var(--font-size-base); font-weight: var(--font-weight-regular); }
       input:focus, select:focus { outline: 2px solid #38bdf8; outline-offset: 2px; }
       .row { display: flex; gap: 12px; justify-content: flex-end; margin-top: 18px; }
-      button { border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 600; cursor: pointer; }
+      button { border: 0; border-radius: 10px; padding: 11px 16px; font-family: var(--font-ui); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); cursor: pointer; }
       .primary { background: #38bdf8; color: #082f49; }
       .secondary { background: #1e293b; color: #e2e8f0; }
-      .hint { font-size: 12px; color: #64748b; }
+      .hint { font-size: var(--font-size-xs); color: #94a3b8; }
       .stack { display: grid; gap: 8px; }
     </style>
   </head>
@@ -284,6 +286,7 @@ function buildRemotePickerHtml(recentEndpoints, currentValue, appIconUrl) {
 
 async function openRemotePicker(recentEndpoints) {
   const appIconPath = await resolveAppIconPath();
+  const typography = await loadPickerTypography(app.getAppPath());
   return new Promise((resolve, reject) => {
     remotePickerWindow = new BrowserWindow({
       width: 620,
@@ -312,7 +315,7 @@ async function openRemotePicker(recentEndpoints) {
     });
 
     const appIconUrl = pathToFileURL(path.join(app.getAppPath(), 'favicon-32x32.png')).toString();
-    const html = buildRemotePickerHtml(recentEndpoints, recentEndpoints[0] ?? '', appIconUrl);
+    const html = buildRemotePickerHtml(recentEndpoints, recentEndpoints[0] ?? '', appIconUrl, typography);
     remotePickerWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     remotePickerWindow.once('ready-to-show', () => remotePickerWindow?.show());
     remotePickerWindow.on('unresponsive', () => {

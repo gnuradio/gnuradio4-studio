@@ -10,9 +10,9 @@ export function InspectorSection({ title, children }: { title?: string; children
 export function InspectorPropertyRow({ label, children, technical = false }: {
   label: string; children: ReactNode; technical?: boolean;
 }) {
-  return <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] items-baseline gap-3 text-xs leading-5">
+  return <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] items-baseline gap-3 text-sm leading-5">
     <dt className="text-slate-400">{label}</dt>
-    <dd className={`min-w-0 text-right text-slate-100 [overflow-wrap:anywhere] ${technical ? 'font-mono text-[11px]' : ''}`}>{children}</dd>
+    <dd className={`min-w-0 text-right text-slate-100 [overflow-wrap:anywhere] ${technical ? 'font-mono text-xs' : ''}`}>{children}</dd>
   </div>;
 }
 
@@ -36,6 +36,6 @@ export function InspectorCopyButton({ value, label, children = 'Copy' }: {
         setMessage('Copy unavailable. Select and copy the text.');
       }
     }}>{children}</button>
-    <span role="status" className="text-[11px] text-slate-400">{message}</span>
+    <span role="status" className="text-xs text-slate-400">{message}</span>
   </span>;
 }

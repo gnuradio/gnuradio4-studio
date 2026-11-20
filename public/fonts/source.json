@@ -1,0 +1,24 @@
+{
+  "family": "Inter",
+  "upstreamRelease": "v4.1",
+  "embeddedVersion": "4.001;git-9221beed3",
+  "source": "https://github.com/rsms/inter/tree/v4.1/docs/font-files",
+  "fontUrl": "https://raw.githubusercontent.com/rsms/inter/v4.1/docs/font-files/InterVariable.woff2",
+  "licenseUrl": "https://raw.githubusercontent.com/rsms/inter/v4.1/LICENSE.txt",
+  "license": "SIL Open Font License 1.1",
+  "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+  "axes": {
+    "wght": [
+      100,
+      900
+    ],
+    "opsz": [
+      14,
+      32
+    ]
+  },
+  "styles": [
+    "normal"
+  ],
+  "note": "Unmodified upstream WOFF2; one variable file serves every UI weight. Platform monospace fallbacks serve diagnostics."
+}

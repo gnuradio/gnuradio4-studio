@@ -54,7 +54,7 @@ export const builtinThemes: readonly BuiltinTheme[] = [
       ...light,
       'app.background': '#eeeae1', 'app.surface': '#faf8f2', 'app.control': '#e9e5da',
       'app.hover': '#ddd8cc', 'app.text': '#302f2b', 'app.textSecondary': '#625e55',
-      'app.disabled': '#6d685e', 'app.border': '#aaa394', 'app.borderStrong': '#746e61',
+      'app.disabled': '#686358', 'app.border': '#aaa394', 'app.borderStrong': '#746e61',
       'app.accent': '#435f54', 'app.accentSurface': '#e4e9df', 'app.selected': '#e2e5da',
       'app.focus': '#3f6178', 'app.shadow': '#b6b0a3',
       'canvas.background': '#f5f1e6', 'canvas.grid': '#ded9ce', 'canvas.selection': '#5e766b',

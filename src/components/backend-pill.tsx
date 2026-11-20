@@ -16,7 +16,7 @@ export function BackendPill({ mode, controlPlaneBaseUrl, className = '' }: Backe
   return (
     <span
       title={controlPlaneBaseUrl}
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-[0.18em] ${pillStyles[mode]} ${className}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium uppercase tracking-[0.18em] ${pillStyles[mode]} ${className}`}
     >
       {mode}
     </span>

@@ -80,7 +80,7 @@ export function GraphContextMenu({ x, y, block, commands, bypassReason, onSelect
       {(block ? blockItems : canvasItems).map((item, index) => item ? (
         <button key={item.command} type="button" role="menuitem" disabled={!commands[item.command]?.enabled}
           title={item.command === 'bypass' ? bypassReason : undefined}
-          className="flex w-full items-center justify-between gap-5 rounded px-3 py-1.5 text-left hover:bg-slate-700 focus:bg-slate-700 focus:outline-none disabled:cursor-default disabled:text-slate-500 disabled:hover:bg-transparent"
+          className="flex w-full items-center justify-between gap-5 rounded px-3 py-1.5 text-left font-normal hover:bg-slate-700 focus:bg-slate-700 focus:outline-none disabled:cursor-default disabled:text-slate-500 disabled:hover:bg-transparent"
           onClick={() => onSelect(item.command)}>
           <span>{item.label}</span>
           {'shortcut' in item && <span className="text-xs text-slate-400">{item.shortcut}</span>}

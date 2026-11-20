@@ -1,4 +1,5 @@
 import { darkTokens } from '../../../themes/tokens';
+import { canvasUiFont } from '../../../../styles/typography';
 import { useTheme } from '../../../themes/theme-store';
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react';
 import uPlot from 'uplot';
@@ -300,6 +301,7 @@ export function PhosphorSpectrumUplotAdapter({ spec, frame, width, height }: Plo
         },
         axes: [
           {
+            font: canvasUiFont(), labelFont: canvasUiFont('medium'),
             label: spec.xLabel ?? 'Frequency',
             stroke: theme.tokens['app.textSecondary'],
             grid: {
@@ -308,6 +310,7 @@ export function PhosphorSpectrumUplotAdapter({ spec, frame, width, height }: Plo
             },
           },
           {
+            font: canvasUiFont(), labelFont: canvasUiFont('medium'),
             label: spec.yLabel ?? 'Power',
             stroke: theme.tokens['app.textSecondary'],
             grid: {

@@ -3,9 +3,26 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  font-family: var(--font-ui);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  font-optical-sizing: auto;
+  font-synthesis: none;
   background: var(--theme-app-background, #0b1120);
   color: var(--theme-app-text, #f1f5f9);
+}
+
+/* Keep the browser's 16px rem grid: Tailwind spacing and panel widths depend on it. */
+body { font-size: var(--font-size-base); }
+
+@layer base {
+  button, input, select, textarea { font-family: var(--font-ui); }
+  button { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
+  input, select, textarea { font-size: var(--font-size-base); font-weight: var(--font-weight-regular); }
+  label { font-size: var(--font-size-sm); }
+  pre, code, kbd, samp { font-family: var(--font-mono); }
+  pre { font-size: var(--font-size-xs); line-height: var(--line-height-relaxed); }
+  ::placeholder { color: var(--theme-app-disabled); opacity: 1; }
 }
 
 /* Restoration happens before mounting, so a stored custom theme never flashes. */
@@ -32,11 +49,9 @@ input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-acce
 .inspector-section > * + * { margin-top: 8px; }
 .inspector-heading {
   color: var(--theme-app-textSecondary);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 16px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
 }
 .inspector-disclosure > summary {
   cursor: pointer;
@@ -48,8 +63,9 @@ input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-acce
   background: var(--theme-app-control);
   padding: 3px 7px;
   color: var(--theme-app-text);
-  font-size: 11px;
-  line-height: 16px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
 }
 .inspector-button:hover { background: var(--theme-app-hover); }
 .inspector-button:disabled { opacity: 0.6; }
@@ -61,8 +77,8 @@ input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-acce
   background: var(--theme-app-control);
   padding: 4px 7px;
   color: var(--theme-app-text);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
 }
 .inspector :is(input, select, textarea) { min-width: 0; max-width: 100%; }
 .inspector-diagnostics {
@@ -76,8 +92,9 @@ input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-acce
   background: var(--theme-app-control);
   padding: 8px;
   color: var(--theme-app-textSecondary);
-  font-size: 11px;
-  line-height: 16px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
   user-select: text;
 }
 
@@ -100,6 +117,15 @@ input[type='checkbox'], input[type='range'] { accent-color: var(--theme-app-acce
   --xy-attribution-background-color: var(--theme-app-surface);
   --xy-node-boxshadow-selected: 0 0 0 1px var(--theme-block-selected);
 }
+.react-flow__edge-text, .react-flow__attribution { font-family: var(--font-ui); font-size: var(--font-size-xs); }
+.react-flow__attribution a { color: var(--theme-app-textSecondary); }
+
+/* Third-party HTML plot chrome and canvas axes use the same typography contract. */
+.uplot.uplot { font-family: var(--font-ui); line-height: var(--line-height-normal); }
+.uplot .u-title { font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); }
+.uplot .u-legend { font-size: var(--font-size-xs); }
+.uplot .u-legend th { font-weight: var(--font-weight-medium); }
+.uplot .u-legend .u-off > * { opacity: 1; color: var(--theme-app-disabled); }
 
 /* Keep the marquee while dragging; selected blocks provide the lasting outline. */
 .react-flow .react-flow__nodesselection { display: none; }

@@ -150,11 +150,11 @@ export function SeriesLiveRenderer({ liveContext }: SeriesLiveRendererProps) {
     <div className="mt-3 rounded border border-slate-700 bg-slate-950/70 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-slate-100">Series Live</p>
-        <span className="text-[10px] text-slate-400">{transport ?? 'n/a'}</span>
+        <span className="text-xs text-slate-400">{transport ?? 'n/a'}</span>
       </div>
 
       {!supportsLivePath && (
-        <p className="mt-2 text-[11px] text-slate-400">
+        <p className="mt-2 text-xs text-slate-400">
           {liveContext.binding.status === 'configured'
             ? 'Series live renderer currently supports http_snapshot/http_poll/websocket.'
             : 'Configure binding transport to enable live series rendering.'}
@@ -162,24 +162,24 @@ export function SeriesLiveRenderer({ liveContext }: SeriesLiveRendererProps) {
       )}
 
       {supportsLivePath && state === 'loading' && (
-        <p className="mt-2 text-[11px] text-sky-300">
+        <p className="mt-2 text-xs text-sky-300">
           {supportsWebSocketLivePath ? 'Connecting series websocket...' : 'Loading series snapshot...'}
         </p>
       )}
 
       {supportsLivePath && state === 'error' && (
-        <p className="mt-2 text-[11px] text-rose-300 break-words">
+        <p className="mt-2 text-xs text-rose-300 break-words">
           Error: {error ?? 'Series live request failed.'}
         </p>
       )}
 
       {supportsLivePath && state === 'no-data' && (
-        <p className="mt-2 text-[11px] text-slate-400">No data in snapshot window yet.</p>
+        <p className="mt-2 text-xs text-slate-400">No data in snapshot window yet.</p>
       )}
 
       {supportsLivePath && state === 'ready' && snapshot && (
         <div className="mt-2 space-y-2">
-          <div className="text-[10px] text-slate-400">
+          <div className="text-xs text-slate-400">
             channels {snapshot.channelCount} · samples {snapshot.samplesPerChannel}
           </div>
           <svg viewBox="0 0 320 96" className="w-full h-24 rounded border border-slate-700 bg-slate-950">

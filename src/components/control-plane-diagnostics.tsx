@@ -90,11 +90,11 @@ export function ControlPlaneDiagnostics({
       className="mt-4 rounded-lg border border-amber-900/60 bg-slate-950/80 text-left"
       open={defaultOpen || undefined}
     >
-      <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-amber-200">
+      <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-amber-200">
         Control plane diagnostics ({diagnostics.lineCount} log lines)
       </summary>
       <div className="border-t border-slate-800 p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
           <div>
             <p>Captured: {formatDate(diagnostics.capturedAt)}</p>
             <p>Log updated: {formatDate(diagnostics.modifiedAt)}</p>
@@ -128,11 +128,11 @@ export function ControlPlaneDiagnostics({
             ) : null}
           </div>
         </div>
-        <p className="mt-2 break-all text-[10px] text-slate-500">{diagnostics.logPath}</p>
-        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-slate-800 bg-black/40 p-3 text-[11px] leading-5 text-slate-200">
+        <p className="mt-2 break-all text-xs text-slate-500">{diagnostics.logPath}</p>
+        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-slate-800 bg-black/40 p-3 text-xs leading-5 text-slate-200">
           {diagnostics.content || 'The control-plane log is empty.'}
         </pre>
-        {actionMessage ? <p className="mt-2 text-[11px] text-slate-400">{actionMessage}</p> : null}
+        {actionMessage ? <p className="mt-2 text-xs text-slate-400">{actionMessage}</p> : null}
       </div>
     </details>
   );

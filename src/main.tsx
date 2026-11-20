@@ -11,6 +11,7 @@ import { installWasmSinkTransport } from './lib/wasm/wasm-sink-transport';
 import './styles/index.css';
 import { themeManager } from './features/themes/theme-store';
 import { initializeWorkspaceRecovery } from './features/document-file/workspace-recovery';
+import { loadUiFont } from './styles/typography';
 
 if (import.meta.env.VITE_CONTROL_PLANE_TRANSPORT === 'wasm') {
   installWasmApiTransport(import.meta.env.VITE_CONTROL_PLANE_WASM_URL);
@@ -49,8 +50,8 @@ function FatalAppError({ error }: FatalAppErrorProps) {
       <div className="mx-auto flex min-h-screen max-w-4xl items-center px-6 py-10">
         <div className="w-full rounded-2xl border border-rose-900/70 bg-rose-950/30 p-6 shadow-2xl shadow-black/30">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-300">Renderer Startup Failed</p>
-          <h1 className="mt-3 text-2xl font-semibold text-rose-100">gr4-studio could not render the application UI.</h1>
-          <p className="mt-3 text-sm text-rose-200/90">
+          <h1 className="mt-3 text-xl font-semibold text-rose-100">gr4-studio could not render the application UI.</h1>
+          <p className="mt-3 text-base text-rose-200/90">
             Current-session traffic uses app-owned <code>/api/*</code> routes. Check the terminal for renderer logs and
             verify the backend and app shell configuration shown below.
           </p>
@@ -97,8 +98,8 @@ function BootScreen({ status }: { status: DesktopBootStatus }) {
             />
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">gr4-studio Startup</p>
           </div>
-          <h1 className="mt-4 text-2xl font-semibold text-slate-100">{title}</h1>
-          <p className="mt-3 text-sm text-slate-300">{status.message}</p>
+          <h1 className="mt-4 text-xl font-semibold text-slate-100">{title}</h1>
+          <p className="mt-3 text-base text-slate-300">{status.message}</p>
 
           <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-slate-200">
             <p>
@@ -128,13 +129,13 @@ function BootScreen({ status }: { status: DesktopBootStatus }) {
 
           {status.phase === 'error' ? (
             <>
-              <p className="mt-4 text-sm text-rose-300">
+              <p className="mt-4 text-base text-rose-300">
                 The Studio window is open, but the backend did not become ready.
               </p>
               <ControlPlaneDiagnostics defaultOpen refreshKey={status.message} showUnavailable />
             </>
           ) : (
-            <p className="mt-4 text-sm text-slate-400">The app will continue automatically once the backend is ready.</p>
+            <p className="mt-4 text-base text-slate-400">The app will continue automatically once the backend is ready.</p>
           )}
         </div>
       </div>
@@ -252,7 +253,8 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 async function startStudio() {
-  await themeManager.initialize();
+  const [, fontLoaded] = await Promise.all([themeManager.initialize(), loadUiFont()]);
+  document.documentElement.dataset.uiFont = fontLoaded ? 'Inter' : 'fallback';
   const isDisplayApplicationRoute = window.location.pathname.startsWith('/app-runtime/') || window.location.hash.startsWith('#/app-runtime/');
   if (!isDisplayApplicationRoute) await initializeWorkspaceRecovery(window);
   document.documentElement.dataset.themeReady = 'true';

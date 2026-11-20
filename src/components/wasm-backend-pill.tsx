@@ -33,7 +33,7 @@ export function WasmBackendPill({ className = '' }: { className?: string }) {
   return (
     <span
       title={title}
-      className={`rounded-full border border-slate-600 bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-200 ${className}`}
+      className={`rounded-full border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 ${className}`}
     >
       {binarySizeBytes === null ? 'WASM' : `WASM: ${formatMegabytes(binarySizeBytes)}`}
     </span>

@@ -31,7 +31,7 @@ export function GraphTabsBar({
           return (
             <div
               key={tab.id}
-              className={`group flex items-center gap-2 rounded border px-2 py-1 text-xs ${
+              className={`group flex items-center gap-2 rounded border px-2 py-1 text-sm ${
                 isActive
                   ? 'border-accent bg-selected text-slate-100'
                   : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -40,7 +40,7 @@ export function GraphTabsBar({
               <button
                 type="button"
                 onClick={() => onSelectTab(tab.id)}
-                className="max-w-40 truncate text-left"
+                className={`max-w-40 truncate text-left ${isActive ? 'font-medium' : 'font-normal'}`}
                 title={tab.title}
               >
                 {tab.title}
@@ -48,7 +48,7 @@ export function GraphTabsBar({
               </button>
               {linkedSession && (
                 <span
-                  className="max-w-36 truncate rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-200"
+                  className="max-w-36 truncate rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-xs text-slate-200"
                   title={`${linkedSession.sessionId} (${linkedSession.status ?? 'unknown'})`}
                 >
                   {linkedSession.status ?? 'linked'}
@@ -73,7 +73,7 @@ export function GraphTabsBar({
         type="button"
         onClick={onCreateTab}
         disabled={!canCreate}
-        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-200 hover:bg-slate-800"
       >
         + New Tab
       </button>
@@ -85,7 +85,7 @@ export function GraphTabsBar({
       {onOpenSessions && <button
         type="button"
         onClick={onOpenSessions}
-        className="rounded border border-indigo-700/70 bg-indigo-900/30 px-2 py-1 text-xs text-indigo-200 hover:bg-indigo-800/40"
+        className="rounded border border-indigo-700/70 bg-indigo-900/30 px-2 py-1 text-sm text-indigo-200 hover:bg-indigo-800/40"
       >
         Sessions
       </button>}

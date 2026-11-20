@@ -54,21 +54,21 @@ export function VariablesView({
       <div className="flex h-full min-h-[24rem] flex-col rounded border border-border bg-panel p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">Variables</h2>
+            <h2 className="text-base font-semibold text-slate-100">Variables</h2>
             <p className="mt-1 text-xs text-slate-400">Graph-owned values and expressions.</p>
           </div>
           {onCreateVariable && (
             <button
               type="button"
               onClick={onCreateVariable}
-              className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200 hover:bg-slate-800"
+              className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-sm text-slate-200 hover:bg-slate-800"
             >
               Add variable
             </button>
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-[minmax(10rem,1.1fr)_minmax(0,1.7fr)_minmax(10rem,1fr)_auto] gap-x-3 border-b border-slate-700 px-2 pb-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        <div className="mt-4 grid grid-cols-[minmax(10rem,1.1fr)_minmax(0,1.7fr)_minmax(10rem,1fr)_auto] gap-x-3 border-b border-slate-700 px-2 pb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
           <div>Name</div>
           <div>Value / Expression</div>
           <div>Resolved value</div>
@@ -107,7 +107,7 @@ export function VariablesView({
                         binding: variable.binding,
                       })
                     }
-                    className="min-w-0 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-sm text-slate-100 outline-none focus:border-cyan-500"
+                    className="min-w-0 rounded border border-slate-600 bg-slate-950 px-2 py-1 text-base text-slate-100 outline-none focus:border-cyan-500"
                   />
 
                   <div className="min-w-0">
@@ -125,7 +125,7 @@ export function VariablesView({
                       }`}
                     />
                     {hasError && resolution?.reason && (
-                      <div className="mt-1 text-[11px] text-rose-300">{resolution.reason}</div>
+                      <div className="mt-1 text-xs text-rose-300">{resolution.reason}</div>
                     )}
                   </div>
 
@@ -141,7 +141,7 @@ export function VariablesView({
                           ? onRemoveVariableControl?.(variable.name)
                           : onCreateVariableControl?.(variable.name, bindingText)
                       }
-                      className={`rounded border px-2 py-1 text-[11px] ${
+                      className={`rounded border px-2 py-1 text-xs ${
                         hasControl
                           ? 'border-rose-700/70 bg-rose-900/25 text-rose-100 hover:bg-rose-800/35'
                           : 'border-slate-600 bg-slate-900 text-slate-200 hover:bg-slate-800'
@@ -152,7 +152,7 @@ export function VariablesView({
                     <button
                       type="button"
                       onClick={() => onRemoveVariable?.(variable.id)}
-                      className="rounded border border-rose-700/70 bg-rose-900/25 px-2 py-1 text-[11px] text-rose-100 hover:bg-rose-800/35"
+                      className="rounded border border-rose-700/70 bg-rose-900/25 px-2 py-1 text-sm text-rose-100 hover:bg-rose-800/35"
                     >
                       Delete
                     </button>

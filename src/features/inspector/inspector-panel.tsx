@@ -268,8 +268,8 @@ function RuntimeSettingsSection({
       };
       return (
         <label key={name} className="block space-y-1">
-          <p className="text-xs text-slate-300">{name}</p>
-          <p className="text-[11px] text-slate-400">{typeLabel} · JSON list</p>
+          <p className="text-sm text-slate-300">{name}</p>
+          <p className="text-xs text-slate-400">{typeLabel} · JSON list</p>
           <input
             type="text"
             value={text}
@@ -294,8 +294,8 @@ function RuntimeSettingsSection({
       return (
         <label key={name} className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-            <p className="text-[11px] text-slate-400">{typeLabel}</p>
+            <p className="text-sm text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+            <p className="text-xs text-slate-400">{typeLabel}</p>
           </div>
           <input
             type="checkbox"
@@ -324,8 +324,8 @@ function RuntimeSettingsSection({
 
         return (
           <label key={name} className="block space-y-1">
-            <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-            <p className="text-[11px] text-slate-400">{typeLabel}</p>
+            <p className="text-sm text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+            <p className="text-xs text-slate-400">{typeLabel}</p>
             <select
               value={selectValue}
               disabled={!editable || mutation.isPending}
@@ -369,8 +369,8 @@ function RuntimeSettingsSection({
 
       return (
         <label key={name} className="block space-y-1">
-          <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-          <p className="text-[11px] text-slate-400">{typeLabel}</p>
+          <p className="text-sm text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+          <p className="text-xs text-slate-400">{typeLabel}</p>
           <input
             type={typeof value === 'number' ? 'number' : 'text'}
             value={inputValue}
@@ -394,9 +394,9 @@ function RuntimeSettingsSection({
 
     return (
       <div key={name} className="space-y-1">
-        <p className="text-xs text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
-        <p className="text-[11px] text-slate-400">nested object</p>
-        <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] rounded bg-slate-950/70 p-2 text-[11px] text-slate-300">
+        <p className="text-sm text-slate-300">{getAuthoringParameterLabel(selectedBlock?.blockTypeId ?? '', name, name)}</p>
+        <p className="text-xs text-slate-400">nested object</p>
+        <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] rounded bg-slate-950/70 p-2 text-xs text-slate-300">
           {JSON.stringify(value, null, 2)}
         </pre>
       </div>
@@ -426,7 +426,7 @@ function RuntimeSettingsSection({
               title="Edits target the linked session. Apply to graph copies editable values into the document. Tab-local plot settings also synchronize with the graph."
               onClick={() => setShowHelp((current) => !current)} aria-expanded={showHelp}>?</button>
           </div>
-          {showHelp && <p className="text-[11px] text-slate-400">
+          {showHelp && <p className="text-xs text-slate-400">
             Edits target the linked session. Apply to graph copies editable values into the document.
             Tab-local plot settings also synchronize with the graph.
           </p>}
@@ -441,29 +441,29 @@ function RuntimeSettingsSection({
       )}
 
       {availability.state === 'ready' && query.isPending && (
-        <p className="text-sm text-slate-400">Loading runtime settings...</p>
+        <p className="text-base text-slate-400">Loading runtime settings...</p>
       )}
 
       {availability.state === 'ready' && query.isError && (
-        <p className="text-sm text-rose-300">{toRuntimeSettingsErrorMessage(query.error)}</p>
+        <p className="text-base text-rose-300">{toRuntimeSettingsErrorMessage(query.error)}</p>
       )}
 
       {availability.state === 'ready' && saveError && (
-        <p className="text-sm text-rose-300">{saveError}</p>
+        <p className="text-base text-rose-300">{saveError}</p>
       )}
 
       {availability.state === 'ready' && applyMessage && (
-        <p className="text-sm text-emerald-300">{applyMessage}</p>
+        <p className="text-base text-emerald-300">{applyMessage}</p>
       )}
 
       {availability.state === 'ready' && query.data && (
         <div className="space-y-3">
-          {(query.isFetching || mutation.isPending) && <p role="status" className="text-[11px] text-slate-400">
+          {(query.isFetching || mutation.isPending) && <p role="status" className="text-xs text-slate-400">
             {mutation.isPending ? 'Saving…' : 'Refreshing…'}
           </p>}
 
           {editableEntries.length === 0 && advancedEntries.length === 0 && (
-            <p className="text-sm text-slate-400">No live-editable runtime settings available for this block.</p>
+            <p className="text-base text-slate-400">No live-editable runtime settings available for this block.</p>
           )}
 
           {editableEntries.length > 0 && (
@@ -474,7 +474,7 @@ function RuntimeSettingsSection({
 
           {advancedEntries.length > 0 && (
             <details className="inspector-disclosure">
-              <summary className="text-xs text-slate-400">
+              <summary className="text-sm text-slate-400">
                 Runtime metadata ({advancedEntries.length})
               </summary>
               <div className="mt-2 space-y-2">

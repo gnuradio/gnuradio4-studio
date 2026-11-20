@@ -21,7 +21,7 @@ export function SessionError({ message, operation }: { message: string; operatio
   return <section aria-label="Last error" className="inspector-section">
     <h3 className="inspector-heading">Last error</h3>
     <div role="alert" className="space-y-2 rounded border border-rose-600 bg-rose-900/20 p-2">
-      <p className="text-[13px] font-medium text-rose-300"><span aria-hidden="true">⚠ </span>{error.title}</p>
+      <p className="text-base font-medium text-rose-300"><span aria-hidden="true">⚠ </span>{error.title}</p>
       {(error.block || error.setting) && <dl className="space-y-1">
         {error.block && <InspectorPropertyRow label="Block"><span className="block truncate" title={error.block}>{error.block}</span></InspectorPropertyRow>}
         {error.setting && <InspectorPropertyRow label="Setting" technical><span className="block truncate" title={error.setting}>{error.setting}</span></InspectorPropertyRow>}
@@ -37,13 +37,13 @@ function ActivityEntry({ entry }: { entry: RuntimeActivity }) {
   return <li className="border-b border-slate-700 py-2 last:border-b-0">
     <details className="inspector-disclosure text-xs">
       <summary className="text-slate-300">
-        <time dateTime={validTimestamp(entry.timestamp)?.toISOString()} title={fullTimestamp(entry.timestamp)} className="mr-2 text-[11px] text-slate-400">{compactTime(entry.timestamp, true)}</time>
+        <time dateTime={validTimestamp(entry.timestamp)?.toISOString()} title={fullTimestamp(entry.timestamp)} className="mr-2 text-xs text-slate-400">{compactTime(entry.timestamp, true)}</time>
         <span className={tone === 'error' ? 'text-rose-300' : tone === 'success' ? 'text-emerald-300' : 'text-slate-100'}>
           <span aria-hidden="true">{tone === 'error' ? '⚠ ' : tone === 'success' ? '✓ ' : '· '}</span>{activitySummary(entry)}
         </span>
       </summary>
       <div className="mt-2 space-y-2">
-        <p className="text-[11px] text-slate-400 [overflow-wrap:anywhere]">Action: {entry.action}</p>
+        <p className="text-xs text-slate-400 [overflow-wrap:anywhere]">Action: {entry.action}</p>
         <InspectorCopyButton value={entry.message} label="Copy activity message" />
         <pre tabIndex={0} aria-label="Complete activity message" className="inspector-diagnostics">{presentSessionError(entry.message).diagnostics}</pre>
       </div>
@@ -72,7 +72,7 @@ export function SessionDetails({ context, runtimeView, canRefresh, onRefresh }: 
   const operation = context?.lastError && context.lastActionStatus === 'error' ? context.lastAction : undefined;
   return <>
     <header className="space-y-2 pb-3">
-      <h2 title={session?.name} className="line-clamp-2 text-base font-semibold leading-5 text-slate-100 [overflow-wrap:anywhere]">
+      <h2 title={session?.name} className="line-clamp-2 text-lg font-semibold leading-5 text-slate-100 [overflow-wrap:anywhere]">
         {session?.name || (context?.sessionId ? 'Linked session' : 'No session linked')}
       </h2>
       {context?.sessionId ? <StatusPill status={session?.state ?? 'unknown'} /> : <p className="text-xs text-slate-400">Run this graph or link a session to inspect execution.</p>}
@@ -88,7 +88,7 @@ export function SessionDetails({ context, runtimeView, canRefresh, onRefresh }: 
           <button type="button" disabled={!canRefresh || context.busy} aria-label="Refresh session" onClick={onRefresh} className="inspector-button">
             {context.busy && context.lastAction === 'refresh' ? 'Refreshing…' : 'Refresh'}
           </button>
-          {validTimestamp(context.sessionRefreshedAt) && <span className="text-[11px] text-slate-400">Updated <time dateTime={context.sessionRefreshedAt!} title={fullTimestamp(context.sessionRefreshedAt)}>{compactTime(context.sessionRefreshedAt)}</time></span>}
+          {validTimestamp(context.sessionRefreshedAt) && <span className="text-xs text-slate-400">Updated <time dateTime={context.sessionRefreshedAt!} title={fullTimestamp(context.sessionRefreshedAt)}>{compactTime(context.sessionRefreshedAt)}</time></span>}
         </div>
       </InspectorSection>
     </>}
@@ -99,7 +99,7 @@ export function SessionDetails({ context, runtimeView, canRefresh, onRefresh }: 
           <p className="text-xs text-slate-400">Session ID</p>
           <InspectorCopyButton value={context.sessionId} label="Copy session ID" />
         </div>
-        <p className="select-text font-mono text-[11px] text-slate-300 [overflow-wrap:anywhere]">{context.sessionId}</p>
+        <p className="select-text font-mono text-xs text-slate-300 [overflow-wrap:anywhere]">{context.sessionId}</p>
       </div>
       <dl className="space-y-2">
         <InspectorPropertyRow label="Scheduler type" technical>{session?.schedulerId || 'Default scheduler'}</InspectorPropertyRow>

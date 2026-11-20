@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/typography.css">
+  <title>Plot typography acceptance fixture</title>
+</head>
+<body>
+  <!-- Real plot component with static test data; never loaded by the application. -->
+  <main id="root" style="width:760px;margin:32px"></main>
+  <script type="module">
+    import React from 'react';
+    import {createRoot} from 'react-dom/client';
+    import {PlotSurface} from '/src/features/application/plotting/components/plot-surface.tsx';
+    import {BackendConsoleDrawer} from '/src/components/backend-console-drawer.tsx';
+    import {themeManager} from '/src/features/themes/theme-store.ts';
+    import {loadUiFont} from '/src/styles/typography.ts';
+    import '/src/styles/index.css';
+    await loadUiFont();
+    await themeManager.initialize();
+    await themeManager.select('builtin.dark');
+    document.documentElement.dataset.themeReady='true';
+    // Record actual canvas drawing fonts, rather than only checking generated options.
+    window.plotFonts=[];
+    const fillText=CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText=function(...args){
+      window.plotFonts.push(this.font);
+      return fillText.apply(this,args);
+    };
+    const x=Array.from({length:128},(_,i)=>i);
+    window.gr4StudioShell={
+      getControlPlaneConsole:async()=>({available:true,content:'[test fixture] Session created\n[settings] sample_rate = 48000\n'+JSON.stringify({block:'gr::blocks::math::Multiply<float32>',settings:{gain:2}},null,2),cursor:1,truncated:false,updatedAt:new Date().toISOString(),logPath:null,running:true}),
+      onControlPlaneConsoleOutput:()=>()=>{}
+    };
+    const plot=React.createElement(PlotSurface,{
+      spec:{kind:'timeseries',title:'Signal amplitude',xLabel:'Sample',yLabel:'Amplitude',legend:true},
+      frame:{kind:'timeseries',series:[{id:'signal',label:'Signal',x,y:x.map(i=>Math.sin(i/8))}],meta:{state:'ready',sequence:1}},
+      binding:{status:'configured',transport:'http_poll',endpoint:'http://localhost/test-fixture'},
+      onPausedChange:()=>{},onViewReset:()=>{},onAxisModeChange:()=>{}
+    });
+    createRoot(document.getElementById('root')).render(React.createElement(React.Fragment,null,
+      React.createElement('div',{style:{height:420}},plot),React.createElement(BackendConsoleDrawer)));
+  </script>
+</body>
+</html>

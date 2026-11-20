@@ -26,12 +26,12 @@ export function SelectionHeader({ block, details }: { block: EditorGraphNode; de
 
   return (
     <header className="space-y-1 pb-3">
-      <h2 className="text-base font-semibold leading-5 text-slate-100 [overflow-wrap:anywhere]">
+      <h2 className="text-lg font-semibold leading-5 text-slate-100 [overflow-wrap:anywhere]">
         {toCanonicalBlockDisplayName(block.displayName, block.blockTypeId)}
       </h2>
       {signature && <p className="text-xs text-slate-300 [overflow-wrap:anywhere]">{signature}</p>}
       {!signature && description && <p title={description} className="line-clamp-2 text-xs text-slate-300 [overflow-wrap:anywhere]">{description}</p>}
-      {namespace && <p className="text-[11px] text-slate-400 [overflow-wrap:anywhere]">{namespace}</p>}
+      {namespace && <p className="text-xs text-slate-400 [overflow-wrap:anywhere]">{namespace}</p>}
     </header>
   );
 }
@@ -72,12 +72,12 @@ export function SelectionParameters({ block, details }: { block: EditorGraphNode
               const draft = block.parameters[parameter.name];
               const value = draft?.value ?? parameter.defaultValue ?? '';
               return (
-                <div key={parameter.name} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-baseline gap-3 text-[13px] leading-5">
+                <div key={parameter.name} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-baseline gap-3 text-sm leading-5">
                   <dt title={parameter.description || parameter.name} className="text-slate-300 [overflow-wrap:anywhere]">
                     {getAuthoringParameterLabel(block.blockTypeId, parameter.name, parameter.label)}
                   </dt>
                   <dd className="text-right text-slate-100 [overflow-wrap:anywhere]">
-                    {draft?.bindingKind === 'expression' && <span className="mr-1 text-[11px] text-slate-400" title="Expression">ƒ</span>}
+                    {draft?.bindingKind === 'expression' && <span className="mr-1 text-xs text-slate-400" title="Expression">ƒ</span>}
                     {value || <span className="text-slate-400">—</span>}
                   </dd>
                 </div>
@@ -129,7 +129,7 @@ function TechnicalIdentifier({ label, value }: { label: string; value: string })
         <p className="text-xs text-slate-400">{label}</p>
         <InspectorCopyButton value={value} label={`Copy ${label.toLowerCase()}`} />
       </div>
-      <p className="select-text font-mono text-[11px] text-slate-300 [overflow-wrap:anywhere]">{value}</p>
+      <p className="select-text font-mono text-xs text-slate-300 [overflow-wrap:anywhere]">{value}</p>
     </div>
   );
 }
@@ -144,7 +144,7 @@ function InstanceIdEditor({ instanceId }: { instanceId: string }) {
     const result = renameNodeInstanceId(instanceId, draft);
     if (!result.ok) setError(result.error);
   }}>
-    <label className="block space-y-1 text-xs text-slate-400">
+    <label className="block space-y-1 text-sm text-slate-400">
       <span>Instance ID</span>
       <input aria-label="Instance ID" value={draft} className="inspector-input font-mono" aria-invalid={Boolean(error)}
         aria-describedby={error ? errorId : undefined} title="Graph instance ID. Rerun to update a linked session."
@@ -189,8 +189,8 @@ export function SelectionAdvanced({ block, binding, ports, details }: {
                 <div key={label}><dt className="text-slate-400">{label}</dt><dd>{value}</dd></div>
               ))}
             </dl>
-            {binding.reason && <p className="text-[11px] text-slate-400 [overflow-wrap:anywhere]">{binding.reason}</p>}
-            <p className="text-[11px] text-slate-400">Local display binding validation; runtime compatibility is determined by the backend.</p>
+            {binding.reason && <p className="text-xs text-slate-400 [overflow-wrap:anywhere]">{binding.reason}</p>}
+            <p className="text-xs text-slate-400">Local display binding validation; runtime compatibility is determined by the backend.</p>
           </div>
         )}
         {otherParameters.length > 0 && <div className="space-y-2">
@@ -202,7 +202,7 @@ export function SelectionAdvanced({ block, binding, ports, details }: {
         </div>}
         {(ports.inputs.length > 0 || ports.outputs.length > 0) && <div>
           <h4 className="mb-1 text-xs font-medium text-slate-100">Port resolution</h4>
-          {[...ports.inputs, ...ports.outputs].map((port) => <p key={port.key} className="text-[11px] text-slate-400 [overflow-wrap:anywhere]">
+          {[...ports.inputs, ...ports.outputs].map((port) => <p key={port.key} className="text-xs text-slate-400 [overflow-wrap:anywhere]">
             {port.direction} · {port.displayLabel} · {port.inference}
           </p>)}
         </div>}

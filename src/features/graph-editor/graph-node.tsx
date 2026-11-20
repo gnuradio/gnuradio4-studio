@@ -198,7 +198,7 @@ function PortTabContent({ port, visualSide, expanded }: { port: RenderedPort; vi
 
   const label = (
     <span
-      className={`flex items-center overflow-hidden whitespace-nowrap text-[10px] font-medium leading-4 text-slate-200 transition-all duration-150 ${
+      className={`flex items-center overflow-hidden whitespace-nowrap text-xs font-medium leading-4 text-slate-200 transition-all duration-150 ${
         isVertical
           ? expanded ? 'max-h-[140px]' : 'max-h-0 group-hover/port:max-h-[140px]'
           : expanded ? 'max-w-[140px]' : 'max-w-0 group-hover/port:max-w-[140px]'
@@ -391,18 +391,18 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
           />
         )}
         {isNote ? (
-          <div className="relative z-10 h-full min-h-[76px] overflow-hidden text-[12px] leading-5 text-yellow-50/95">
+          <div className="relative z-10 h-full min-h-[76px] overflow-hidden text-xs leading-5 text-yellow-50/95">
             <div className="whitespace-pre-wrap break-words">
               {noteText}
             </div>
           </div>
         ) : isVirtualRouting ? (
           <div className="relative z-10 flex h-full min-h-[36px] flex-col items-center justify-center gap-0.5">
-            <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[8px] font-bold uppercase tracking-wide text-sky-300/90">
+            <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-sky-300/90">
               Virtual
             </div>
             <div
-              className="max-w-full rounded-full border border-sky-500/70 bg-sky-950/80 px-3 py-1 text-center text-[11px] font-semibold text-sky-100"
+              className="max-w-full rounded-full border border-sky-500/70 bg-sky-950/80 px-3 py-1 text-center text-xs font-semibold text-sky-100"
               title={streamId}
             >
               <span className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
@@ -416,7 +416,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             <button
               type="button"
               onClick={() => data.onOpenRuntimeVisualization?.(data.instanceId)}
-              className={`absolute right-2 top-2 rounded border border-slate-600 bg-slate-950/90 px-1.5 py-0.5 text-[10px] text-slate-200 hover:bg-slate-800 transition-opacity ${
+              className={`absolute right-2 top-2 rounded border border-slate-600 bg-slate-950/90 px-1.5 py-0.5 text-xs text-slate-200 hover:bg-slate-800 transition-opacity ${
                 selected || data.isRuntimeVisualizationOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               }`}
               title="View runtime plot"
@@ -425,15 +425,15 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
             </button>
           )}
 
-          <div className="studio-block-header text-sm font-medium">{data.shortDisplayName}</div>
+          <div className="studio-block-header truncate text-base font-semibold">{data.shortDisplayName}</div>
           {isVirtualRouting && (
-            <div className="mt-1 inline-flex rounded border border-sky-700 bg-sky-950/45 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-200">
+            <div className="mt-1 inline-flex rounded border border-sky-700 bg-sky-950/45 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-sky-200">
               Virtual
             </div>
           )}
           {executionMode !== 'active' && (
             <div
-              className={`mt-1 inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              className={`mt-1 inline-flex rounded border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${
                 executionMode === 'disabled'
                   ? 'border-slate-600 bg-slate-800 text-slate-300'
                   : 'border-amber-600 bg-amber-950/45 text-amber-200'
@@ -447,18 +447,18 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
               {data.parameterRows.map((row) => (
                 <div
                   key={row.name}
-                  className="flex min-w-0 items-baseline justify-between gap-3 border-t border-slate-700/40 py-[3px] text-[11px] first:border-t-0"
+                  className="flex min-w-0 items-baseline justify-between gap-3 border-t border-slate-700/40 py-[3px] text-xs first:border-t-0"
                   title={`${row.name} = ${row.value}`}
                 >
-                  <span className="shrink-0 text-slate-400">{row.name}</span>
-                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[10.5px] text-slate-100">
+                  <span className="min-w-0 truncate text-slate-400" title={row.name}>{row.name}</span>
+                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs text-slate-100">
                     {row.value}
                   </span>
                 </div>
               ))}
               {data.parameterOverflowCount > 0 && (
                 <div
-                  className="mt-1 text-[10px] text-slate-500"
+                  className="mt-1 text-xs text-slate-500"
                   title={`${data.parameterOverflowCount} additional parameter value(s)`}
                 >
                   + {data.parameterOverflowCount} more
@@ -466,7 +466,7 @@ export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
               )}
             </div>
           ) : (
-            <div className="mt-2 text-[10px] text-slate-500">No non-advanced parameters</div>
+            <div className="mt-2 text-xs text-slate-500">No non-advanced parameters</div>
           )}
         </div>
         )}

@@ -174,7 +174,7 @@ export function GraphExecutionOverlay({ tabId, onRun, currentSubmissionContent }
           <button
             type="button"
             onClick={() => setCollapsed((current) => !current)}
-            className="w-6 text-xs text-slate-300 hover:text-white"
+            className="w-6 text-sm text-slate-300 hover:text-white"
             aria-label={collapsed ? 'Expand execution panel' : 'Collapse execution panel'}
             title={collapsed ? 'Expand' : 'Collapse'}
           >
@@ -186,24 +186,24 @@ export function GraphExecutionOverlay({ tabId, onRun, currentSubmissionContent }
       {!collapsed && (
         <div className="p-3 space-y-2 text-xs">
           <div className="rounded border border-slate-700 bg-slate-800/60 p-2 space-y-2">
-            {operationMessage && <p className="text-[11px] text-sky-300 break-words">{operationMessage}</p>}
-            {!operationMessage && <p className="text-[11px] text-cyan-300 break-words">{runIntentMessage(runtimeView.runIntent)}</p>}
-            <p className="text-[11px] text-slate-300 break-words">{hintText}</p>
-            <p className="text-[11px] text-slate-500">
+            {operationMessage && <p className="text-xs text-sky-300 break-words">{operationMessage}</p>}
+            {!operationMessage && <p className="text-xs text-cyan-300 break-words">{runIntentMessage(runtimeView.runIntent)}</p>}
+            <p className="text-xs text-slate-300 break-words">{hintText}</p>
+            <p className="text-xs text-slate-500">
               {safeContext.lastAction ? `Last action: ${safeContext.lastAction}` : 'No actions yet'}
             </p>
-            <p className="text-[11px] text-slate-500">session refreshed: {formatTimestamp(new Date(safeContext.sessionRefreshedAt ?? '').getTime())}</p>
-            <p className="text-[11px] text-slate-500">updated: {formatTimestamp(new Date(safeContext.lastUpdatedAt ?? '').getTime())}</p>
+            <p className="text-xs text-slate-500">session refreshed: {formatTimestamp(new Date(safeContext.sessionRefreshedAt ?? '').getTime())}</p>
+            <p className="text-xs text-slate-500">updated: {formatTimestamp(new Date(safeContext.lastUpdatedAt ?? '').getTime())}</p>
           </div>
 
           <div className="rounded border border-slate-700 bg-slate-900/60 p-2 space-y-1">
-            <p className="text-[11px] text-slate-400">session {shortId(safeContext.sessionId)}</p>
-            <p className="text-[11px] text-slate-400">snapshot: {runtimeView.graphSubmissionState}</p>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-xs text-slate-400">session {shortId(safeContext.sessionId)}</p>
+            <p className="text-xs text-slate-400">snapshot: {runtimeView.graphSubmissionState}</p>
+            <p className="text-xs text-slate-400">
               sync: {runtimeView.graphDriftState === 'in-sync' ? 'linked session in sync' : 'linked session stale'}
             </p>
-            <p className="text-[11px] text-slate-500">submitted: {formatTimestamp(new Date(runtimeView.graphSubmissionUpdatedAt ?? '').getTime())}</p>
-            {safeContext.session?.lastError && <p className="text-[11px] text-rose-300 break-words">backend: {safeContext.session.lastError}</p>}
+            <p className="text-xs text-slate-500">submitted: {formatTimestamp(new Date(runtimeView.graphSubmissionUpdatedAt ?? '').getTime())}</p>
+            {safeContext.session?.lastError && <p className="text-xs text-rose-300 break-words">backend: {safeContext.session.lastError}</p>}
           </div>
 
           {safeContext.lastError || safeContext.session?.lastError ? (

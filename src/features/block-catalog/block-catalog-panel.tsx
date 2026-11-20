@@ -45,7 +45,7 @@ function BlockVariantButton({ block }: { block: BlockCatalogItem }) {
         {parsed.familyName} {parsed.variantLabel}
       </div>
       {block.description && (
-        <div className="mt-1 text-xs text-slate-400 line-clamp-2">
+        <div className="mt-1 text-xs font-normal text-slate-400 line-clamp-2">
           {extractDoxygenBrief(block.description) ?? block.description}
         </div>
       )}
@@ -61,7 +61,7 @@ function BlockFamilyCard({ name, variants }: { name: string; variants: BlockCata
     <div className="rounded-md border border-slate-700 bg-slate-800/70 px-3 py-2">
       <div className="text-sm font-medium text-slate-100">{name}</div>
       {description && (
-        <div className="mt-1 text-xs text-slate-400 line-clamp-2">
+        <div className="mt-1 text-xs font-normal text-slate-400 line-clamp-2">
           {extractDoxygenBrief(description) ?? description}
         </div>
       )}
@@ -71,7 +71,7 @@ function BlockFamilyCard({ name, variants }: { name: string; variants: BlockCata
           return (
             <button
               key={block.blockTypeId}
-              className="inline-flex overflow-hidden rounded border border-slate-600 bg-slate-900 text-xs text-slate-200 hover:border-accent transition"
+              className="inline-flex overflow-hidden rounded border border-slate-600 bg-slate-900 text-sm text-slate-200 hover:border-accent transition"
               onClick={() => addNodeFromCatalogItem(toEditorCatalogBlock(block))}
               title={block.blockTypeId}
               type="button"
@@ -155,7 +155,8 @@ function CategoryTreeView({
             onToggle={(event) => onTogglePath(pathKey, event.currentTarget.open)}
           >
             <summary className="cursor-pointer text-sm font-medium text-slate-200 py-1">
-              {name} ({count})
+              <span>{name}</span>
+              <span className="float-right text-xs font-normal text-slate-500">({count})</span>
             </summary>
 
             <div className="space-y-2 pb-1 pl-2">
@@ -289,11 +290,11 @@ export function BlockCatalogPanel({ onCollapse }: { onCollapse?: () => void }) {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search blocks..."
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-base text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
         </div>
 
-        {isPending && <p className="text-sm text-slate-400">{loadingMessage} Loading blocks...</p>}
+        {isPending && <p className="text-base text-slate-400">{loadingMessage} Loading blocks...</p>}
 
         {isError && (
           <div className="rounded-md border border-rose-900 bg-rose-950/40 p-3 text-sm text-rose-200">
@@ -308,7 +309,7 @@ export function BlockCatalogPanel({ onCollapse }: { onCollapse?: () => void }) {
         )}
 
         {!isPending && !isError && filteredBlocks.length === 0 && (
-          <p className="text-sm text-slate-400">
+          <p className="text-base text-slate-400">
             No blocks match &quot;{searchQuery.trim()}&quot;.
           </p>
         )}
