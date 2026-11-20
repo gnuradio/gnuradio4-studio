@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { editorNodeIdentity, type EditorGraphNode } from '../../graph-editor/model/types';
 import type { GraphDocument } from '../../graph-document/model/types';
 import type { BlockDetails } from '../../../lib/api/block-details';
 import { ApiClientError } from '../../../lib/api/client';
@@ -17,7 +18,7 @@ import {
 type RuntimeActionStatus = 'idle' | 'running' | 'success' | 'error';
 export type ExecutionState = 'idle' | 'ready' | 'running' | 'stopped' | 'error';
 export type OperationState = 'none' | 'running-graph' | 'stopping-session' | 'restarting-session' | 'refreshing';
-export type GraphDriftState = 'in-sync' | 'out-of-sync';
+export type GraphDriftState = 'in-sync' | 'out-of-sync' | 'unknown';
 export type GraphSubmissionState = 'none' | 'current' | 'stale';
 export type RunIntent = 'none' | 'create-session' | 'replace-session-from-edits' | 'start-linked-session';
 export type RunTabResult =
@@ -51,6 +52,7 @@ export type TabExecutionContext = {
   sessionId: string | null;
   session: SessionRecord | null;
   lastSubmittedHash: string | null;
+  submittedNodeIdentities: ReadonlyMap<string, symbol> | null;
   graphSubmissionUpdatedAt: string | null;
   lastAction: 'create' | 'start' | 'stop' | 'restart' | 'refresh' | 'delete' | null;
   lastActionStatus: RuntimeActionStatus;
@@ -61,18 +63,23 @@ export type TabExecutionContext = {
   activity: RuntimeActivity[];
 };
 
+type SubmissionBaseline = Pick<TabExecutionContext, 'lastSubmittedHash' | 'submittedNodeIdentities' | 'graphSubmissionUpdatedAt'>;
+
 type RuntimeSessionState = {
   activeTabId: string | null;
   contextsByTabId: Record<string, TabExecutionContext>;
   sessions: SessionRecord[];
-  getTabRuntimeView: (tabId: string, currentSubmissionContent?: string | null, schedulerId?: string | null) => TabRuntimeView;
+  replacementCleanup: ReadonlyMap<string, 'pending' | 'deleted'>;
+  sessionActionError: string | null;
+  dismissSessionActionError: () => void;
+  getTabRuntimeView: (tabId: string, currentSubmissionContent?: string | null, schedulerId?: string | null, editorNodes?: readonly EditorGraphNode[]) => TabRuntimeView;
   ensureTabContext: (tabId: string) => void;
   removeTabContext: (tabId: string) => void;
   setActiveTab: (tabId: string | null) => void;
   runTab: (
     tabId: string,
     document: GraphDocument,
-    options?: { blockDetailsByType?: ReadonlyMap<string, BlockDetails> },
+    options?: { blockDetailsByType?: ReadonlyMap<string, BlockDetails>; editorNodes?: readonly EditorGraphNode[] },
   ) => Promise<RunTabResult>;
   stopSessionForTab: (tabId: string) => Promise<void>;
   restartSessionForTab: (tabId: string) => Promise<void>;
@@ -94,6 +101,7 @@ function createDefaultContext(): TabExecutionContext {
     sessionId: null,
     session: null,
     lastSubmittedHash: null,
+    submittedNodeIdentities: null,
     graphSubmissionUpdatedAt: null,
     lastAction: null,
     lastActionStatus: 'idle',
@@ -195,35 +203,20 @@ function deriveOperationState(context: TabExecutionContext): OperationState {
   return 'running-graph';
 }
 
-function deriveGraphDriftState(
-  context: TabExecutionContext,
-  currentSubmissionContent?: string | null,
-  schedulerId?: string | null,
-): GraphDriftState {
-  if (!context.sessionId || !context.lastSubmittedHash || !currentSubmissionContent) {
-    return 'in-sync';
+function hasIdentityDrift(context: TabExecutionContext, nodes?: readonly EditorGraphNode[]): boolean {
+  const submitted = context.submittedNodeIdentities;
+  if (!nodes || !submitted) return false;
+  const current = new Map(nodes.map((node) => [node.instanceId, node[editorNodeIdentity]]));
+  for (const [id, identity] of submitted) {
+    if (current.get(id) !== identity) return true;
   }
-
-  return context.lastSubmittedHash === hashSubmissionSignature(currentSubmissionContent, schedulerId) ? 'in-sync' : 'out-of-sync';
-}
-
-function deriveGraphSubmissionState(
-  context: TabExecutionContext,
-  currentSubmissionContent?: string | null,
-  schedulerId?: string | null,
-): GraphSubmissionState {
-  if (!context.sessionId || !context.lastSubmittedHash || !currentSubmissionContent) {
-    return 'none';
-  }
-
-  return context.lastSubmittedHash === hashSubmissionSignature(currentSubmissionContent, schedulerId) ? 'current' : 'stale';
+  return false;
 }
 
 function deriveRunIntent(
   context: TabExecutionContext,
-  currentSubmissionContent?: string | null,
-  schedulerId?: string | null,
-  executionState?: ExecutionState,
+  drift: GraphDriftState,
+  executionState: ExecutionState,
 ): RunIntent {
   if (executionState === 'running') {
     return 'none';
@@ -233,8 +226,7 @@ function deriveRunIntent(
     return 'create-session';
   }
 
-  const drift = deriveGraphDriftState(context, currentSubmissionContent, schedulerId);
-  if (drift === 'out-of-sync') {
+  if (drift !== 'in-sync') {
     return 'replace-session-from-edits';
   }
 
@@ -262,7 +254,38 @@ function wait(ms: number): Promise<void> {
 }
 
 export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => {
+  // An unlinked session can be reattached to its originating editor tab.
+  const submissions = new Map<string, { tabId: string; baseline: SubmissionBaseline }>();
   const actionVersionByTabId: Record<string, number> = {};
+  let sessionListVersion = 0;
+
+  const cleanupUnownedSession = async (id: string): Promise<string | null> => {
+    if (get().findTabIdBySessionId(id) || get().replacementCleanup.has(id)) return null;
+    // Publish the reservation before DELETE so a concurrent link sees it immediately.
+    set((state) => ({ replacementCleanup: new Map(state.replacementCleanup).set(id, 'pending') }));
+    try {
+      const { deleted } = await deleteSession(id);
+      if (!deleted) throw new Error('Control Plane did not confirm deletion.');
+    } catch (error) {
+      if (!isMissingSessionError(error)) {
+        const message = `Could not delete session ${id} during replacement cleanup: ${toErrorMessage(error)}`;
+        set((state) => {
+          const replacementCleanup = new Map(state.replacementCleanup);
+          replacementCleanup.delete(id);
+          return { replacementCleanup, sessionActionError: message };
+        });
+        return message;
+      }
+    }
+
+    submissions.delete(id);
+    ++sessionListVersion;
+    set((state) => ({
+      sessions: state.sessions.filter((session) => session.id !== id),
+      replacementCleanup: new Map(state.replacementCleanup).set(id, 'deleted'),
+    }));
+    return null;
+  };
 
   const patchContext = (tabId: string, updater: (current: TabExecutionContext) => TabExecutionContext) => {
     set((state) => {
@@ -352,6 +375,7 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
       sessionId: null,
       session: null,
       lastSubmittedHash: null,
+      submittedNodeIdentities: null,
       graphSubmissionUpdatedAt: null,
       sessionRefreshedAt: null,
       busy: false,
@@ -394,6 +418,7 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
       }
 
       if (isMissingSessionError(error)) {
+        submissions.delete(sessionId);
         patchContext(tabId, (current) =>
           clearSessionFromContext(current, 'Linked session no longer exists on backend.'),
         );
@@ -409,14 +434,18 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
     sessionId: string,
     version: number,
     target: 'running' | 'stopped',
+    publishWhilePolling = true,
   ): Promise<SessionRecord | null> => {
     for (let index = 0; index < POLL_INTERVALS_MS.length; index += 1) {
       if (!isCurrentAction(tabId, version)) {
         return null;
       }
 
-      const session = await refreshSessionStateWithVersion(tabId, sessionId, version);
-      if (!session) {
+      // A replacement stays private until its session and submission baseline can be published together.
+      const session = publishWhilePolling
+        ? await refreshSessionStateWithVersion(tabId, sessionId, version)
+        : await getSession(sessionId);
+      if (!session || !isCurrentAction(tabId, version)) {
         return null;
       }
 
@@ -444,17 +473,26 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
     activeTabId: null,
     contextsByTabId: {},
     sessions: [],
+    replacementCleanup: new Map(),
+    sessionActionError: null,
+    dismissSessionActionError: () => set({ sessionActionError: null }),
 
-    getTabRuntimeView: (tabId, currentSubmissionContent, schedulerId) => {
+    getTabRuntimeView: (tabId, currentSubmissionContent, schedulerId, editorNodes) => {
       const context = get().contextsByTabId[tabId] ?? createDefaultContext();
       const executionState = deriveExecutionState(context);
+      const hasBaseline = Boolean(context.sessionId && context.lastSubmittedHash);
+      const stale = hasBaseline && (
+        !currentSubmissionContent || hasIdentityDrift(context, editorNodes) ||
+        context.lastSubmittedHash !== hashSubmissionSignature(currentSubmissionContent, schedulerId)
+      );
+      const graphDriftState = !hasBaseline ? 'unknown' : stale ? 'out-of-sync' : 'in-sync';
       return {
         executionState,
         operationState: deriveOperationState(context),
-        graphDriftState: deriveGraphDriftState(context, currentSubmissionContent, schedulerId),
-        graphSubmissionState: deriveGraphSubmissionState(context, currentSubmissionContent, schedulerId),
+        graphDriftState,
+        graphSubmissionState: hasBaseline ? (stale ? 'stale' : 'current') : 'none',
         graphSubmissionUpdatedAt: context.graphSubmissionUpdatedAt,
-        runIntent: deriveRunIntent(context, currentSubmissionContent, schedulerId, executionState),
+        runIntent: deriveRunIntent(context, graphDriftState, executionState),
       };
     },
 
@@ -474,6 +512,9 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
     },
 
     removeTabContext: (tabId) => {
+      for (const [sessionId, submission] of submissions) {
+        if (submission.tabId === tabId) submissions.delete(sessionId);
+      }
       delete actionVersionByTabId[tabId];
       set((state) => {
         const next = { ...state.contextsByTabId };
@@ -488,6 +529,17 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
 
     runTab: async (tabId, document, options) => {
       const actionVersion = beginAction(tabId, 'start');
+      const superseded = 'Run was superseded by a newer runtime action.';
+      let pendingReplacementId: string | null = null;
+
+      const checkRunOwnership = () => {
+        if (!isCurrentAction(tabId, actionVersion)) {
+          throw new Error(superseded);
+        }
+        if (pendingReplacementId && get().findTabIdBySessionId(pendingReplacementId)) {
+          throw new Error(`Replacement session ${pendingReplacementId} was linked to another tab.`);
+        }
+      };
 
       try {
         const submission = buildCurrentSessionGraphSubmission(document, options);
@@ -495,7 +547,7 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
         const submissionHash = hashSubmissionSignature(submission.content, schedulerId);
         const context = get().contextsByTabId[tabId] ?? createDefaultContext();
 
-        const hasSubmissionDrift = context.lastSubmittedHash !== submissionHash;
+        const hasSubmissionDrift = context.lastSubmittedHash !== submissionHash || hasIdentityDrift(context, options?.editorNodes);
         const shouldReplaceErroredSession = Boolean(context.sessionId) && context.session?.state === 'error';
         const needsNewSession = !context.sessionId || hasSubmissionDrift || shouldReplaceErroredSession;
         const isReplacementRun = Boolean(context.sessionId) && (hasSubmissionDrift || shouldReplaceErroredSession);
@@ -503,24 +555,40 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
         let activeSession: SessionRecord | null = context.session;
         let activeSessionId = context.sessionId;
         const previousSessionId = isReplacementRun ? context.sessionId : null;
+        let baseline: SubmissionBaseline | undefined;
 
         if (needsNewSession) {
+          const submittedNodeIdentities = new Map<string, symbol>();
+          const submittedIds = new Set(submission.blockInstanceIds);
+          for (const node of options?.editorNodes ?? []) {
+            const identity = node[editorNodeIdentity];
+            if (identity && submittedIds.has(node.instanceId)) {
+              submittedNodeIdentities.set(node.instanceId, identity);
+            }
+          }
           const createdSession = await createSession({
             name: submission.graphName || 'demo',
             grc: submission.content,
             scheduler_id: schedulerId,
           });
+          baseline = {
+            lastSubmittedHash: submissionHash,
+            submittedNodeIdentities: options?.editorNodes ? submittedNodeIdentities : null,
+            graphSubmissionUpdatedAt: nowIsoString(),
+          };
+          submissions.set(createdSession.id, { tabId, baseline });
           activeSession = createdSession;
           activeSessionId = createdSession.id;
+          pendingReplacementId = isReplacementRun ? createdSession.id : null;
+          checkRunOwnership();
 
           if (!isReplacementRun) {
-            if (!patchContextIfCurrent(tabId, actionVersion, (current) => {
+            patchContext(tabId, (current) => {
               let next: TabExecutionContext = {
                 ...current,
                 sessionId: createdSession.id,
                 session: createdSession,
-                lastSubmittedHash: submissionHash,
-                graphSubmissionUpdatedAt: nowIsoString(),
+                ...baseline,
                 sessionRefreshedAt: nowIsoString(),
                 lastUpdatedAt: nowIsoString(),
                 lastAction: 'create',
@@ -533,9 +601,7 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
               });
 
               return next;
-            })) {
-              return { ok: false, error: 'Run was superseded by a newer runtime action.' };
-            }
+            });
           }
 
           await get().refreshSessionList();
@@ -554,9 +620,10 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
           }
         }
 
+        checkRunOwnership();
         if (activeSession.state !== 'running') {
           const started = await startSession(activeSessionId);
-          if (!patchContextIfCurrent(tabId, actionVersion, (current) => ({
+          if (!isReplacementRun && !patchContextIfCurrent(tabId, actionVersion, (current) => ({
             ...current,
             sessionId: started.id,
             session: started,
@@ -564,11 +631,12 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
             lastUpdatedAt: nowIsoString(),
             lastAction: 'start',
           }))) {
-            return { ok: false, error: 'Run was superseded by a newer runtime action.' };
+            return { ok: false, error: superseded };
           }
         }
 
-        const converged = await pollSessionStateWithVersion(tabId, activeSessionId, actionVersion, 'running');
+        const converged = await pollSessionStateWithVersion(tabId, activeSessionId, actionVersion, 'running', !isReplacementRun);
+        checkRunOwnership();
         if (!converged) {
           completeAction(tabId, actionVersion, 'error', 'Session did not converge to running in time.');
           return { ok: false, error: 'Session did not converge to running in time.' };
@@ -585,13 +653,12 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
         }
 
         if (isReplacementRun) {
-          if (!patchContextIfCurrent(tabId, actionVersion, (current) => {
+          patchContext(tabId, (current) => {
             let next: TabExecutionContext = {
               ...current,
               sessionId: converged.id,
               session: converged,
-              lastSubmittedHash: submissionHash,
-              graphSubmissionUpdatedAt: nowIsoString(),
+              ...baseline,
               sessionRefreshedAt: nowIsoString(),
               lastUpdatedAt: nowIsoString(),
               lastAction: 'create',
@@ -605,19 +672,17 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
             });
 
             return next;
-          })) {
-            return { ok: false, error: 'Run was superseded by a newer runtime action.' };
-          }
+          });
+          pendingReplacementId = null;
         }
 
         if (previousSessionId && previousSessionId !== converged.id) {
-          try {
-            await deleteSession(previousSessionId);
-          } catch {
+          const cleanupError = await cleanupUnownedSession(previousSessionId);
+          if (cleanupError) {
             patchContextIfCurrent(tabId, actionVersion, (current) =>
               pushActivity(current, {
                 action: 'delete',
-                message: `Replacement session started, but previous session ${previousSessionId} could not be deleted automatically.`,
+                message: cleanupError,
                 level: 'error',
               }),
             );
@@ -628,6 +693,14 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
         completeAction(tabId, actionVersion, 'success', null, 'Session running.');
         return { ok: true, sessionId: converged.id, session: converged };
       } catch (error) {
+        if (!isCurrentAction(tabId, actionVersion)) {
+          if (pendingReplacementId) {
+            const cleanupError = await cleanupUnownedSession(pendingReplacementId);
+            await get().refreshSessionList();
+            if (cleanupError) return { ok: false, error: `${superseded} ${cleanupError}` };
+          }
+          return { ok: false, error: superseded };
+        }
         const message = toErrorMessage(error);
         completeAction(tabId, actionVersion, 'error', message);
         return { ok: false, error: message };
@@ -731,6 +804,7 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
 
       try {
         await deleteSession(sessionId);
+        submissions.delete(sessionId);
 
         patchContextIfCurrent(tabId, actionVersion, (current) =>
           pushActivity(
@@ -739,6 +813,7 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
               sessionId: null,
               session: null,
               lastSubmittedHash: null,
+              submittedNodeIdentities: null,
               graphSubmissionUpdatedAt: null,
               sessionRefreshedAt: null,
               lastUpdatedAt: nowIsoString(),
@@ -756,6 +831,7 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
         completeAction(tabId, actionVersion, 'success');
       } catch (error) {
         if (isMissingSessionError(error)) {
+          submissions.delete(sessionId);
           patchContextIfCurrent(tabId, actionVersion, (current) =>
             clearSessionFromContext(current, 'Session already missing on backend.'),
           );
@@ -863,21 +939,32 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
       }
 
       await deleteSession(sessionId);
+      submissions.delete(sessionId);
       await get().refreshSessionList();
     },
 
     linkSessionToTab: async (tabId, sessionId) => {
+      const cleanup = get().replacementCleanup.get(sessionId);
+      if (cleanup) {
+        const reason = cleanup === 'pending' ? 'replacement cleanup is in progress' : 'the session was deleted';
+        set({ sessionActionError: `Could not link session ${sessionId}: ${reason}.` });
+        return;
+      }
       set((state) => {
         const nextContexts = { ...state.contextsByTabId };
 
         for (const [candidateTabId, candidate] of Object.entries(nextContexts)) {
           if (candidateTabId !== tabId && candidate.sessionId === sessionId) {
+            nextActionVersion(candidateTabId);
             nextContexts[candidateTabId] = pushActivity(
               {
                 ...candidate,
                 sessionId: null,
                 session: null,
+                submittedNodeIdentities: null,
                 sessionRefreshedAt: null,
+                busy: false,
+                lastActionStatus: 'idle',
                 lastError: 'Session moved to another tab.',
                 lastUpdatedAt: nowIsoString(),
               },
@@ -890,14 +977,17 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
           }
         }
 
+        const known = submissions.get(sessionId);
+        const baseline = known?.tabId === tabId ? known.baseline : undefined;
         const target = nextContexts[tabId] ?? createDefaultContext();
         nextContexts[tabId] = {
           ...target,
           sessionId,
           session: null,
           sessionRefreshedAt: null,
-          lastSubmittedHash: null,
-          graphSubmissionUpdatedAt: null,
+          lastSubmittedHash: baseline?.lastSubmittedHash ?? null,
+          submittedNodeIdentities: baseline?.submittedNodeIdentities ?? null,
+          graphSubmissionUpdatedAt: baseline?.graphSubmissionUpdatedAt ?? null,
           lastUpdatedAt: nowIsoString(),
         };
 
@@ -908,13 +998,17 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
     },
 
     unlinkSessionFromTab: (tabId) => {
+      nextActionVersion(tabId);
       patchContext(tabId, (current) =>
         pushActivity(
           {
             ...current,
+            busy: false,
+            lastActionStatus: 'idle',
             sessionId: null,
             session: null,
             lastSubmittedHash: null,
+            submittedNodeIdentities: null,
             graphSubmissionUpdatedAt: null,
             sessionRefreshedAt: null,
             lastUpdatedAt: nowIsoString(),
@@ -936,9 +1030,22 @@ export const useRuntimeSessionStore = create<RuntimeSessionState>((set, get) => 
     },
 
     refreshSessionList: async () => {
+      const version = ++sessionListVersion;
       try {
         const sessions = await listSessions();
-        set({ sessions });
+        if (version !== sessionListVersion) return;
+        const cleanup = get().replacementCleanup;
+        if (cleanup.size === 0) {
+          set({ sessions });
+          return;
+        }
+        // Keep a confirmed deletion hidden until a fresh list also omits its ID.
+        const listedIds = new Set(sessions.map((session) => session.id));
+        const replacementCleanup = new Map(cleanup);
+        for (const [id, status] of cleanup) {
+          if (status === 'deleted' && !listedIds.has(id)) replacementCleanup.delete(id);
+        }
+        set({ sessions: sessions.filter((session) => cleanup.get(session.id) !== 'deleted'), replacementCleanup });
       } catch {
         // auxiliary list refresh
       }

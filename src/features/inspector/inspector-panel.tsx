@@ -21,7 +21,7 @@ import type { ApplicationMode } from '../graph-document/model/studio-workspace';
 import { effectiveApplicationMode } from '../application/runtime/application-mode';
 import { isControlPlaneWasmEnabled } from '../../lib/wasm/control-plane-wasm';
 import type { RuntimeSettingsValue } from '../../lib/api/block-settings';
-import { useRuntimeSessionStore } from '../runtime-session/store/runtimeSessionStore';
+import { useRuntimeSessionStore, type GraphDriftState } from '../runtime-session/store/runtimeSessionStore';
 import { buildCurrentGraphSubmissionFromEditorSnapshot } from '../runtime-submission/model/current-graph-submission';
 import { canDownloadCurrentGraph, downloadCurrentGraphAsGr4c } from '../document-file/gr4c-download';
 import { SelectionHeader, SelectionParameters, SelectionPorts, SelectionAdvanced } from './selection-details';
@@ -93,7 +93,7 @@ function RuntimeSettingsSection({
   blockDetails,
 }: {
   runtimeContext: ReturnType<typeof useRuntimeSessionStore.getState>['contextsByTabId'][string] | undefined;
-  graphDriftState: 'in-sync' | 'out-of-sync' | null | undefined;
+  graphDriftState: GraphDriftState | null | undefined;
   selectedBlock:
     | ReturnType<typeof useEditorStore.getState>['nodes'][number]
     | undefined;
@@ -493,7 +493,7 @@ function SelectionTab({
   graphDriftState,
 }: {
   runtimeContext: ReturnType<typeof useRuntimeSessionStore.getState>['contextsByTabId'][string] | undefined;
-  graphDriftState: 'in-sync' | 'out-of-sync' | null | undefined;
+  graphDriftState: GraphDriftState | null | undefined;
 }) {
   const selectedBlock = useEditorStore((state) =>
     state.nodes.find((block) => block.instanceId === state.selectedNodeId),
@@ -697,7 +697,7 @@ export function InspectorPanel({ onCollapse }: { onCollapse?: () => void }) {
   }, [blockDetailsByType, currentSnapshot]);
 
   const runtimeView = activeGraphTabId
-    ? getTabRuntimeView(activeGraphTabId, currentSubmissionResult.content, schedulerId)
+    ? getTabRuntimeView(activeGraphTabId, currentSubmissionResult.content, schedulerId, nodes)
     : null;
   const canExportCurrentGraph = canDownloadCurrentGraph(activeGraphTab);
 

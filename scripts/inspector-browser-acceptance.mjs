@@ -1,9 +1,10 @@
 // Run against `npm run dev`: CHROME_PATH=/usr/bin/google-chrome node scripts/inspector-browser-acceptance.mjs
 // Uses Chrome's built-in DevTools protocol; no browser-test dependency required.
 import assert from 'node:assert/strict';
-import { runGraphSessionChecks, runInspectorEditingChecks } from './inspector-graph-session-acceptance.mjs';
+import { connectBrowser, pause } from './browser-devtools.mjs';
+import { runGraphSessionChecks, runInspectorEditingChecks, checkReopenedDisplay } from './inspector-graph-session-acceptance.mjs';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -17,52 +18,14 @@ const browser = spawn(chrome, ['--headless=new', '--no-first-run', '--no-default
 let chromeLog = '';
 browser.stderr.on('data', (data) => { chromeLog = (chromeLog + data.toString()).slice(-6000); });
 browser.on('error', (error) => { console.error(error); });
-const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let socket;
 const evidence = { browser: '', fixtures: 'Isolated Inspector component with HTTP catalog/settings/session fixtures. Runtime checks do not execute GR4. Full-app visual acceptance remains unverified.', checks: [] };
 const check = (name, value = true) => { assert.ok(value, name); evidence.checks.push(name); };
 
 try {
-  let port;
-  for (let i = 0; i < 450; i++) {
-    if (browser.exitCode !== null || browser.signalCode !== null) break;
-    try { port = (await readFile(path.join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; }
-    catch { await pause(100); }
-  }
-  assert.ok(port, `Chrome did not start (exit ${browser.exitCode}, signal ${browser.signalCode}): ${chromeLog}`);
-  const target = await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: 'PUT' }).then((r) => r.json());
-  socket = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
-  let sequence = 0;
-  const requests = new Map();
-  const browserErrors = [];
-  socket.onmessage = ({ data }) => {
-    const message = JSON.parse(data);
-    if (message.method === 'Runtime.exceptionThrown') browserErrors.push(message.params.exceptionDetails.text);
-    if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') browserErrors.push(message.params.args.map(arg => arg.value ?? arg.description).join(' '));
-    if (message.method === 'Page.javascriptDialogOpening') {
-      void call('Page.handleJavaScriptDialog', { accept: true });
-    }
-    if (message.id) {
-      const pending = requests.get(message.id);
-      if (pending) { requests.delete(message.id); message.error ? pending.reject(new Error(JSON.stringify(message.error))) : pending.resolve(message.result); }
-    }
-  };
-  const call = (method, params = {}) => new Promise((resolve, reject) => {
-    const id = ++sequence;
-    const timeout = setTimeout(() => { requests.delete(id); reject(new Error(`Timed out: ${method}`)); }, 20000);
-    requests.set(id, { resolve: (result) => { clearTimeout(timeout); resolve(result); }, reject: (error) => { clearTimeout(timeout); reject(error); } });
-    socket.send(JSON.stringify({ id, method, params }));
-  });
-  const evaluate = async (expression) => {
-    const result = await call('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
-    if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
-    return result.result.value;
-  };
-  const waitFor = async (expression) => {
-    for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await pause(100); }
-    throw new Error(`Condition not met: ${expression}`);
-  };
+  const client = await connectBrowser(browser, profile, () => chromeLog);
+  socket = client.socket;
+  const { call, evaluate, waitFor, browserErrors } = client;
   const clickText = async (text) => evaluate(`(() => {
     const button = [...document.querySelectorAll('button,summary')].find(el => el.textContent.trim() === ${JSON.stringify(text)} || el.title === ${JSON.stringify(text)});
     if (!button) throw Error('Missing control: ' + ${JSON.stringify(text)});
@@ -115,7 +78,9 @@ try {
         window.sessionRefreshes = (window.sessionRefreshes ?? 0) + 1;
         return Promise.resolve(Response.json(window.sessionResponse));
       }
-      if (url.pathname === '/api/sessions') return Promise.resolve(Response.json([]));
+      if (url.pathname === '/api/sessions') {
+        return Promise.resolve(Response.json(init?.method === 'POST' ? window.sessionResponse : []));
+      }
       return actualFetch(input, init);
     };
   ` });
@@ -208,11 +173,17 @@ try {
   await clickText('OK');
   await waitFor(`window.inspectorTest.useEditorStore.getState().nodes[0].parameters.gain.value === '3.5'`);
   check('Existing properties editor applies document values');
-  await evaluate(`(() => {
-    const {useRuntimeSessionStore,tabId} = window.inspectorTest;
-    const contexts = useRuntimeSessionStore.getState().contextsByTabId;
-    useRuntimeSessionStore.setState({contextsByTabId:{...contexts,[tabId]:{...contexts[tabId],sessionId:'fixture-session',
-      session:{id:'fixture-session',name:'Fixture runtime',state:'running',createdAt:'',updatedAt:'',lastError:null}}}});
+  await evaluate(`(async () => {
+    const {useRuntimeSessionStore,useEditorStore,tabId} = window.inspectorTest;
+    const {graphDocumentFromEditor} = await import('/src/features/graph-document/model/fromEditor.ts');
+    const {getBlockDetails} = await import('/src/lib/api/block-details.ts');
+    window.sessionResponse = {id:'fixture-session',name:'Fixture runtime',state:'running',last_error:null,
+      created_at:'2026-11-15T15:00:00Z',updated_at:'2026-11-15T15:00:00Z'};
+    const snapshot = useEditorStore.getState().getGraphSnapshot();
+    const type = snapshot.nodes[0].blockTypeId;
+    const result = await useRuntimeSessionStore.getState().runTab(tabId, graphDocumentFromEditor(snapshot),
+      {editorNodes:snapshot.nodes, blockDetailsByType:new Map([[type, await getBlockDetails(type)]])});
+    if (!result.ok) throw Error(result.error);
   })()`);
   await waitFor(`document.querySelector('.inspector input[type="number"]')?.value === '2'`);
   await screenshot('runtime-dark');
@@ -236,6 +207,7 @@ try {
   await noOverflow('Expanded runtime and advanced metadata fit at 240px');
   await runGraphSessionChecks({evaluate,waitFor,clickText,call,check,screenshot,noOverflow,pause});
   await runInspectorEditingChecks({evaluate,waitFor,clickText,call,check,screenshot,noOverflow,pause,origin});
+  await checkReopenedDisplay({evaluate, waitFor, call, check, origin});
   if (browserErrors.length > 0) console.error(browserErrors);
   check('No React duplicate keys or browser errors', browserErrors.length === 0);
   evidence.browserErrors = browserErrors;

@@ -81,7 +81,7 @@ export function SessionDetails({ context, runtimeView, canRefresh, onRefresh }: 
     {context?.sessionId && <>
       <InspectorSection title="Status">
         <dl className="space-y-1">
-          <InspectorPropertyRow label="Graph sync">{runtimeView?.graphDriftState === 'in-sync' ? 'In sync' : runtimeView?.graphDriftState === 'out-of-sync' ? 'Out of sync' : 'Unknown'}</InspectorPropertyRow>
+          <InspectorPropertyRow label="Graph sync">{runtimeView?.graphSubmissionState === 'current' ? 'In sync' : runtimeView?.graphSubmissionState === 'stale' ? 'Out of sync' : 'Unknown'}</InspectorPropertyRow>
           <InspectorPropertyRow label="Scheduler"><span title={session?.schedulerId}>{schedulerDisplayName(session?.schedulerId)}</span></InspectorPropertyRow>
         </dl>
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

@@ -10,6 +10,9 @@ type GlobalSessionsDrawerProps = {
 
 export function GlobalSessionsDrawer({ open, onClose, onJumpToTab, activeTabId }: GlobalSessionsDrawerProps) {
   const sessions = useRuntimeSessionStore((state) => state.sessions);
+  const replacementCleanup = useRuntimeSessionStore((state) => state.replacementCleanup);
+  const sessionActionError = useRuntimeSessionStore((state) => state.sessionActionError);
+  const dismissSessionActionError = useRuntimeSessionStore((state) => state.dismissSessionActionError);
   const refreshSessionList = useRuntimeSessionStore((state) => state.refreshSessionList);
   const startSessionById = useRuntimeSessionStore((state) => state.startSessionById);
   const stopSessionById = useRuntimeSessionStore((state) => state.stopSessionById);
@@ -27,9 +30,13 @@ export function GlobalSessionsDrawer({ open, onClose, onJumpToTab, activeTabId }
     void refreshSessionList();
   }, [open, refreshSessionList]);
 
-  if (!open) {
-    return null;
-  }
+  const errorNotice = sessionActionError && (
+    <div role="alert" className="flex items-center justify-between gap-2 bg-rose-950 px-4 py-2 text-sm text-rose-200">
+      {sessionActionError}
+      <button type="button" onClick={dismissSessionActionError}>Dismiss</button>
+    </div>
+  );
+  if (!open) return errorNotice;
 
   const relationLabel = (linkedTabId: string | null): string => {
     if (!linkedTabId) {
@@ -56,6 +63,7 @@ export function GlobalSessionsDrawer({ open, onClose, onJumpToTab, activeTabId }
           </button>
         </div>
         <p className="mt-2 text-xs text-slate-400">Active tab: {activeTabId ?? 'none'}</p>
+        {errorNotice}
 
         <div className="mt-3 space-y-2">
           {sessions.length === 0 ? (
@@ -64,13 +72,14 @@ export function GlobalSessionsDrawer({ open, onClose, onJumpToTab, activeTabId }
             sessions.map((session) => {
               const linkedTabId = findTabIdBySessionId(session.id);
               const isLinkedToActiveTab = Boolean(activeTabId) && linkedTabId === activeTabId;
+              const cleanupPending = replacementCleanup.get(session.id) === 'pending';
 
               return (
                 <div key={session.id} className="rounded border border-slate-700 bg-slate-800/60 p-2 space-y-2">
                   <div>
                     <p className="text-xs text-slate-100 break-all">{session.id}</p>
                     <p className="text-xs text-slate-400 mt-1">name={session.name} · state={session.state}</p>
-                    <p className="text-xs text-slate-500 mt-1">attachment: {relationLabel(linkedTabId)}</p>
+                    <p className="text-xs text-slate-500 mt-1">attachment: {cleanupPending ? 'deleting during replacement cleanup' : relationLabel(linkedTabId)}</p>
                     {session.lastError && <p className="text-xs text-rose-300 mt-1 break-words">error: {session.lastError}</p>}
                   </div>
 
@@ -115,7 +124,7 @@ export function GlobalSessionsDrawer({ open, onClose, onJumpToTab, activeTabId }
                         }
                         void linkSessionToTab(activeTabId, session.id);
                       }}
-                      disabled={!activeTabId}
+                      disabled={!activeTabId || cleanupPending}
                       className="col-span-3 rounded border border-indigo-700/70 bg-indigo-900/30 px-2 py-1 text-indigo-200 hover:bg-indigo-800/40 disabled:opacity-50"
                     >
                       {isLinkedToActiveTab

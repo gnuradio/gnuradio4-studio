@@ -22,6 +22,23 @@ function stableHash(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
+const yamlStringEscapes: Record<string, string> = {
+  '"': '\\"',
+  '\\': '\\\\',
+  '\b': '\\b',
+  '\n': '\\n',
+  '\r': '\\r',
+  '\t': '\\t',
+};
+
+function encodeYamlString(value: string): string {
+  // GR4 accepts literal UTF-8 and hex byte escapes for other ASCII controls.
+  const escaped = value.replace(/["\\\x00-\x1f\x7f]/g, (character) =>
+    yamlStringEscapes[character] ?? `\\x${character.charCodeAt(0).toString(16).padStart(2, '0')}`,
+  );
+  return `"${escaped}"`;
+}
+
 function sanitizeScalar(value: JsonPrimitive): string {
   if (value === null || value === undefined) {
     return '""';
@@ -415,9 +432,9 @@ function indent(lines: string[], spaces = 2): string[] {
 
 function serializeGraphDocumentToInlineGrc(
   document: GraphDocument,
+  runtimeGraph: ReturnType<typeof buildRuntimeGraph>,
   options?: ToGrctrlContentSubmissionOptions,
 ): string {
-  const runtimeGraph = buildRuntimeGraph(document);
   const nodes = [...runtimeGraph.nodes].sort((left, right) => left.id.localeCompare(right.id));
   const edges = [...runtimeGraph.edges].sort((left, right) => left.id.localeCompare(right.id));
   const blockDetailsByType = options?.blockDetailsByType;
@@ -427,7 +444,7 @@ function serializeGraphDocumentToInlineGrc(
   lines.push(`# gr4-studio inline grc`);
   lines.push(`metadata:`);
   lines.push(...indent([`name: ${sanitizeScalar(document.metadata.name)}`]));
-  lines.push(...indent([`description: ${sanitizeScalar(document.metadata.description ?? '')}`]));
+  lines.push(...indent([`description: ${encodeYamlString(document.metadata.description ?? '')}`]));
   lines.push(`blocks:`);
 
   if (nodes.length === 0) {
@@ -436,7 +453,7 @@ function serializeGraphDocumentToInlineGrc(
     nodes.forEach((node) => {
       lines.push(...indent([`- id: ${sanitizeScalar(node.blockType)}`]));
       lines.push(...indent([`  parameters:`]));
-      lines.push(...indent([`    name: ${sanitizeScalar(node.id)}`]));
+      lines.push(...indent([`    name: ${encodeYamlString(node.id)}`]));
 
       const parameterEntries = new Map<string, GraphParameterValue>();
       Object.entries(node.parameters)
@@ -505,7 +522,7 @@ function serializeGraphDocumentToInlineGrc(
       const targetPort = edge.target.portId ?? 'in';
       lines.push(
         ...indent([
-          `- [${sanitizeScalar(edge.source.nodeId)}, ${sanitizeScalar(sourcePort)}, ${sanitizeScalar(edge.target.nodeId)}, ${sanitizeScalar(targetPort)}]`,
+          `- [${encodeYamlString(edge.source.nodeId)}, ${sanitizeScalar(sourcePort)}, ${encodeYamlString(edge.target.nodeId)}, ${sanitizeScalar(targetPort)}]`,
         ]),
       );
     });
@@ -517,13 +534,15 @@ function serializeGraphDocumentToInlineGrc(
 export function toGrctrlContentSubmission(
   document: GraphDocument,
   options?: ToGrctrlContentSubmissionOptions,
-): GrcExport {
-  const content = serializeGraphDocumentToInlineGrc(document, options);
+): GrcExport & { blockInstanceIds: string[] } {
+  const runtimeGraph = buildRuntimeGraph(document);
+  const content = serializeGraphDocumentToInlineGrc(document, runtimeGraph, options);
 
   return {
     graphName: document.metadata.name,
     content,
     contentHash: stableHash(content),
+    blockInstanceIds: runtimeGraph.nodes.map((node) => node.id),
   };
 }
 

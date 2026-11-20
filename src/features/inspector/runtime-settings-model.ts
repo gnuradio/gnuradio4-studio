@@ -39,6 +39,10 @@ export function resolveRuntimeSettingsAvailability(params: {
     };
   }
 
+  if (params.graphDriftState !== 'in-sync') {
+    return { state: 'unavailable', reason: 'This tab has no verified submission for the linked session.' };
+  }
+
   return {
     state: 'ready',
     sessionId: params.sessionId,

@@ -23,6 +23,7 @@ export type ControlWidgetBindingState =
 type ControlWidgetRuntimeState = {
   sessionId: string | null;
   executionState: ExecutionState;
+  variableTargetsKnown: boolean;
   graphDriftState: GraphDriftState;
 };
 
@@ -118,10 +119,12 @@ function deriveRuntimeState(runtime?: ControlWidgetRuntimeState | null): { state
     };
   }
 
-  if (runtime.graphDriftState === 'out-of-sync') {
+  if (runtime.graphDriftState !== 'in-sync') {
     return {
       state: 'stale',
-      reason: `Linked session ${runtime.sessionId} is stale relative to the current graph.`,
+      reason: runtime.graphDriftState === 'out-of-sync'
+        ? `Linked session ${runtime.sessionId} is stale relative to the current graph.`
+        : 'This tab has no verified submission for the linked session.',
     };
   }
 
@@ -164,6 +167,7 @@ export function resolveControlPanelWidgetBindings(input: {
         };
       }
 
+      const unknownTargets = input.runtime?.executionState === 'running' && !input.runtime.variableTargetsKnown;
       return {
         id: widget.id,
         label: widget.label?.trim() || widget.binding.variableName,
@@ -172,9 +176,10 @@ export function resolveControlPanelWidgetBindings(input: {
         slider: widget.slider,
         runtimeSessionId: null,
         currentValue: stringifyResolvedValue(displayValue),
-        state: 'ready' as const,
+        state: unknownTargets ? 'stale' : 'ready',
         variableName: widget.binding.variableName,
-        reason: variableResolution.reason ?? 'Variable is available for editing.',
+        reason: unknownTargets ? 'Run this graph from this tab to enable live variable controls.'
+          : variableResolution.reason ?? 'Variable is available for editing.',
       };
     }
 
