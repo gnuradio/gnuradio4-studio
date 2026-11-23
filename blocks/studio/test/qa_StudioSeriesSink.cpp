@@ -19,11 +19,7 @@
 #include <gnuradio-4.0/testing/NullSources.hpp>
 #include <gnuradio-4.0/testing/TagMonitors.hpp>
 
-#if !defined(_WIN32)
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
+#include "LoopbackClient.hpp"
 
 namespace {
 
@@ -135,7 +131,7 @@ void testSeriesSinkSerializesInputTags() {
     sink.window_size = 64UZ;
 
     assert(graph.connect(source, "out", sink, "in#0").has_value());
-    gr::scheduler::Simple sched;
+    gr::scheduler::Simple<> sched;
     assert(sched.exchange(std::move(graph)).has_value());
     assert(sched.runAndWait().has_value());
 
@@ -174,7 +170,7 @@ void testSeriesSinkTagOffsetsFollowSlidingWindow() {
     sink.window_size = 123UZ;
 
     assert(graph.connect(source, "out", sink, "in#0").has_value());
-    gr::scheduler::Simple sched;
+    gr::scheduler::Simple<> sched;
     assert(sched.exchange(std::move(graph)).has_value());
     assert(sched.runAndWait().has_value());
 
@@ -207,7 +203,7 @@ void testSeriesSinkPublishesOneSeriesPerInputPort() {
     assert(graph.connect(first, "out", sink, "in#0").has_value());
     assert(graph.connect(second, "out", sink, "in#1").has_value());
 
-    gr::scheduler::Simple sched;
+    gr::scheduler::Simple<> sched;
     assert(sched.exchange(std::move(graph)).has_value());
     assert(sched.runAndWait().has_value());
 
@@ -322,23 +318,14 @@ void testHttpTransportHelpers() {
     assert(!gr::studio::detail::isWebSocketTransport(gr::studio::detail::SeriesTransport::http_poll));
 }
 
-#if !defined(_WIN32)
 void testWebSocketStopUnblocksIncompleteHandshake() {
     gr::studio::websocket_transport::SnapshotWebSocketService service{};
     assert(service.start("127.0.0.1", 0U, "/stream"));
     const auto port = service.boundPort();
     assert(port != 0U);
 
-    const int clientFd = ::socket(AF_INET, SOCK_STREAM, 0);
-    assert(clientFd >= 0);
-
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    const int inetResult = ::inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
-    assert(inetResult == 1);
-    const int connectResult = ::connect(clientFd, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr));
-    assert(connectResult == 0);
+    const gr::studio::test::LoopbackClient client{port};
+    assert(client.connected());
 
     std::atomic_bool stopReturned = false;
     std::thread stopper([&]() {
@@ -350,9 +337,7 @@ void testWebSocketStopUnblocksIncompleteHandshake() {
     assert(stopReturned.load());
 
     stopper.join();
-    ::close(clientFd);
 }
-#endif
 
 } // namespace
 
@@ -370,8 +355,6 @@ int main() {
     testSnapshotJsonSanitizesNonFiniteFloatSamples();
     testSnapshotJsonSanitizesNonFiniteComplexSamples();
     testHttpTransportHelpers();
-#if !defined(_WIN32)
     testWebSocketStopUnblocksIncompleteHandshake();
-#endif
     return 0;
 }

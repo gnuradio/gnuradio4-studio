@@ -31,12 +31,7 @@ jobs:
 
       - name: Build and install Studio blocks (Emscripten)
         shell: bash
-        env:
-          PKG_CONFIG_PATH: /opt/gnuradio4/lib/pkgconfig:/opt/gnuradio4/lib64/pkgconfig:/opt/gnuradio4/share/pkgconfig
         run: |
-          if ! command -v pkg-config >/dev/null; then
-            apt-get update && apt-get install -y --no-install-recommends pkg-config
-          fi
           system_node="$(command -v node)"
           emcmake cmake -S gnuradio4-studio/blocks -B build-studio-blocks \
             -DCMAKE_COLOR_DIAGNOSTICS=ON \
