@@ -32,7 +32,10 @@ describe('native document handles', () => {
     const persisted = JSON.parse(await fs.readFile(getWorkspacePath(), 'utf8'));
     expect(persisted.tabs[0].backingPath).toBe(file);
     expect(persisted.tabs[0].document).not.toHaveProperty('nativeFileToken');
-    expect((await fs.stat(getWorkspacePath())).mode & 0o777).toBe(0o600);
+    // Windows reports no POSIX permission bits, only read-only or not
+    if (process.platform !== 'win32') {
+      expect((await fs.stat(getWorkspacePath())).mode & 0o777).toBe(0o600);
+    }
     const restarted = createDesktopDocuments({ dialog, getWindow: () => ({}), getRecentPath, getWorkspacePath });
     const restored = await restarted.loadWorkspace();
     expect(restored.activeTabIndex).toBe(1);
@@ -71,7 +74,10 @@ describe('native document handles', () => {
     expect(opened).not.toHaveProperty('path');
     await documents.save({ token: opened.token, content: 'changed' });
     expect(await fs.readFile(file, 'utf8')).toBe('changed');
-    expect((await fs.stat(file)).mode & 0o777).toBe(0o640);
+    // Windows reports no POSIX permission bits, only read-only or not
+    if (process.platform !== 'win32') {
+      expect((await fs.stat(file)).mode & 0o777).toBe(0o640);
+    }
   });
   it('cannot save arbitrary renderer paths or expired handles', async () => {
     const { file, documents } = await setup();

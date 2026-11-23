@@ -33,8 +33,11 @@ function fixture() {
   };
 }
 
+// The preflight is a POSIX shell script for Linux's AppArmor, so there is nothing to run on Windows
+const itRunsPreflight = it.skipIf(process.platform === 'win32');
+
 describe('installed AppArmor preflight', () => {
-  it('rejects a missing profile even with an old installation marker', () => {
+  itRunsPreflight('rejects a missing profile even with an old installation marker', () => {
     const f = fixture();
     fs.mkdirSync(path.join(f.root, 'var/lib/gr4-studio'), { recursive: true });
     fs.writeFileSync(path.join(f.root, 'var/lib/gr4-studio/apparmor-profile-installed'), '');
@@ -43,7 +46,7 @@ describe('installed AppArmor preflight', () => {
     expect(result.stderr).toContain('missing or out of date');
     expect(result.stderr).toContain(f.script);
   });
-  it('distinguishes an installed profile from a loaded profile', () => {
+  itRunsPreflight('distinguishes an installed profile from a loaded profile', () => {
     const f = fixture();
     fs.copyFileSync(f.source, f.destination);
     expect(f.run().status).toBe(78);
@@ -52,13 +55,13 @@ describe('installed AppArmor preflight', () => {
     fs.writeFileSync(f.destination, '# stale');
     expect(f.run().status).toBe(78);
   });
-  it('allows launch with inactive restrictions but still diagnoses missing policy', () => {
+  itRunsPreflight('allows launch with inactive restrictions but still diagnoses missing policy', () => {
     const f = fixture();
     fs.writeFileSync(f.paths.restriction, '0');
     expect(f.run().status).toBe(0);
     expect(f.run('--status').status).toBe(78);
   });
-  it('reports unverifiable loaded state without falsely claiming it is loaded', () => {
+  itRunsPreflight('reports unverifiable loaded state without falsely claiming it is loaded', () => {
     const f = fixture();
     fs.copyFileSync(f.source, f.destination);
     fs.unlinkSync(f.paths.loadedProfiles);
@@ -66,13 +69,13 @@ describe('installed AppArmor preflight', () => {
     expect(result.status).toBe(0);
     expect(result.stderr).toContain('loaded state is not readable');
   });
-  it('diagnoses a relocated prefix rather than loading a stale attachment', () => {
+  itRunsPreflight('diagnoses a relocated prefix rather than loading a stale attachment', () => {
     const f = fixture();
     fs.writeFileSync(f.script, sandboxSetupScript('/old/prefix/electron', f.paths));
     expect(f.run().status).toBe(78);
     expect(f.run().stderr).toContain('Studio has moved');
   });
-  it('does not mistake a read error for a missing loaded profile when test -r succeeds', () => {
+  itRunsPreflight('does not mistake a read error for a missing loaded profile when test -r succeeds', () => {
     const f = fixture();
     fs.copyFileSync(f.source, f.destination);
     fs.unlinkSync(f.paths.loadedProfiles);
