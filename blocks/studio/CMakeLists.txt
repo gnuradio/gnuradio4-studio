@@ -1,82 +1,51 @@
 #[[ SPDX-License-Identifier: MIT ]]
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GR4_STUDIO_GNURADIO4 REQUIRED IMPORTED_TARGET gnuradio4)
-find_package(GnuRadioBlockLib CONFIG REQUIRED)
+# header-only interface of the Studio blocks, for the plugin and for anyone embedding them directly
+add_library(gr-studio INTERFACE)
+add_library(gnuradio4::gr-studio ALIAS gr-studio)
+target_include_directories(gr-studio INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                                               $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_link_libraries(gr-studio INTERFACE gnuradio4::gnuradio-core gnuradio4::gnuradio-algorithm)
 if(NOT EMSCRIPTEN)
-  find_package(OpenSSL REQUIRED COMPONENTS Crypto)
-  set(GR4_STUDIO_OPENSSL_TARGET OpenSSL::Crypto)
-
-  find_package(httplib CONFIG QUIET)
-  if(httplib_FOUND)
-    set(GR4_STUDIO_HTTPLIB_TARGET httplib::httplib)
-  else()
-    pkg_check_modules(GR4_STUDIO_CPPHTTPLIB QUIET IMPORTED_TARGET cpp-httplib)
-    if(GR4_STUDIO_CPPHTTPLIB_FOUND)
-      set(GR4_STUDIO_HTTPLIB_TARGET PkgConfig::GR4_STUDIO_CPPHTTPLIB)
-    else()
-      find_path(GR4_STUDIO_CPPHTTPLIB_INCLUDE_DIR
-        NAMES httplib.h
-        PATH_SUFFIXES include
-      )
-
-      if(NOT GR4_STUDIO_CPPHTTPLIB_INCLUDE_DIR)
-        message(FATAL_ERROR
-          "Could not find cpp-httplib. Install it with a CMake package config or ensure httplib.h is visible to CMake.")
-      endif()
-
-      add_library(gr4_studio_cpp_httplib INTERFACE)
-      add_library(gr4_studio::cpp_httplib ALIAS gr4_studio_cpp_httplib)
-      target_include_directories(gr4_studio_cpp_httplib INTERFACE "${GR4_STUDIO_CPPHTTPLIB_INCLUDE_DIR}")
-      set(GR4_STUDIO_HTTPLIB_TARGET gr4_studio::cpp_httplib)
-    endif()
-  endif()
+  target_link_libraries(gr-studio INTERFACE httplib::httplib OpenSSL::Crypto)
 endif()
 
-add_library(gr4_studio_blocks_studio_headers INTERFACE)
-add_library(gr4_studio::blocks_studio_headers ALIAS gr4_studio_blocks_studio_headers)
+install(TARGETS gr-studio EXPORT gnuradio4StudioBlocksTargets)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/gnuradio-4.0")
 
-target_include_directories(gr4_studio_blocks_studio_headers
-  INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-target_link_libraries(gr4_studio_blocks_studio_headers
-  INTERFACE
-    PkgConfig::GR4_STUDIO_GNURADIO4
-    ${GR4_STUDIO_HTTPLIB_TARGET}
-    ${GR4_STUDIO_OPENSSL_TARGET}
-)
-
-install(TARGETS gr4_studio_blocks_studio_headers)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gnuradio-4.0)
-
-file(GLOB GR4_STUDIO_HEADERS CONFIGURE_DEPENDS
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio/*.hpp")
-
-# StudioWasmTransport.hpp holds no blocks so the registration parser output would be empty
-list(REMOVE_ITEM GR4_STUDIO_HEADERS
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio/StudioWasmTransport.hpp")
+set(GR4_STUDIO_BLOCK_HEADERS
+    include/gnuradio-4.0/studio/Studio2DSeriesSink.hpp
+    include/gnuradio-4.0/studio/StudioDataSetSink.hpp
+    include/gnuradio-4.0/studio/StudioImageSink.hpp
+    include/gnuradio-4.0/studio/StudioPowerSpectrumSink.hpp
+    include/gnuradio-4.0/studio/StudioScalarSink.hpp
+    include/gnuradio-4.0/studio/StudioSeriesSink.hpp
+    include/gnuradio-4.0/studio/StudioWaterfallSink.hpp)
+set(GR4_STUDIO_UNREGISTERED_HEADERS "")
+set(GR4_STUDIO_SOURCES "")
 
 if(EMSCRIPTEN)
-  list(REMOVE_ITEM GR4_STUDIO_HEADERS
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/gnuradio-4.0/studio/StudioAudioSink.hpp")
-  set(GR4_STUDIO_EXTRA_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/StudioWasmBindings.cpp")
+  # the audio sink plays through the host's audio device, which the browser build does not have
+  list(APPEND GR4_STUDIO_UNREGISTERED_HEADERS include/gnuradio-4.0/studio/StudioAudioSink.hpp)
+  list(APPEND GR4_STUDIO_SOURCES src/StudioWasmBindings.cpp)
 else()
-  set(GR4_STUDIO_EXTRA_SOURCES "")
+  list(APPEND GR4_STUDIO_BLOCK_HEADERS include/gnuradio-4.0/studio/StudioAudioSink.hpp)
 endif()
 
-gr4_studio_add_block_plugin(Gr4StudioBlocks
-  SPLIT_BLOCK_INSTANTIATIONS
-  HEADERS ${GR4_STUDIO_HEADERS}
-  SOURCES ${GR4_STUDIO_EXTRA_SOURCES}
-  LINK_LIBRARIES
-    PkgConfig::GR4_STUDIO_GNURADIO4
-    ${GR4_STUDIO_HTTPLIB_TARGET}
-    ${GR4_STUDIO_OPENSSL_TARGET}
-  INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include")
+set_source_files_properties(src/StudioPlugin.cpp PROPERTIES COMPILE_DEFINITIONS
+                                                            "GR4_STUDIO_VERSION=\"${PROJECT_VERSION}\"")
 
-if(ENABLE_TESTING AND NOT EMSCRIPTEN)
+gr4_studio_add_block_plugin(
+  Gr4StudioBlocks
+  SPLIT_BLOCK_INSTANTIATIONS
+  HEADERS ${GR4_STUDIO_BLOCK_HEADERS}
+  UNREGISTERED_HEADERS ${GR4_STUDIO_UNREGISTERED_HEADERS}
+  SOURCES ${GR4_STUDIO_SOURCES}
+  PLUGIN_SOURCES src/StudioPlugin.cpp
+  LINK_LIBRARIES gr-studio)
+
+# the tests load the blocks through the plugin, which a build without block registration lacks
+if(ENABLE_TESTING AND NOT EMSCRIPTEN AND TARGET Gr4StudioBlocksPlugin)
   add_subdirectory(test)
 endif()
