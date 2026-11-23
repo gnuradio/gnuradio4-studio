@@ -1,0 +1,196 @@
+name: Studio blocks (native)
+
+# Builds and tests the Studio blocks natively, on Linux and on Windows with MSVC, and packages them:
+# a .deb and an Inno Setup installer, uploaded as artifacts. The WebAssembly build is wasm-build.yml.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      gnuradio4_core_ref:
+        description: gnuradio/gnuradio4-core ref to build the Windows job against
+        required: false
+        default: main
+      gnuradio4_blocks_ref:
+        description: gnuradio/gnuradio4-blocks ref to build the Windows job against
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GNURADIO4_CORE_REF: ${{ inputs.gnuradio4_core_ref || 'main' }}
+  GNURADIO4_BLOCKS_REF: ${{ inputs.gnuradio4_blocks_ref || 'main' }}
+
+jobs:
+  linux:
+    name: Linux (Ubuntu 24.04 | GCC 14 | Release)
+    runs-on: ubuntu-latest
+    container:
+      # gr-core, gnuradio4Library and gr-blocks installed in /opt/gnuradio4
+      image: ghcr.io/gnuradio/gnuradio4-blocks-sdk:main-ubuntu-24.04-gcc14-release
+    steps:
+      - name: Check out gnuradio4-studio
+        uses: actions/checkout@v4
+
+      - name: Install the build and packaging tools
+        run: |
+          apt-get update
+          # OpenSSL for the websocket handshake; dpkg-dev and file for CPack's Debian generator
+          apt-get install -y --no-install-recommends libssl-dev dpkg-dev file
+
+      - name: Configure
+        run: >
+          cmake -S blocks -B build -G Ninja
+          -DCMAKE_COLOR_DIAGNOSTICS=ON
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_PREFIX_PATH=/opt/gnuradio4
+          -DCMAKE_INSTALL_PREFIX=/opt/gnuradio4
+          -DENABLE_TESTING=ON
+          -DGR_PACKAGING=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 120 --no-tests=error
+
+      - name: Package
+        working-directory: build
+        run: cpack
+
+      - name: Upload the package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnuradio4-studio-blocks-deb
+          path: build/*.deb
+          if-no-files-found: error
+
+  windows:
+    name: Windows (MSVC | x64 | Release)
+    runs-on: windows-2022
+    timeout-minutes: 240
+    steps:
+      - name: Check out gnuradio4-studio
+        uses: actions/checkout@v4
+
+      - name: Set up the MSVC developer prompt
+        uses: step-security/msvc-dev-cmd@22c98154b708dbd743e6f27a933cf6ceba3305c4 # v1.13.1
+        with:
+          arch: x64
+
+      # There is no Windows SDK image, so gr-deps builds the third-party dependencies of gr-core and of
+      # the Studio blocks. It prepends its prefix to CMAKE_PREFIX_PATH and its bin directory to PATH.
+      - name: Build the third-party dependencies
+        id: deps
+        uses: gnuradio/gnuradio4-deps@fa668fc3955e7b5647827027b714aa73ab1f7d2d
+        with:
+          enable-python3: OFF
+          generator: Ninja
+          cmake-args: -DTARGET_GR_CORE=ON -DTARGET_GR_STUDIO=ON -DTARGET_TESTS=ON
+
+      - name: Check out gnuradio4-core
+        uses: actions/checkout@v4
+        with:
+          repository: gnuradio/gnuradio4-core
+          ref: ${{ env.GNURADIO4_CORE_REF }}
+          path: gnuradio4-core
+          fetch-depth: 1
+
+      - name: Check out gnuradio4-blocks
+        uses: actions/checkout@v4
+        with:
+          repository: gnuradio/gnuradio4-blocks
+          ref: ${{ env.GNURADIO4_BLOCKS_REF }}
+          path: gnuradio4-blocks
+          fetch-depth: 1
+
+      - name: Resolve the GNU Radio 4 install
+        id: gr4
+        shell: bash
+        run: |
+          echo "core-sha=$(git -C gnuradio4-core rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "blocks-sha=$(git -C gnuradio4-blocks rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "prefix=${RUNNER_TEMP//\\//}/gnuradio4" >> "$GITHUB_OUTPUT"
+
+      - name: Restore GNU Radio 4
+        id: restore-gr4
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.gr4.outputs.prefix }}
+          # bump the version when the configures below change
+          key: gnuradio4-studio-v1-${{ steps.deps.outputs.cache-key }}-${{ steps.gr4.outputs.core-sha }}-${{ steps.gr4.outputs.blocks-sha }}
+
+      # Release, to share the /MD runtime gr-deps builds with. gr-blocks is installed headers-only: the
+      # Studio blocks need its headers, gnuradio4Library and gr-testing, not its block plugins.
+      - name: Build gnuradio4-core and gnuradio4-blocks
+        if: steps.restore-gr4.outputs.cache-hit != 'true'
+        run: |
+          cmake -S gnuradio4-core -B build-core -G Ninja `
+            -DCMAKE_COLOR_DIAGNOSTICS=ON `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX="${{ steps.gr4.outputs.prefix }}" `
+            -DENABLE_TESTING=OFF `
+            -DENABLE_EXAMPLES=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --install build-core
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake -S gnuradio4-blocks -B build-blocks -G Ninja `
+            -DCMAKE_COLOR_DIAGNOSTICS=ON `
+            -DCMAKE_BUILD_TYPE=Release `
+            "-DCMAKE_PREFIX_PATH=${{ steps.gr4.outputs.prefix }};${{ steps.deps.outputs.install-prefix }}" `
+            -DCMAKE_INSTALL_PREFIX="${{ steps.gr4.outputs.prefix }}" `
+            -DGR_BLOCKLIB_BUILD_LIBS=OFF `
+            -DENABLE_TESTING=OFF `
+            -DENABLE_EXAMPLES=OFF `
+            -DWARNINGS_AS_ERRORS=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build-blocks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --install build-blocks
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Save GNU Radio 4
+        if: steps.restore-gr4.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.gr4.outputs.prefix }}
+          key: ${{ steps.restore-gr4.outputs.cache-primary-key }}
+
+      # Windows has no RPATH: the tests put the DLL directories of their imported targets on PATH
+      - name: Configure
+        run: >
+          cmake -S blocks -B build -G Ninja
+          -DCMAKE_COLOR_DIAGNOSTICS=ON
+          -DCMAKE_BUILD_TYPE=Release
+          "-DCMAKE_PREFIX_PATH=${{ steps.gr4.outputs.prefix }};${{ steps.deps.outputs.install-prefix }}"
+          -DENABLE_TESTING=ON
+          -DGR_PACKAGING=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 120 --no-tests=error
+
+      # The runner images carry Inno Setup 6, which CPack's INNOSETUP generator finds by itself
+      - name: Package
+        working-directory: build
+        run: cpack -C Release
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnuradio4-studio-blocks-win64
+          path: build/*.exe
+          if-no-files-found: error
