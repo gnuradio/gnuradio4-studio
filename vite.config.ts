@@ -1,5 +1,5 @@
 import { createReadStream, statSync } from 'node:fs';
-import { extname, join, normalize, resolve as resolvePath } from 'node:path';
+import { extname, join, normalize, resolve as resolvePath, sep } from 'node:path';
 
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -55,7 +55,7 @@ export default defineConfig(({ mode, command }) => {
             const filePath = join(wasmDir, normalize(pathname).replace(/^(\.\.[/\\])+/, ''));
             const contentType = WASM_ASSET_CONTENT_TYPES[extname(filePath)];
 
-            if (!contentType || !filePath.startsWith(`${wasmDir}/`)) {
+            if (!contentType || !filePath.startsWith(wasmDir + sep)) {
               next();
               return;
             }

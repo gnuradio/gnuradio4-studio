@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildLocalBackendEnvironment, parsePublishedPort, startLocalBackend } from './local-backend.mjs';
+import { buildLocalBackendEnvironment, chooseWritableLogPath, parsePublishedPort, startLocalBackend } from './local-backend.mjs';
 
 const temporaryDirectories = [];
 const runningBackends = [];
@@ -30,16 +30,80 @@ describe('managed local backend', () => {
   });
 
   it('constructs a prefix-aware child environment without losing existing paths', () => {
-    const environment = buildLocalBackendEnvironment('/opt/gr4', {
-      PATH: '/usr/bin',
-      GNURADIO4_PLUGIN_DIRECTORIES: '/custom/plugins',
-    });
+    const environment = buildLocalBackendEnvironment(
+      '/opt/gr4',
+      {
+        PATH: '/usr/bin',
+        GNURADIO4_PLUGIN_DIRECTORIES: '/custom/plugins',
+      },
+      'linux',
+    );
 
-    expect(environment.PATH?.split(path.delimiter)).toEqual(['/opt/gr4/bin', '/usr/bin']);
+    expect(environment.PATH?.split(path.delimiter)).toEqual([path.join('/opt/gr4', 'bin'), '/usr/bin']);
     expect(environment.GNURADIO4_PLUGIN_DIRECTORIES?.split(path.delimiter)).toEqual([
-      '/opt/gr4/lib/gnuradio-4/plugins',
-      '/opt/gr4/lib',
+      path.join('/opt/gr4', 'lib', 'gnuradio-4', 'plugins'),
+      path.join('/opt/gr4', 'lib'),
       '/custom/plugins',
+    ]);
+  });
+
+  it('extends the existing Windows Path variable instead of adding a second PATH', () => {
+    const systemDirectory = path.join('/windows', 'system32');
+    const environment = buildLocalBackendEnvironment('/opt/gr4', { Path: systemDirectory }, 'win32');
+
+    expect(Object.keys(environment).filter((key) => key.toUpperCase() === 'PATH')).toEqual(['Path']);
+    expect(environment.Path?.split(path.delimiter)).toEqual([
+      path.join('/opt/gr4', 'bin'),
+      path.join('/opt/gr4', 'lib', 'gnuradio-4', 'plugins'),
+      systemDirectory,
+    ]);
+  });
+
+  it('falls back to the next log directory when the first cannot be created', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'gr4-studio-log-'));
+    temporaryDirectories.push(directory);
+    // a directory below a regular file can be created on no platform
+    const blocker = path.join(directory, 'not-a-directory');
+    await fs.writeFile(blocker, '');
+    const unwritable = path.join(blocker, 'var', 'logs', 'gr4cp_server.log');
+    const fallback = path.join(directory, 'user-logs', 'gr4cp_server.log');
+
+    expect(await chooseWritableLogPath([unwritable, fallback])).toBe(fallback);
+    expect(await chooseWritableLogPath([null, fallback])).toBe(fallback);
+    await expect(chooseWritableLogPath([unwritable])).rejects.toThrow('writable');
+  });
+
+  it('extends the spelling Node passes to the child when Path and PATH are both present', () => {
+    const environment = buildLocalBackendEnvironment('/opt/gr4', { Path: '/stale', PATH: '/used' }, 'win32');
+
+    expect(environment.PATH?.split(path.delimiter)).toEqual([path.join('/opt/gr4', 'bin'), path.join('/opt/gr4', 'lib', 'gnuradio-4', 'plugins'), '/used']);
+    expect(environment.Path).toBe('/stale');
+  });
+
+  it("lists the shared plugin tree of the manifest that names this prefix, before the prefix's own", async () => {
+    const base = await fs.mkdtemp(path.join(os.tmpdir(), 'gr4-studio-manifest-'));
+    temporaryDirectories.push(base);
+    const prefix = path.join(base, 'Programs', 'GNURadio4', 'v14');
+    const pluginRoot = path.join(base, '.gnuradio-4', 'plugins', 'v14');
+    const otherPluginRoot = path.join(base, '.gnuradio-4', 'plugins', 'v13');
+    await fs.mkdir(pluginRoot, { recursive: true });
+    await fs.mkdir(otherPluginRoot, { recursive: true });
+    const writeManifest = async (version, manifest) => {
+      const directory = path.join(base, '.gnuradio-4', 'manifest', version);
+      await fs.mkdir(directory, { recursive: true });
+      // as the installers' PowerShell writes it, with a byte order mark
+      await fs.writeFile(path.join(directory, 'manifest.json'), String.fromCharCode(0xfeff) + JSON.stringify(manifest));
+    };
+    // Windows compares paths without regard to case
+    await writeManifest('v14', { 'install-root': prefix.toUpperCase(), 'plugin-root': pluginRoot });
+    await writeManifest('v13', { 'install-root': path.join(base, 'elsewhere'), 'plugin-root': otherPluginRoot });
+
+    const environment = buildLocalBackendEnvironment(prefix, { LocalAppData: base }, 'win32');
+
+    expect(environment.GNURADIO4_PLUGIN_DIRECTORIES?.split(path.delimiter)).toEqual([
+      pluginRoot,
+      path.join(prefix, 'lib', 'gnuradio-4', 'plugins'),
+      path.join(prefix, 'lib'),
     ]);
   });
 
