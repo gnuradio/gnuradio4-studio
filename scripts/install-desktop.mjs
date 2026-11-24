@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { desktopEntry } from './desktop-entry.mjs';
+import { thirdPartyNotices } from './third-party-notices.mjs';
 import { sandboxProfile, sandboxSetupScript } from './desktop-sandbox.mjs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -8,18 +9,34 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const { downloadArtifact } = require('@electron/get');
 
+function parseOption(argv, name) {
+  const index = argv.indexOf(name);
+  if (index !== -1 && argv[index + 1]) {
+    return argv[index + 1];
+  }
+
+  const equalsArg = argv.find((arg) => arg.startsWith(`${name}=`));
+  return equalsArg ? equalsArg.slice(name.length + 1) : undefined;
+}
+
 function parsePrefix(argv) {
-  const prefixIndex = argv.indexOf('--prefix');
-  if (prefixIndex !== -1 && argv[prefixIndex + 1]) {
-    return argv[prefixIndex + 1];
-  }
+  return parseOption(argv, '--prefix') ?? (process.env.PREFIX || process.env.GR4_STUDIO_PREFIX);
+}
 
-  const equalsArg = argv.find((arg) => arg.startsWith('--prefix='));
-  if (equalsArg) {
-    return equalsArg.slice('--prefix='.length);
-  }
+// A package build lays the files out in a staging directory (--prefix) that is not where they will
+// be installed (--install-prefix). Paths written into the installed files come from the latter.
+function parseInstallPrefix(argv) {
+  return parseOption(argv, '--install-prefix');
+}
 
-  return process.env.PREFIX || process.env.GR4_STUDIO_PREFIX;
+function windowsLauncher(relativeElectronBinary) {
+  // electron.exe is not on PATH, so run the bundled one, found relative to this script in <prefix>\bin
+  const electron = relativeElectronBinary.replaceAll('/', '\\');
+  return [
+    '@echo off',
+    `"%~dp0..\\${electron}" "%~dp0..\\share\\gr4-studio" %*`,
+    '',
+  ].join('\r\n');
 }
 
 async function fileExists(filePath) {
@@ -155,6 +172,8 @@ async function main() {
 
   await fs.mkdir(path.resolve(requestedPrefix), { recursive: true });
   const prefix = await fs.realpath(path.resolve(requestedPrefix));
+  const requestedInstallPrefix = parseInstallPrefix(process.argv.slice(2));
+  const installPrefix = requestedInstallPrefix ? path.resolve(requestedInstallPrefix) : prefix;
   const projectRoot = process.cwd();
   const distDir = path.join(projectRoot, 'dist');
   const appDir = path.join(prefix, 'share', 'gr4-studio');
@@ -176,6 +195,9 @@ async function main() {
   await fs.mkdir(binDir, { recursive: true });
 
   await fs.cp(distDir, appDir, { recursive: true, force: true });
+  const docDir = path.join(prefix, 'share', 'doc', 'gr4-studio');
+  await fs.mkdir(docDir, { recursive: true });
+  await fs.writeFile(path.join(docDir, 'THIRD_PARTY_NOTICES.txt'), await thirdPartyNotices(projectRoot), 'utf8');
   await fs.cp(path.join(projectRoot, 'desktop'), path.join(appDir, 'desktop'), { recursive: true, force: true });
   await fs.cp(electronDistDir, electronRuntimeDir, {
     recursive: true,
@@ -285,24 +307,35 @@ async function main() {
     '',
   ].join('\n');
 
-  const launcherPath = path.join(binDir, 'gr4-studio');
-  await fs.writeFile(launcherPath, launcher, 'utf8');
-  await fs.chmod(launcherPath, 0o755);
+  // the bundled Electron, where it will be once installed
+  const installedElectronBinary = path.join(installPrefix, path.relative(prefix, electronBinary));
+
+  let launcherPath;
+  if ((process.env.npm_config_platform || process.platform) === 'win32') {
+    // Windows cannot run the POSIX launcher. The desktop app finds its prefix from electron.exe and
+    // sets up the backend's environment itself, so the launcher only has to start Electron.
+    launcherPath = path.join(binDir, 'gr4-studio.cmd');
+    await fs.writeFile(launcherPath, windowsLauncher(path.relative(prefix, electronBinary)), 'utf8');
+  } else {
+    launcherPath = path.join(binDir, 'gr4-studio');
+    await fs.writeFile(launcherPath, launcher, 'utf8');
+    await fs.chmod(launcherPath, 0o755);
+  }
 
   if (process.platform === 'linux') {
     const applicationsDir = path.join(prefix, 'share', 'applications');
     await fs.mkdir(applicationsDir, { recursive: true });
-    await fs.writeFile(path.join(applicationsDir, 'gr4-studio.desktop'), desktopEntry(prefix), 'utf8');
+    await fs.writeFile(path.join(applicationsDir, 'gr4-studio.desktop'), desktopEntry(installPrefix), 'utf8');
     const desktopSetupPath = path.join(binDir, 'gr4-studio-desktop-setup');
     await fs.copyFile(path.join(projectRoot, 'scripts', 'desktop-setup.sh'), desktopSetupPath);
     await fs.chmod(desktopSetupPath, 0o755);
     console.log('Register the app menu and dock icon with: ' + desktopSetupPath);
 
-    const { name: profileName, content: profile } = sandboxProfile(electronBinary);
+    const { name: profileName, content: profile } = sandboxProfile(installedElectronBinary);
     const profileDir = path.join(appDir, 'sandbox');
     await fs.mkdir(profileDir, { recursive: true });
     await fs.writeFile(path.join(profileDir, profileName), profile, 'utf8');
-    const sandboxSetup = sandboxSetupScript(electronBinary);
+    const sandboxSetup = sandboxSetupScript(installedElectronBinary);
     const sandboxSetupPath = path.join(binDir, 'gr4-studio-sandbox-setup');
     await fs.writeFile(sandboxSetupPath, sandboxSetup, 'utf8');
     await fs.chmod(sandboxSetupPath, 0o755);

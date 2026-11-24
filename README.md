@@ -108,21 +108,13 @@ launcher configuration; Electron documents that option as testing-only.
 
 Earlier builds installed the shared Studio blocks plugin directly into
 `<libdir>`; it now installs into `<libdir>/gnuradio-4/plugins`, next to the
-static plugin and the gnuradio4-blocks plugins. Reinstalling into the same
-prefix does not remove the old copy, and the launcher searches both
-directories. If the old copy was built against an incompatible ABI,
-`gr4cp_server` exits before it serves the block catalog, even though the new
-plugin loads.
+static plugin and the gnuradio4-blocks plugins. The launcher searches both
+directories, and an old copy built against an incompatible ABI makes
+`gr4cp_server` exit before it serves the block catalog. Installing a new build
+into the same prefix removes the old copy from `<libdir>`.
 
-If you're upgrading a source install in the same prefix, install the new build,
-then verify that `<libdir>/gnuradio-4/plugins/libGr4StudioBlocksPlugin.so`
-exists. Remove the obsolete `<libdir>/libGr4StudioBlocksPlugin.so` before
-restarting Studio. Use the libdir configured for your build (for example
-`lib` or `lib64`), or install into a fresh prefix instead.
-
-Package upgrades should remove the obsolete file the package owns. In either
-case, verify the upgrade by starting Studio in local mode and confirming that
-the block catalog includes the Studio Series Sink.
+Verify the upgrade by starting Studio in local mode and confirming that the
+block catalog includes the Studio Series Sink.
 
 ### Linux application icon
 
@@ -139,6 +131,33 @@ pin that entry to the dock. Remove an old generic Electron favorite if one was
 previously pinned. The registration remains valid across rebuilds at the same
 prefix; rerun it after moving or switching prefixes. Use
 `gr4-studio-desktop-setup --remove` to remove this prefix's user registration.
+
+### Packaging
+
+The Studio blocks and the desktop app each build an installer with CPack and
+gr-core's installer helpers, so they install into the same root, manifest and
+plugin tree as the rest of GNU Radio 4: a `.deb` on Linux, an Inno Setup
+installer on Windows and a component package on macOS.
+
+```sh
+# the Studio blocks: gnuradio4-studio-blocks
+cmake -S blocks -B build-blocks -DCMAKE_BUILD_TYPE=Release -DGR_PACKAGING=ON \
+  -DCMAKE_PREFIX_PATH=/path/to/prefix
+cmake --build build-blocks && (cd build-blocks && cpack)
+
+# the desktop app: gnuradio4-studio (needs Node 22 or later and npm to build)
+cmake -S packaging/desktop -B build-desktop -DCMAKE_BUILD_TYPE=Release -DGR_PACKAGING=ON \
+  -DCMAKE_PREFIX_PATH=/path/to/prefix
+cmake --build build-desktop && (cd build-desktop && cpack)
+```
+
+The version comes from `package.json`. On Windows and macOS the block plugin
+goes to GNU Radio 4's shared plugin tree. The desktop app finds that tree
+through the install manifest when it starts its local `gr4cp_server`. The
+Windows installer adds a **GNU Radio Studio** entry to the GNU Radio 4 Start
+Menu folder. The `.deb` loads the AppArmor profile itself where AppArmor
+restricts user namespaces, so `gr4-studio-sandbox-setup` is only needed for
+installs from source.
 
 ### Desktop menus and workspace
 

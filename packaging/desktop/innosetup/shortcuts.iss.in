@@ -1,0 +1,14 @@
+; The Start Menu entry for GNU Radio Studio. {group} is the GR 4 Start Menu folder that
+; gr-core's GrInnoSetup.cmake sets for every GR 4 package. electron.exe runs the app it embeds
+; under resources\app, and the app finds its install root from electron.exe.
+
+[Icons]
+Name: "{group}\GNU Radio Studio"; Filename: "{app}\libexec\gr4-studio\electron\electron.exe"; WorkingDir: "{app}"; IconFilename: "{app}\share\gr4-studio\favicon.ico"; Components: CORE
+
+; The app writes the managed backend's log below the install root when it can (see
+; chooseWritableLogPath in desktop/local-backend.mjs). The installer did not put it there, so
+; remove it, and its directories once empty, explicitly.
+[UninstallDelete]
+Type: files; Name: "{app}\var\logs\gr4cp_server.log"
+Type: dirifempty; Name: "{app}\var\logs"
+Type: dirifempty; Name: "{app}\var"

@@ -32,16 +32,20 @@ using SnapshotWebSocketService = wasm_bridge::InProcessSnapshotWebSocketService;
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
 
-#include <boost/beast/core/detail/base64.hpp>
 #include <httplib.h>
+#include <openssl/evp.h>
 #include <openssl/sha.h>
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -69,9 +73,10 @@ inline std::string trimAscii(std::string_view text) {
 }
 
 inline std::string encodeBase64(std::string_view bytes) {
-    std::string encoded(boost::beast::detail::base64::encoded_size(bytes.size()), '\0');
-    const auto written = boost::beast::detail::base64::encode(encoded.data(), bytes.data(), bytes.size());
-    encoded.resize(written);
+    // EVP_EncodeBlock writes 4 characters per 3 input bytes and a terminating NUL
+    std::string encoded(4UZ * ((bytes.size() + 2UZ) / 3UZ) + 1UZ, '\0');
+    const int written = ::EVP_EncodeBlock(reinterpret_cast<unsigned char*>(encoded.data()), reinterpret_cast<const unsigned char*>(bytes.data()), static_cast<int>(bytes.size()));
+    encoded.resize(static_cast<std::size_t>(std::max(written, 0)));
     return encoded;
 }
 
@@ -104,6 +109,100 @@ inline void appendWebSocketLength(std::string& frame, std::size_t payloadSize) {
     }
 }
 
+// The few places POSIX sockets and Winsock differ: the handle type and its invalid value, closing,
+// error text, send flags, and Winsock's per-process startup.
+namespace socket_api {
+
+#if defined(_WIN32)
+using Handle                          = SOCKET;
+inline constexpr Handle kInvalid      = INVALID_SOCKET;
+inline constexpr int    kShutdownBoth = SD_BOTH;
+inline constexpr int    kSendFlags    = 0;
+
+inline std::string lastError() { return std::system_category().message(::WSAGetLastError()); }
+
+// getaddrinfo reports Winsock error codes
+inline std::string addressError(int code) { return std::system_category().message(code); }
+
+inline void closeHandle(Handle handle) { std::ignore = ::closesocket(handle); }
+
+// Winsock counts WSAStartup calls, so each service holds one for as long as it lives
+class Session {
+public:
+    Session() { _started = ::WSAStartup(MAKEWORD(2, 2), &_data) == 0; }
+    ~Session() {
+        if (_started) {
+            ::WSACleanup();
+        }
+    }
+    Session(const Session&)            = delete;
+    Session& operator=(const Session&) = delete;
+
+private:
+    WSADATA _data{};
+    bool    _started{false};
+};
+#else
+using Handle                          = int;
+inline constexpr Handle kInvalid      = -1;
+inline constexpr int    kShutdownBoth = SHUT_RDWR;
+#if defined(MSG_NOSIGNAL)
+inline constexpr int kSendFlags = MSG_NOSIGNAL;
+#else
+inline constexpr int kSendFlags = 0;
+#endif
+
+inline std::string lastError() { return std::strerror(errno); }
+
+inline std::string addressError(int code) { return ::gai_strerror(code); }
+
+inline void closeHandle(Handle handle) { ::close(handle); }
+
+struct Session {};
+#endif
+
+inline bool isValid(Handle handle) noexcept { return handle != kInvalid; }
+
+inline void configure([[maybe_unused]] Handle handle) {
+#if defined(SO_NOSIGPIPE)
+    int disableSigpipe = 1;
+    std::ignore        = ::setsockopt(handle, SOL_SOCKET, SO_NOSIGPIPE, &disableSigpipe, sizeof(disableSigpipe));
+#endif
+}
+
+// shuts down and closes handle if it is open, and marks it closed
+inline void close(Handle& handle) {
+    if (isValid(handle)) {
+        std::ignore = ::shutdown(handle, kShutdownBoth);
+        closeHandle(handle);
+        handle = kInvalid;
+    }
+}
+
+inline bool sendAll(Handle handle, std::string_view payload) {
+    const char* data      = payload.data();
+    std::size_t remaining = payload.size();
+    while (remaining > 0UZ) {
+        // Winsock takes an int length, so a large frame goes out in pieces
+        const auto chunk = static_cast<int>(std::min<std::size_t>(remaining, static_cast<std::size_t>(std::numeric_limits<int>::max())));
+        const auto sent  = ::send(handle, data, chunk, kSendFlags);
+        if (sent <= 0) {
+            return false;
+        }
+        data += sent;
+        remaining -= static_cast<std::size_t>(sent);
+    }
+    return true;
+}
+
+inline long receive(Handle handle, char* buffer, std::size_t size) {
+    // Winsock takes an int length; reading less than size is fine for a stream socket
+    const auto chunk = static_cast<int>(std::min<std::size_t>(size, static_cast<std::size_t>(std::numeric_limits<int>::max())));
+    return static_cast<long>(::recv(handle, buffer, chunk, 0));
+}
+
+} // namespace socket_api
+
 enum class WebSocketFrameKind {
     Text,
     Binary,
@@ -134,10 +233,6 @@ public:
         _pendingFrames.clear();
         _droppedFrames = 0UZ;
 
-#if defined(_WIN32)
-        _lastError = "websocket transport is not implemented on this platform";
-        return false;
-#else
         addrinfo hints{};
         hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
@@ -146,31 +241,35 @@ public:
         addrinfo* resolved = nullptr;
         const std::string portText = std::to_string(_port);
         if (const int rc = ::getaddrinfo(_host.empty() ? nullptr : _host.c_str(), portText.c_str(), &hints, &resolved); rc != 0 || resolved == nullptr) {
-            _lastError = "getaddrinfo failed for websocket endpoint " + _host + ":" + portText + " (" + std::string(::gai_strerror(rc)) + ")";
+            _lastError = "getaddrinfo failed for websocket endpoint " + _host + ":" + portText + " (" + socket_api::addressError(rc) + ")";
             return false;
         }
 
         for (addrinfo* candidate = resolved; candidate != nullptr; candidate = candidate->ai_next) {
-            int listenFd = ::socket(candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
-            if (listenFd < 0) {
-                _lastError = "socket() failed for websocket endpoint " + _host + ":" + portText + " (" + std::string(std::strerror(errno)) + ")";
+            socket_api::Handle listenFd = ::socket(candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
+            if (!socket_api::isValid(listenFd)) {
+                _lastError = "socket() failed for websocket endpoint " + _host + ":" + portText + " (" + socket_api::lastError() + ")";
                 continue;
             }
 
-            configureSocket(listenFd);
+            socket_api::configure(listenFd);
 
+#if !defined(_WIN32)
+            // On Windows SO_REUSEADDR would let another process bind the same port, and a socket in
+            // TIME_WAIT does not block a new bind there anyway, so the option is POSIX only.
             int reuseAddress = 1;
             std::ignore = ::setsockopt(listenFd, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
+#endif
 
-            if (::bind(listenFd, candidate->ai_addr, candidate->ai_addrlen) != 0) {
-                _lastError = "bind() failed for websocket endpoint " + _host + ":" + portText + _path + " (" + std::string(std::strerror(errno)) + ")";
-                closeSocket(listenFd);
+            if (::bind(listenFd, candidate->ai_addr, static_cast<socklen_t>(candidate->ai_addrlen)) != 0) {
+                _lastError = "bind() failed for websocket endpoint " + _host + ":" + portText + _path + " (" + socket_api::lastError() + ")";
+                socket_api::close(listenFd);
                 continue;
             }
 
             if (::listen(listenFd, 1) != 0) {
-                _lastError = "listen() failed for websocket endpoint " + _host + ":" + portText + _path + " (" + std::string(std::strerror(errno)) + ")";
-                closeSocket(listenFd);
+                _lastError = "listen() failed for websocket endpoint " + _host + ":" + portText + _path + " (" + socket_api::lastError() + ")";
+                socket_api::close(listenFd);
                 continue;
             }
 
@@ -179,7 +278,7 @@ public:
         }
 
         ::freeaddrinfo(resolved);
-        if (_listenFd < 0) {
+        if (!socket_api::isValid(_listenFd)) {
             if (_lastError.empty()) {
                 _lastError = "Unable to bind websocket endpoint " + _host + ":" + portText + _path;
             }
@@ -222,7 +321,6 @@ public:
             }
         });
         return true;
-#endif
     }
 
     void stop() {
@@ -233,8 +331,7 @@ public:
         }
         _cv.notify_all();
 
-        closeSocket(_listenFd);
-        _listenFd = -1;
+        socket_api::close(_listenFd);
 
         closeCurrentClient();
 
@@ -246,7 +343,7 @@ public:
         }
     }
 
-    [[nodiscard]] bool isRunning() const noexcept { return _listenFd >= 0; }
+    [[nodiscard]] bool isRunning() const noexcept { return socket_api::isValid(_listenFd); }
     [[nodiscard]] std::uint16_t boundPort() const noexcept { return _boundPort; }
 
     [[nodiscard]] const std::string& lastErrorMessage() const noexcept { return _lastError; }
@@ -285,65 +382,22 @@ private:
         WebSocketFrameKind kind{WebSocketFrameKind::Text};
     };
 
-#if !defined(_WIN32)
-    static void configureSocket(int fd) {
-#if defined(SO_NOSIGPIPE)
-        int disableSigpipe = 1;
-        std::ignore = ::setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &disableSigpipe, sizeof(disableSigpipe));
-#else
-        (void)fd;
-#endif
-    }
-
-    static void closeSocket(int& fd) {
-        if (fd >= 0) {
-            std::ignore = ::shutdown(fd, SHUT_RDWR);
-            ::close(fd);
-            fd = -1;
-        }
-    }
-
     void closeCurrentClient() {
         std::lock_guard lock(_mutex);
-        if (_handshakeFd >= 0) {
-            closeSocket(_handshakeFd);
-        }
-        if (_clientFd >= 0) {
-            closeSocket(_clientFd);
-        }
+        socket_api::close(_handshakeFd);
+        socket_api::close(_clientFd);
     }
 
-    static bool sendAll(int fd, std::string_view payload) {
-        constexpr int sendFlags =
-#if defined(MSG_NOSIGNAL)
-            MSG_NOSIGNAL;
-#else
-            0;
-#endif
-
-        const char* data = payload.data();
-        std::size_t remaining = payload.size();
-        while (remaining > 0UZ) {
-            const auto sent = ::send(fd, data, remaining, sendFlags);
-            if (sent <= 0) {
-                return false;
-            }
-            data += sent;
-            remaining -= static_cast<std::size_t>(sent);
-        }
-        return true;
-    }
-
-    bool writeFrame(int fd, std::string_view payload, WebSocketFrameKind kind) const {
+    bool writeFrame(socket_api::Handle fd, std::string_view payload, WebSocketFrameKind kind) const {
         std::string frame;
         frame.reserve(payload.size() + 16UZ);
         frame.push_back(static_cast<char>(0x80 | (kind == WebSocketFrameKind::Binary ? 0x02 : 0x01)));
         appendWebSocketLength(frame, payload.size());
         frame.append(payload.begin(), payload.end());
-        return sendAll(fd, frame);
+        return socket_api::sendAll(fd, frame);
     }
 
-    bool performHandshake(int fd) const {
+    bool performHandshake(socket_api::Handle fd) const {
         const auto fail = [this](std::string reason) {
             _lastError = std::move(reason);
             return false;
@@ -353,7 +407,7 @@ private:
         request.reserve(4096UZ);
         char buffer[1024];
         while (request.find("\r\n\r\n") == std::string::npos) {
-            const auto received = ::recv(fd, buffer, sizeof(buffer), 0);
+            const auto received = socket_api::receive(fd, buffer, sizeof(buffer));
             if (received <= 0) {
                 return fail("acceptLoop handshake failed: websocket request ended before headers were complete");
             }
@@ -426,7 +480,7 @@ private:
         response << "Upgrade: websocket\r\n";
         response << "Connection: Upgrade\r\n";
         response << "Sec-WebSocket-Accept: " << accept << "\r\n\r\n";
-        if (!sendAll(fd, response.str())) {
+        if (!socket_api::sendAll(fd, response.str())) {
             return fail("acceptLoop handshake failed: websocket handshake response could not be written");
         }
         return true;
@@ -436,8 +490,8 @@ private:
         while (true) {
             sockaddr_storage clientAddr{};
             socklen_t clientAddrLen = sizeof(clientAddr);
-            int clientFd = ::accept(_listenFd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
-            if (clientFd < 0) {
+            socket_api::Handle clientFd = ::accept(_listenFd, reinterpret_cast<sockaddr*>(&clientAddr), &clientAddrLen);
+            if (!socket_api::isValid(clientFd)) {
                 std::lock_guard lock(_mutex);
                 if (_stopping) {
                     break;
@@ -445,11 +499,11 @@ private:
                 continue;
             }
 
-            configureSocket(clientFd);
+            socket_api::configure(clientFd);
             {
                 std::lock_guard lock(_mutex);
                 if (_stopping) {
-                    closeSocket(clientFd);
+                    socket_api::close(clientFd);
                     break;
                 }
                 _handshakeFd = clientFd;
@@ -461,11 +515,11 @@ private:
                 std::lock_guard lock(_mutex);
                 const bool ownsHandshakeFd = _handshakeFd == clientFd;
                 if (ownsHandshakeFd) {
-                    _handshakeFd = -1;
+                    _handshakeFd = socket_api::kInvalid;
                 }
                 if (!handshakeComplete) {
                     if (ownsHandshakeFd) {
-                        closeSocket(clientFd);
+                        socket_api::close(clientFd);
                     }
                     if (_stopping) {
                         break;
@@ -474,13 +528,11 @@ private:
                 }
                 if (_stopping) {
                     if (ownsHandshakeFd) {
-                        closeSocket(clientFd);
+                        socket_api::close(clientFd);
                     }
                     break;
                 }
-                if (_clientFd >= 0) {
-                    closeSocket(_clientFd);
-                }
+                socket_api::close(_clientFd);
                 _clientFd = clientFd;
                 _cv.notify_all();
             }
@@ -489,15 +541,15 @@ private:
 
     void sendLoop() {
         while (true) {
-            int clientFd = -1;
+            socket_api::Handle clientFd = socket_api::kInvalid;
             PendingFrame pending;
             {
                 std::unique_lock lock(_mutex);
-                _cv.wait(lock, [this]() { return _stopping || (_clientFd >= 0 && !_pendingFrames.empty()); });
+                _cv.wait(lock, [this]() { return _stopping || (socket_api::isValid(_clientFd) && !_pendingFrames.empty()); });
                 if (_stopping) {
                     break;
                 }
-                if (_clientFd < 0 || _pendingFrames.empty()) {
+                if (!socket_api::isValid(_clientFd) || _pendingFrames.empty()) {
                     continue;
                 }
                 clientFd = _clientFd;
@@ -507,10 +559,10 @@ private:
 
             if (!writeFrame(clientFd, pending.payload, pending.kind)) {
                 std::lock_guard lock(_mutex);
+                // a client the accept loop or stop() has since replaced is closed already, and its
+                // handle may belong to another socket by now
                 if (_clientFd == clientFd) {
-                    closeSocket(_clientFd);
-                } else {
-                    closeSocket(clientFd);
+                    socket_api::close(_clientFd);
                 }
             }
         }
@@ -545,19 +597,13 @@ private:
     std::deque<PendingFrame> _pendingFrames;
     std::size_t _maxPendingFrames{1UZ};
     std::uint64_t _droppedFrames{0UZ};
-    int _listenFd{-1};
-    int _handshakeFd{-1};
-    int _clientFd{-1};
+    socket_api::Session _socketSession;
+    socket_api::Handle _listenFd{socket_api::kInvalid};
+    socket_api::Handle _handshakeFd{socket_api::kInvalid};
+    socket_api::Handle _clientFd{socket_api::kInvalid};
     mutable std::string _lastError;
     std::thread _acceptThread;
     std::thread _senderThread;
-#else
-    std::string _host{"127.0.0.1"};
-    std::uint16_t _port{8080U};
-    std::uint16_t _boundPort{0U};
-    std::string _path{"/snapshot"};
-    mutable std::string _lastError;
-#endif
 };
 
 } // namespace gr::studio::websocket_transport

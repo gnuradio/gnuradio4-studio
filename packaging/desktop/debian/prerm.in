@@ -1,0 +1,16 @@
+#!/bin/sh
+# Unloads and removes the AppArmor profile postinst loaded, if it did. An upgrade's postinst loads
+# the new package's profile again.
+set -e
+
+SETUP="@GR4_STUDIO_PACKAGE_PREFIX@/bin/gr4-studio-sandbox-setup"
+
+case "$1" in
+  remove | upgrade | deconfigure)
+    if [ -x "$SETUP" ] && command -v apparmor_parser >/dev/null 2>&1; then
+      "$SETUP" --remove >/dev/null 2>&1 || true
+    fi
+    ;;
+esac
+
+exit 0
