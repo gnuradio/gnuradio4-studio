@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, existsSync, readdirSync, readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { finished } from 'node:stream/promises';
@@ -46,40 +46,117 @@ async function appendLifecycleLog(logPath, message, onOutput) {
   emitOutput(onOutput, 'lifecycle', text);
 }
 
-function prependEnvironmentPath(environment, name, entries) {
-  const existing = environment[name];
-  const values = [...entries, ...(existing ? existing.split(path.delimiter) : [])].filter(Boolean);
-  return [...new Set(values)].join(path.delimiter);
+// Windows environment names are case-insensitive and PATH usually arrives as "Path". Extending that key,
+// rather than adding a "PATH" beside it, keeps the child from seeing two variables of which Node passes
+// only one: the first in sort order, so that is the key to extend when several spellings are present.
+function environmentKey(environment, name, platform) {
+  if (platform !== 'win32') {
+    return name;
+  }
+  return Object.keys(environment).filter((key) => key.toUpperCase() === name).sort()[0] ?? name;
 }
 
-export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.env) {
+function prependEnvironmentPath(environment, name, entries, platform) {
+  const key = environmentKey(environment, name, platform);
+  const existing = environment[key];
+  const values = [...entries, ...(existing ? existing.split(path.delimiter) : [])].filter(Boolean);
+  environment[key] = [...new Set(values)].join(path.delimiter);
+}
+
+// The first of the candidate log files whose directory can be created and written to. A system-wide
+// install (/usr from a .deb, /usr/local/gnuradio4 on macOS, an all-users Windows install) has a
+// prefix the user cannot write, so its var/logs is followed by a per-user fallback.
+export async function chooseWritableLogPath(candidates) {
+  for (const candidate of candidates.filter(Boolean)) {
+    const directory = path.dirname(candidate);
+    try {
+      await fs.mkdir(directory, { recursive: true });
+      await fs.access(directory, fs.constants.W_OK);
+      return candidate;
+    } catch {
+      // try the next one
+    }
+  }
+  throw new Error(`None of these log directories is writable: ${candidates.map((c) => path.dirname(c)).join(', ')}`);
+}
+
+function samePath(a, b, platform) {
+  const [left, right] = [path.resolve(a), path.resolve(b)];
+  return platform === 'win32' ? left.toLowerCase() === right.toLowerCase() : left === right;
+}
+
+// The shared plugin trees gr-core's Windows and macOS installers put plugins in, outside the install
+// root. Each installation records its root and its plugin tree in a manifest per plugin ABI,
+// <base>/.gnuradio-4/manifest/v<api>/manifest.json; the trees of the manifests naming this prefix hold
+// its plugins. They have to be listed alongside the prefix's own directories because setting
+// GNURADIO4_PLUGIN_DIRECTORIES replaces the loader's own search, which would otherwise include them.
+export function sharedPluginDirectories(prefix, environment = process.env, platform = process.platform) {
+  let bases = [];
+  if (platform === 'win32') {
+    bases = ['LOCALAPPDATA', 'PROGRAMDATA'].map((name) => environment[environmentKey(environment, name, platform)]);
+  } else if (platform === 'darwin') {
+    bases = ['/Library/Application Support'];
+  }
+
+  const directories = [];
+  for (const base of bases.filter(Boolean)) {
+    const manifestRoot = path.join(base, '.gnuradio-4', 'manifest');
+    let versions;
+    try {
+      versions = readdirSync(manifestRoot).filter((name) => /^v\d+$/.test(name));
+    } catch {
+      continue;
+    }
+    for (const version of versions) {
+      try {
+        // the Windows installers write the manifest with PowerShell, which adds a byte order mark
+        const text = readFileSync(path.join(manifestRoot, version, 'manifest.json'), 'utf8').replace(/^\uFEFF/, '');
+        const manifest = JSON.parse(text);
+        const installRoot = manifest['install-root'];
+        const pluginRoot = manifest['plugin-root'];
+        if (installRoot && pluginRoot && samePath(installRoot, prefix, platform) && existsSync(pluginRoot)) {
+          directories.push(pluginRoot);
+        }
+      } catch {
+        // not a manifest this version of Studio can read
+      }
+    }
+  }
+  return directories;
+}
+
+export function buildLocalBackendEnvironment(prefix, baseEnvironment = process.env, platform = process.platform) {
   const environment = { ...baseEnvironment };
   if (!prefix) {
     return environment;
   }
 
-  environment.PATH = prependEnvironmentPath(environment, 'PATH', [path.join(prefix, 'bin')]);
-  environment.CMAKE_PREFIX_PATH = prependEnvironmentPath(environment, 'CMAKE_PREFIX_PATH', [prefix]);
-  environment.PKG_CONFIG_PATH = prependEnvironmentPath(environment, 'PKG_CONFIG_PATH', [
-    path.join(prefix, 'lib', 'pkgconfig'),
-    path.join(prefix, 'lib64', 'pkgconfig'),
-    path.join(prefix, 'share', 'pkgconfig'),
-  ]);
-  environment.LD_LIBRARY_PATH = prependEnvironmentPath(environment, 'LD_LIBRARY_PATH', [
-    path.join(prefix, 'lib'),
-    path.join(prefix, 'lib64'),
-  ]);
-  environment.DYLD_LIBRARY_PATH = prependEnvironmentPath(environment, 'DYLD_LIBRARY_PATH', [
-    path.join(prefix, 'lib'),
-    path.join(prefix, 'lib64'),
-  ]);
-  environment.PYTHONPATH = prependEnvironmentPath(environment, 'PYTHONPATH', [
-    path.join(prefix, 'lib', 'python3', 'site-packages'),
-  ]);
-  environment.GNURADIO4_PLUGIN_DIRECTORIES = prependEnvironmentPath(
+  // Windows has no RPATH: the backend and the plugins find the prefix's DLLs through PATH. The block
+  // libraries beside the plugins are on it too, as gr-core's gr4-env scripts put them.
+  const pathEntries = [path.join(prefix, 'bin')];
+  if (platform === 'win32') {
+    pathEntries.push(path.join(prefix, 'lib', 'gnuradio-4', 'plugins'));
+  }
+  prependEnvironmentPath(environment, 'PATH', pathEntries, platform);
+  prependEnvironmentPath(environment, 'CMAKE_PREFIX_PATH', [prefix], platform);
+  prependEnvironmentPath(
+    environment,
+    'PKG_CONFIG_PATH',
+    [path.join(prefix, 'lib', 'pkgconfig'), path.join(prefix, 'lib64', 'pkgconfig'), path.join(prefix, 'share', 'pkgconfig')],
+    platform,
+  );
+  prependEnvironmentPath(environment, 'LD_LIBRARY_PATH', [path.join(prefix, 'lib'), path.join(prefix, 'lib64')], platform);
+  prependEnvironmentPath(environment, 'DYLD_LIBRARY_PATH', [path.join(prefix, 'lib'), path.join(prefix, 'lib64')], platform);
+  prependEnvironmentPath(environment, 'PYTHONPATH', [path.join(prefix, 'lib', 'python3', 'site-packages')], platform);
+  prependEnvironmentPath(
     environment,
     'GNURADIO4_PLUGIN_DIRECTORIES',
-    [path.join(prefix, 'lib', 'gnuradio-4', 'plugins'), path.join(prefix, 'lib')],
+    [
+      ...sharedPluginDirectories(prefix, baseEnvironment, platform),
+      path.join(prefix, 'lib', 'gnuradio-4', 'plugins'),
+      path.join(prefix, 'lib'),
+    ],
+    platform,
   );
   environment.GR4_STUDIO_PREFIX = prefix;
   return environment;
